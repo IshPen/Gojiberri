@@ -50,11 +50,18 @@ async function waitForStatus(planId: Id, statuses: string[], timeoutMs = 120_000
   }
 }
 
+const ptHour = (ms: number) =>
+  Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hour: "numeric", hourCycle: "h23" }).format(ms));
+
+// A crew's demo-fill plans are told apart by their Pacific start hour, so a rerun on a later day finds them.
 async function fillPlan(crewName: string, window: { start: number; end: number }, seedExperienceId?: Id) {
   const existing = (await plansOf(crewName)).find(
-    (p: any) => isFill(p) && p.window.start === window.start && p.status !== "cancelled",
+    (p: any) => isFill(p) && ptHour(p.window.start) === ptHour(window.start) && p.status !== "cancelled",
   );
-  if (existing) return existing._id as Id;
+  if (existing) {
+    await waitForStatus(existing._id, ["voting", "locked", "done"]);
+    return existing._id as Id;
+  }
   const planId = await c.mutation(api.plans.createPlan, {
     userId: crew(crewName).members[0]._id,
     groupId: crew(crewName)._id,
