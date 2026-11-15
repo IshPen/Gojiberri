@@ -71,6 +71,7 @@ export const getMyRewards = query({
     return await Promise.all(
       rewards
         .filter((r) => r.redeemedAt !== undefined)
+        .sort((a, b) => (b.redeemedAt ?? 0) - (a.redeemedAt ?? 0))
         .map(async (r) => {
           const sponsor = await ctx.db.get("sponsors", r.sponsorId);
           return { ...r, business: sponsor?.business ?? "", offer: sponsor?.offer ?? "" };
