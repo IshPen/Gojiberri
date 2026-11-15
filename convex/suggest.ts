@@ -10,15 +10,15 @@ import { priceRange } from "./pricing";
 import { travelEstimate } from "./places";
 
 const SYSTEM_PROMPT = `You plan outings for a friend group that shares a fun fund (POT).
-Pick exactly 3 picks from CANDIDATES that this group will love and that suit the time WINDOW.
+Pick exactly 1 pick from CANDIDATES: the single outing this group will love most that suits the time WINDOW.
 Experiences are paid from the POT and already fit it; prefer them. Places are free or cheap backups.
-If SEED is set, the group already chose that candidate: it must be one of the 3 picks.
-Use MEMORIES to personalize. Each "why" is one sentence (max 18 words) that cites a
+If SEED is set, the group already chose that candidate: it must be your pick.
+Use MEMORIES to personalize. The "why" is one sentence (max 18 words) that cites a
 specific memory or the pot, e.g. "You rated the escape room 5 stars, and it fits your $60 pot with $12 to spare."
 Return ONLY JSON: {"options":[{"id":"...","title":"...","why":"..."}]}`;
 
 const FALLBACK_WHY = "Matches your crew's vibe.";
-const MAX_PLACES = 1;
+const PLACE_CANDIDATES = 3;
 
 type Candidate =
   | { kind: "experience"; id: string; experience: Doc<"experiences">; place: Doc<"places"> }
@@ -52,7 +52,7 @@ function validPicks(raw: unknown, allowed: Map<string, Candidate>): Pick[] | nul
       why: typeof why === "string" && why.trim() ? why.trim() : FALLBACK_WHY,
     });
   }
-  return picks.length === Math.min(3, allowed.size) ? picks : null;
+  return picks.length > 0 ? picks.slice(0, 1) : null;
 }
 
 export const generateSuggestions = internalAction({
@@ -99,7 +99,6 @@ export const generateSuggestions = internalAction({
       seedExperience && seedPlace
         ? { kind: "experience", id: seedExperience._id, experience: seedExperience, place: seedPlace }
         : null;
-    const otherSlots = seed ? 2 : 3;
     const experienceWhy = (e: Doc<"experiences">) => {
       const total = e.pricePerPerson * people;
       return total <= balance
@@ -132,13 +131,12 @@ export const generateSuggestions = internalAction({
       )
       .sort((a, b) => overlap(b.tags, vibes) - overlap(a.tags, vibes) || a.pricePerPerson - b.pricePerPerson)
       .map((e) => ({ kind: "experience", id: e._id, experience: e, place: placeById.get(e.placeId!)! }));
-    const placeSlots = Math.max(MAX_PLACES, otherSlots - experienceCandidates.length);
     const placeCandidates: Candidate[] = places
       .filter((p) => p.priceLevel === 1 && !excluded.has(p._id) && !rejectedPlaces.has(p._id))
       .sort((a, b) => overlap(b.tags, vibes) - overlap(a.tags, vibes))
-      .slice(0, placeSlots + 2)
+      .slice(0, PLACE_CANDIDATES)
       .map((p) => ({ kind: "place", id: p._id, place: p }));
-    const candidates = [...(seed ? [seed] : []), ...experienceCandidates.slice(0, 12), ...placeCandidates];
+    const candidates = seed ? [seed] : [...experienceCandidates.slice(0, 12), ...placeCandidates];
     const allowed = new Map(candidates.map((c) => [c.id, c]));
 
     const memories = await ctx.runAction(internal.memory.getGroupContext, { groupId: group._id });
@@ -154,7 +152,6 @@ export const generateSuggestions = internalAction({
         POT: { balance, members: people },
         SEED: seed?.id ?? null,
         DIETS: diets,
-        MAX_PLACES: placeSlots,
         CANDIDATES: candidates.map((c) =>
           c.kind === "experience"
             ? {
@@ -173,29 +170,19 @@ export const generateSuggestions = internalAction({
         MEMORIES: memories,
       });
       picks = validPicks(raw, allowed);
-      if (picks && picks.filter((p) => p.candidate.kind === "place").length > placeSlots) picks = null;
-      if (picks && seed) {
-        const others = picks.filter((p) => p.candidate.id !== seed.id);
-        picks = [...seedPick(picks.find((p) => p.candidate.id === seed.id)?.why), ...others.slice(0, otherSlots)];
-      }
+      if (picks && seed) picks = seedPick(picks[0].why);
       if (!picks) console.warn("LLM returned unusable options, using fallback", raw);
     } catch (err) {
       console.warn("LLM call failed, using fallback", err);
     }
 
-    picks ??= [
-      ...seedPick(),
-      ...[
-        ...experienceCandidates.slice(0, otherSlots - Math.min(placeSlots, placeCandidates.length, 1)),
-        ...placeCandidates,
-      ]
-        .slice(0, otherSlots)
-        .map((candidate) => ({
+    picks ??= seed
+      ? seedPick()
+      : [...experienceCandidates, ...placeCandidates].slice(0, 1).map((candidate) => ({
           candidate,
           title: candidate.kind === "experience" ? candidate.experience.title : candidate.place.name,
           why: candidate.kind === "experience" ? experienceWhy(candidate.experience) : FALLBACK_WHY,
-        })),
-    ];
+        }));
 
     const options = picks.map(({ candidate, title, why }) => {
       const place = candidate.place;

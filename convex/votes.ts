@@ -111,7 +111,9 @@ export const rejectOptions = mutation({
     const members = group.memberIds.length;
     const result = { ok: true as const, rejects: rejectedBy.length, members, gojisSpent, balance };
     await ctx.scheduler.runAfter(0, internal.taste.rebuild, { userId });
-    if (rejectedBy.length * 2 <= members) {
+    // Regenerate once at least half the group opts out. Locking needs a strict majority going (castVote), and a
+    // member is either going or out, so both can't hold at once: with 4 members, 2 going and 2 out regenerates.
+    if (rejectedBy.length * 2 < members) {
       await ctx.db.patch("plans", planId, {
         rejectedBy,
         rejectChargedBy: charged ? plan.rejectChargedBy : [...(plan.rejectChargedBy ?? []), userId],
