@@ -12,6 +12,7 @@ import { formatWindow } from "../../lib/format";
 import { useUserId } from "../../lib/session";
 
 const MAX_PICKS = 4;
+const NOVEL_BONUS = 25;
 
 export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
   return (
@@ -72,7 +73,7 @@ export default function RecommendedScreen() {
     .slice(0, MAX_PICKS);
 
   const why = (matched: string[], fits: boolean) => {
-    const vibe = matched.length > 0 ? `You swiped for ${matched.slice(0, 2).join(" + ")}` : "Popular with crews near you";
+    const vibe = matched.length > 0 ? `You swiped for ${matched.slice(0, 2).join(" + ")}` : "Something outside your usual vibes";
     return fits ? `${vibe}, and it fits your $${budget} budget.` : `${vibe}.`;
   };
 
@@ -166,6 +167,11 @@ export default function RecommendedScreen() {
                 <Text style={styles.priceText}>${e.pricePerPerson}/person</Text>
               </View>
             </View>
+            {matched.length === 0 && vibes.size > 0 ? (
+              <View testID={`pick-novel-${i}`} style={styles.novel}>
+                <Text style={styles.novelText}>🧭 New for you · +{NOVEL_BONUS} {brand.points} if you try it</Text>
+              </View>
+            ) : null}
             <Text testID={`pick-title-${i}`} style={styles.title}>
               {e.title}
             </Text>
@@ -214,5 +220,7 @@ const styles = StyleSheet.create({
   rankText: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text },
   rankSub: { fontSize: font.size.sm, color: colors.textMuted },
   price: { backgroundColor: colors.successSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  novel: { alignSelf: "flex-start", backgroundColor: colors.warningSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  novelText: { fontSize: font.size.xs, fontWeight: font.weight.heavy, color: colors.text },
   priceText: { fontSize: font.size.xs, fontWeight: font.weight.heavy, color: colors.success },
 });
