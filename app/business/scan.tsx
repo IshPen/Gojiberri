@@ -14,7 +14,7 @@ type Result = { valid: boolean; reason: string | null; studentName: string | nul
 const KIND_LABELS = { offer: "Sponsor offer", reward: "Goji reward", experience: "Experience" } as const;
 
 export default function ScanScreen() {
-  const params = useLocalSearchParams<{ businessId?: string }>();
+  const params = useLocalSearchParams<{ businessId?: string; alsoId?: string }>();
   const redeemers = useQuery(api.redemptions.listRedeemers);
   const [selectedId, setSelectedId] = useState<string | null>(params.businessId ?? null);
   const activeId = (selectedId ?? redeemers?.[0]?.id ?? null) as RedeemerId | null;
@@ -38,7 +38,14 @@ export default function ScanScreen() {
     setError(null);
     setResult(null);
     try {
-      setResult(await redeem({ code, businessId: activeId }));
+      const siblingIds = new Set<string>((redeemers ?? []).filter((r) => r.id !== activeId && r.name.trim().toLowerCase() === activeName.trim().toLowerCase()).map((r) => r.id));
+      if (activeId === params.businessId && params.alsoId && params.alsoId !== activeId) siblingIds.add(params.alsoId);
+      let next = await redeem({ code, businessId: activeId });
+      for (const siblingId of siblingIds) {
+        if (next.valid || !next.reason?.startsWith("wrong business")) break;
+        next = await redeem({ code, businessId: siblingId as RedeemerId });
+      }
+      setResult(next);
       setScanning(false);
       setManualCode("");
     } catch (e) {
