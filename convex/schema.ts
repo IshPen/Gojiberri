@@ -94,6 +94,24 @@ export default defineSchema({
     vibe: v.string(),                    // one word
   }).index("by_plan", ["planId"]).index("by_user", ["userId"]),
 
+  noveltyScores: defineTable({           // cached AI novelty score per user and idea ("exp:<id>" | "place:<id>")
+    userId: v.id("users"),
+    ideaKey: v.string(),
+    score: v.number(),                   // 0-1
+    reason: v.string(),
+    computedAt: v.number(),
+  }).index("by_user_idea", ["userId", "ideaKey"]),
+
+  gojiQuotes: defineTable({              // novelty frozen per member and plan; savePhoto awards from it
+    userId: v.id("users"),
+    planId: v.id("plans"),
+    ideaKey: v.string(),
+    score: v.number(),
+    points: v.number(),
+    reason: v.union(v.string(), v.null()),
+    source: v.union(v.literal("ai"), v.literal("fallback")),
+  }).index("by_user_plan", ["userId", "planId"]),
+
   photos: defineTable({
     userId: v.id("users"),
     groupId: v.optional(v.id("groups")),

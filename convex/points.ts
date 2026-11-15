@@ -2,7 +2,8 @@ import { v } from "convex/values";
 import { internalMutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { addDays, localDate, localTime, weekday } from "./time";
+import { addDays, DAY, localDate, localTime, weekday } from "./time";
+import { checkedInPlanIds, openPlanFor, quotedOrLive, userGroups } from "./novelty";
 
 export const POINTS = {
   checkin: 50,
@@ -13,6 +14,62 @@ export const POINTS = {
   fullcrew_bonus: 20,
 } as const;
 export const STREAK_BONUS = 30;
+const REGULAR_GAP = 14 * DAY;
+const STREAK_LENGTH = 4;
+const MAX_PREVIEW_IDEAS = 20;
+
+export type AwardItem = { reason: keyof typeof POINTS; points: number; label: string };
+
+// Consecutive checked-in crew outings ending at `start`, each within 14 days of the next.
+// An earlier outing counts only if it was checked in before `planId`'s first check-in,
+// so every member of a plan gets the same answer whatever order they check in.
+export async function crewStreak(ctx: QueryCtx, group: Doc<"groups">, start: number, planId?: Id<"plans">) {
+  const firstCheckin = new Map<Id<"plans">, number>();
+  for (const memberId of group.memberIds) {
+    const events = await ctx.db
+      .query("pointEvents")
+      .withIndex("by_user", (q) => q.eq("userId", memberId))
+      .collect();
+    for (const e of events) {
+      if (e.reason !== "checkin" || !e.planId) continue;
+      firstCheckin.set(e.planId, Math.min(firstCheckin.get(e.planId) ?? Infinity, e._creationTime));
+    }
+  }
+  const cutoff = (planId && firstCheckin.get(planId)) || Infinity;
+  const earlier = (
+    await ctx.db
+      .query("plans")
+      .withIndex("by_group", (q) => q.eq("groupId", group._id))
+      .collect()
+  )
+    .filter((p) => p._id !== planId && (firstCheckin.get(p._id) ?? Infinity) < cutoff && p.window.start < start)
+    .sort((a, b) => b.window.start - a.window.start);
+  let streak = 1;
+  let previous = start;
+  for (const outing of earlier) {
+    if (previous - outing.window.start > REGULAR_GAP) break;
+    streak += 1;
+    previous = outing.window.start;
+  }
+  return streak;
+}
+
+export function checkinItems(novelPoints: number, streak: number): AwardItem[] {
+  const items: AwardItem[] = [{ reason: "checkin", points: POINTS.checkin, label: "Check-in" }];
+  if (novelPoints > 0) items.push({ reason: "novel_bonus", points: novelPoints, label: "Tried something new" });
+  if (streak >= STREAK_LENGTH) {
+    items.push({ reason: "regular_bonus", points: STREAK_BONUS, label: "4 outings in a row" });
+  } else if (streak >= 2) {
+    items.push({ reason: "regular_bonus", points: POINTS.regular_bonus, label: "Regular meetup" });
+  }
+  return items;
+}
+
+export const FULLCREW_ITEM: AwardItem = {
+  reason: "fullcrew_bonus",
+  points: POINTS.fullcrew_bonus,
+  label: "Whole crew showed up",
+};
 export const POINTS_PER_DIAMOND = 500;
 export const REJECT_COST = 10;
 
@@ -71,6 +128,37 @@ export const award = internalMutation({
   },
   handler: async (ctx, { userId, reason, planId, groupId }) => {
     return await awardPoints(ctx, userId, reason, { planId, groupId });
+  },
+});
+
+export const gojiPreview = query({
+  args: { userId: v.id("users"), ideaKeys: v.array(v.string()) },
+  handler: async (ctx, { userId, ideaKeys }) => {
+    const checkedIn = await checkedInPlanIds(ctx, userId);
+    const groups = await userGroups(ctx, userId);
+    const previews = [];
+    for (const ideaKey of ideaKeys.slice(0, MAX_PREVIEW_IDEAS)) {
+      const plan = await openPlanFor(ctx, userId, ideaKey, checkedIn);
+      const novelty = await quotedOrLive(ctx, userId, ideaKey, plan);
+      let streak = 1;
+      for (const group of groups) {
+        if (plan && group._id !== plan.groupId) continue;
+        const crew = plan
+          ? await crewStreak(ctx, group, plan.window.start, plan._id)
+          : await crewStreak(ctx, group, Date.now());
+        streak = Math.max(streak, crew);
+      }
+      const items = checkinItems(novelty.points, streak);
+      previews.push({
+        ideaKey,
+        total: items.reduce((sum, item) => sum + item.points, 0),
+        items: [...items, { ...FULLCREW_ITEM, conditional: true }],
+        noveltyReason: novelty.reason,
+        noveltySource: novelty.source,
+        scored: novelty.source === "ai",
+      });
+    }
+    return previews;
   },
 });
 
