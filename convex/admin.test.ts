@@ -143,3 +143,39 @@ it("rewriteDemoCopy swaps exact old copy, is idempotent, and leaves other rows a
     expect(plan.options[0].experienceId).toBe(ids.music);
   });
 });
+
+it("rewriteDemoCopy fixes stale experience titles snapshotted into plan options", async () => {
+  const t = convexTest(schema, modules);
+  const ids = await t.run(async (ctx) => {
+    const placeId = await ctx.db.insert("places", {
+      name: "Pizza My Heart - Palo Alto", area: "Stanford", category: "food", priceLevel: 1, tags: [], lat: 0, lng: 0, durationMins: 45,
+    });
+    const ana = await ctx.db.insert("users", {
+      name: "Ana", budgetMax: 30, homeArea: "Stanford", diet: [], vibes: [], onboarded: true, points: 0, diamonds: 0, streak: 0, busyBlocks: [],
+    });
+    const groupId = await ctx.db.insert("groups", { name: "Crew", inviteCode: "CREW00", ownerId: ana, memberIds: [ana] });
+    const plan = (options: { title: string; why: string }[]) =>
+      ctx.db.insert("plans", {
+        groupId, window: { start: 0, end: 1 }, status: "voting", confirmBy: 0,
+        options: options.map((o) => ({ placeId, costMin: 9, costMax: 9, ...o })),
+      });
+    const stale = await plan([
+      { title: "Demo: Pizza study break", why: "Cheap slices." },
+      { title: "Pizza My Heart - Palo Alto", why: "A crew favorite." },
+    ]);
+    const clean = await plan([{ title: "Demo: Pizza study break (late)", why: "Cheap slices." }]);
+    return { stale, clean };
+  });
+
+  expect(await t.mutation(internal.admin.rewriteDemoCopy, {})).toMatchObject({ plans: 1 });
+  expect(await t.mutation(internal.admin.rewriteDemoCopy, {})).toMatchObject({ plans: 0 });
+
+  await t.run(async (ctx) => {
+    const stale = (await ctx.db.get("plans", ids.stale))!;
+    expect(stale.options.map((o) => [o.title, o.why])).toEqual([
+      ["Pizza study break", "Cheap slices."],
+      ["Pizza My Heart - Palo Alto", "A crew favorite."],
+    ]);
+    expect((await ctx.db.get("plans", ids.clean))!.options[0].title).toBe("Demo: Pizza study break (late)");
+  });
+});

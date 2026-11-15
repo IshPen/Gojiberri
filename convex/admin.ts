@@ -162,8 +162,8 @@ export const rewriteDemoCopy = internalMutation({
       }
     }
     for (const plan of await ctx.db.query("plans").collect()) {
-      if (!plan.options.some((o) => DEMO_COPY.has(o.why))) continue;
-      const options = plan.options.map((o) => ({ ...o, why: DEMO_COPY.get(o.why) ?? o.why }));
+      if (!plan.options.some((o) => DEMO_COPY.has(o.why) || DEMO_COPY.has(o.title))) continue;
+      const options = plan.options.map((o) => ({ ...o, title: DEMO_COPY.get(o.title) ?? o.title, why: DEMO_COPY.get(o.why) ?? o.why }));
       await ctx.db.patch("plans", plan._id, { options });
       counts.plans++;
     }
