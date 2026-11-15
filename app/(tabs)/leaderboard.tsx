@@ -21,7 +21,7 @@ const LIMIT = 20;
 type Segment = "crews" | "schools" | "me";
 const SEGMENTS: { key: Segment; label: string }[] = [
   { key: "crews", label: "My school" },
-  { key: "me", label: "Me" },
+  { key: "me", label: "My crew" },
   { key: "schools", label: "All schools" },
 ];
 

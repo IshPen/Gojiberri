@@ -31,7 +31,7 @@ const STATUS_LABEL: Record<PlanStatus, string> = {
 export default function GroupScreen() {
   const router = useRouter();
   const { userId } = useUserId();
-  const { groupId } = useLocalSearchParams<{ groupId: string }>();
+  const { groupId, pick } = useLocalSearchParams<{ groupId: string; pick?: string }>();
   const gid = groupId as Id<"groups">;
   const [selected, setSelected] = useState<number | null>(null);
   const [planning, setPlanning] = useState(false);
@@ -88,6 +88,7 @@ export default function GroupScreen() {
 
   const upcoming = (plans ?? []).filter((p) => p.status !== "done" && p.status !== "cancelled");
   const past = (plans ?? []).filter((p) => p.status === "done" || p.status === "cancelled");
+  const potPlan = upcoming.find((p) => p.status === "locked") ?? upcoming[0] ?? past[0];
   const planTitle = (p: Plan) => (p.winningIndex !== undefined ? p.options[p.winningIndex]?.title : undefined) ?? "Outing ideas";
   const accent = schoolFor(school).color;
   const crewRank = allCrews ? crewStanding(allCrews, (id) => id === group._id) : undefined;
@@ -153,7 +154,17 @@ export default function GroupScreen() {
         </Text>
       </View>
 
-      <SectionHeader title="Free windows" testID="free-windows-header" />
+      {pick ? (
+        <Card testID="group-pick-banner" tone="accent" style={styles.pickBanner}>
+          <Text style={styles.pickLabel}>YOU PICKED</Text>
+          <Text testID="group-pick-title" style={styles.planTitle}>
+            {pick}
+          </Text>
+          <Text style={styles.planWindow}>Pick a time below. We'll line up 3 ideas your crew will like, and everyone votes.</Text>
+        </Card>
+      ) : null}
+
+      <SectionHeader title="1. Pick a time you're all free" testID="free-windows-header" />
       {windows === undefined ? (
         <LoadingState label="Finding times that work…" testID="windows-loading" />
       ) : windows.length === 0 ? (
@@ -175,18 +186,18 @@ export default function GroupScreen() {
       {planError ? <ErrorState testID="plan-error" message={planError} onRetry={planOuting} /> : null}
       <Button
         testID="plan-outing-button"
-        label="Get 3 outing ideas"
+        label={selected === null ? "Pick a time first" : "2. Get 3 ideas to vote on"}
         icon="🍓"
         loading={planning}
         disabled={selected === null}
         onPress={planOuting}
       />
 
-      <SectionHeader title="Upcoming plans" testID="upcoming-header" />
+      <SectionHeader title="Your crew's plans" testID="upcoming-header" />
       {plans === undefined ? (
         <LoadingState label="Loading plans…" testID="plans-loading" />
       ) : upcoming.length === 0 ? (
-        <EmptyState testID="plans-empty" emoji="🗓️" title="No plans yet" body={`Pick a free window and we'll suggest 3 outings your crew will like. Check in together to earn ${brand.points}.`} />
+        <EmptyState testID="plans-empty" emoji="🗓️" title="No plans yet" body={`Pick a time above and we'll suggest 3 outings your crew will like. Check in together to earn ${brand.points}.`} />
       ) : (
         upcoming.map(renderPlan)
       )}
@@ -196,6 +207,16 @@ export default function GroupScreen() {
           <SectionHeader title="Past plans" testID="past-header" />
           {past.map((p, i) => renderPlan(p, upcoming.length + i))}
         </>
+      ) : null}
+
+      {potPlan ? (
+        <Card testID="pot-link" tone="muted" onPress={() => router.push(`/pot/${potPlan._id}`)} style={styles.planCard}>
+          <View style={styles.planInfo}>
+            <Text style={styles.planTitle}>💳 Crew pot</Text>
+            <Text style={styles.planWindow}>Chip in together and pay with your crew card</Text>
+          </View>
+          <Text style={styles.windowCheck}>›</Text>
+        </Card>
       ) : null}
 
       <Card testID="story-link" tone="muted" onPress={() => router.push(`/story/${groupId}`)} style={styles.planCard}>
@@ -234,6 +255,8 @@ const styles = StyleSheet.create({
   },
   inviteLabel: { fontSize: font.size.sm, color: colors.textMuted },
   inviteCode: { fontSize: font.size.md, fontWeight: font.weight.heavy, letterSpacing: 2, color: colors.accentDark },
+  pickBanner: { gap: spacing.xs },
+  pickLabel: { fontSize: font.size.xs, fontWeight: font.weight.heavy, color: colors.accent, letterSpacing: 0.5 },
   windowCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 64, borderWidth: 2 },
   windowText: { fontSize: font.size.lg, fontWeight: font.weight.semibold, color: colors.text, flex: 1 },
   windowCheck: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.accent },

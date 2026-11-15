@@ -40,5 +40,5 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={userId && check?.valid ? "/(tabs)/home" : "/onboarding/school"} />;
+  return <Redirect href={userId && check?.valid ? "/(tabs)/recommended" : "/onboarding/school"} />;
 }

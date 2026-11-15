@@ -18,6 +18,16 @@ type PlaceSeed = {
 
 // area is the nearby school, matching users.homeArea, so listCandidates' by_area lookup finds campus spots.
 const PLACES: PlaceSeed[] = [
+  { name: "Coupa Cafe - Ramona", area: "Stanford", category: "food", priceLevel: 1, tags: ["coffee", "cozy", "study-spot"], lat: 37.4447235, lng: -122.1614973, durationMins: 45, bookingUrl: "https://www.coupacafe.com/Locations/palo-alto-ramona" },
+  { name: "Pizza My Heart - Palo Alto", area: "Stanford", category: "food", priceLevel: 1, tags: ["pizza", "cheap-eats", "vegetarian-friendly", "group-friendly"], lat: 37.444896, lng: -122.162402, durationMins: 45, bookingUrl: "https://www.pizzamyheart.com/location/-pizza-my-heart-palo-alto/" },
+  { name: "Teaspoon - Palo Alto", area: "Stanford", category: "food", priceLevel: 1, tags: ["boba", "dessert", "study-break"], lat: 37.4340878, lng: -122.1294905, durationMins: 30, bookingUrl: "https://www.teaspoonlife.com/" },
+  { name: "Kepler's Books", area: "Stanford", category: "arts", priceLevel: 1, tags: ["books", "browsing", "nerdy", "cozy"], lat: 37.4536482, lng: -122.181922, durationMins: 60, bookingUrl: "https://keplers.com/contact" },
+  { name: "The Guild Theatre", area: "Stanford", category: "arts", priceLevel: 2, tags: ["live-music", "concerts", "lively"], lat: 37.452528, lng: -122.1812233, durationMins: 150, bookingUrl: "https://www.guildtheatre.com/calendar" },
+  { name: "Cantor Arts Center", area: "Stanford", category: "arts", priceLevel: 1, tags: ["museum", "art", "free", "rainy-day"], lat: 37.4329821, lng: -122.170844, durationMins: 90, bookingUrl: "https://museum.stanford.edu/visit" },
+  { name: "Anderson Collection", area: "Stanford", category: "arts", priceLevel: 1, tags: ["museum", "art", "free", "rainy-day"], lat: 37.433649, lng: -122.170603, durationMins: 60, bookingUrl: "https://anderson.stanford.edu/visit/" },
+  { name: "Rodin Sculpture Garden", area: "Stanford", category: "outdoors", priceLevel: 1, tags: ["sculpture", "art", "chill", "free"], lat: 37.4323, lng: -122.1705, durationMins: 45, bookingUrl: "https://museum.stanford.edu/exhibitions/b-gerald-cantor-rodin-sculpture-garden" },
+  { name: "Arizona Garden", area: "Stanford", category: "outdoors", priceLevel: 1, tags: ["garden", "walking", "chill", "free"], lat: 37.4359194, lng: -122.1711194, durationMins: 45, bookingUrl: "https://facops.stanford.edu/arizona-garden" },
+  { name: "Stanford Dish - Stanford Avenue Trailhead", area: "Stanford", category: "outdoors", priceLevel: 1, tags: ["hiking", "views", "active", "free"], lat: 37.410221, lng: -122.161038, durationMins: 90, bookingUrl: "https://dish.stanford.edu/" },
   { name: "Asha Tea House", area: "Berkeley", category: "food", priceLevel: 1, tags: ["boba", "cozy", "study-spot", "cheap-eats"], lat: 37.872, lng: -122.2683, durationMins: 30 },
   { name: "Sharetea Berkeley", area: "Berkeley", category: "food", priceLevel: 1, tags: ["boba", "quick", "late-night"], lat: 37.8686, lng: -122.259, durationMins: 30 },
   { name: "Top Dog", area: "Berkeley", category: "food", priceLevel: 1, tags: ["cheap-eats", "late-night", "classic", "quick"], lat: 37.8679, lng: -122.2577, durationMins: 20 },
@@ -51,13 +61,13 @@ const PLACES: PlaceSeed[] = [
 ];
 
 const USERS = [
-  { name: "Uma", avatarUrl: "🦊", budgetMax: 20, homeArea: "Berkeley", diet: ["vegetarian"], vibes: ["cozy", "outdoors", "arts"], diamonds: 1, streak: 2 },
-  { name: "Ishan", avatarUrl: "🐙", budgetMax: 20, homeArea: "Berkeley", diet: [], vibes: ["active", "games", "nerdy"], diamonds: 1, streak: 1 },
-  { name: "Gauri", avatarUrl: "🦄", budgetMax: 25, homeArea: "Berkeley", diet: [], vibes: ["lively", "boba", "music"], diamonds: 1, streak: 3 },
-  { name: "Maya", avatarUrl: "🐼", budgetMax: 20, homeArea: "Berkeley", diet: [], vibes: ["lively", "music", "late-night"], diamonds: 1, streak: 4 },
-  { name: "Leo", avatarUrl: "🦁", budgetMax: 15, homeArea: "Berkeley", diet: [], vibes: ["nerdy", "cheap-eats", "games"], diamonds: 0, streak: 2 },
-  { name: "Priya", avatarUrl: "🦋", budgetMax: 20, homeArea: "Berkeley", diet: ["vegetarian"], vibes: ["boba", "cozy", "arts"], diamonds: 0, streak: 2 },
-  { name: "Sam", avatarUrl: "🐢", budgetMax: 15, homeArea: "Berkeley", diet: [], vibes: ["chill", "outdoors"], diamonds: 0, streak: 1 },
+  { name: "Uma", avatarUrl: "🦊", budgetMax: 20, homeArea: "Stanford", diet: ["vegetarian"], vibes: ["cozy", "outdoors", "arts"], diamonds: 1, streak: 2 },
+  { name: "Ishan", avatarUrl: "🐙", budgetMax: 20, homeArea: "Stanford", diet: [], vibes: ["active", "games", "nerdy"], diamonds: 1, streak: 1 },
+  { name: "Gauri", avatarUrl: "🦄", budgetMax: 25, homeArea: "Stanford", diet: [], vibes: ["lively", "boba", "music"], diamonds: 1, streak: 3 },
+  { name: "Maya", avatarUrl: "🐼", budgetMax: 20, homeArea: "Stanford", diet: [], vibes: ["lively", "music", "late-night"], diamonds: 1, streak: 4 },
+  { name: "Leo", avatarUrl: "🦁", budgetMax: 15, homeArea: "Stanford", diet: [], vibes: ["nerdy", "cheap-eats", "games"], diamonds: 0, streak: 2 },
+  { name: "Priya", avatarUrl: "🦋", budgetMax: 20, homeArea: "Stanford", diet: ["vegetarian"], vibes: ["boba", "cozy", "arts"], diamonds: 0, streak: 2 },
+  { name: "Sam", avatarUrl: "🐢", budgetMax: 15, homeArea: "Stanford", diet: [], vibes: ["chill", "outdoors"], diamonds: 0, streak: 1 },
   { name: "Ava", avatarUrl: "🐨", budgetMax: 20, homeArea: "USF", diet: [], vibes: ["active", "climbing", "outdoors"], diamonds: 0, streak: 2 },
   { name: "Diego", avatarUrl: "🐯", budgetMax: 20, homeArea: "USF", diet: [], vibes: ["active", "thrift", "music"], diamonds: 0, streak: 1 },
   { name: "Kai", avatarUrl: "🐬", budgetMax: 15, homeArea: "USF", diet: ["vegan"], vibes: ["climbing", "chill", "beach"], diamonds: 0, streak: 1 },
@@ -78,53 +88,53 @@ const CREWS: { name: string; inviteCode: string; members: string[] }[] = [
 
 const BUSINESSES: { name: string; experiences: { title: string; description: string; place: string; pricePerPerson: number; minGroup: number; maxGroup: number; tags: string[] }[] }[] = [
   {
-    name: "Berkeley Bouldering Project",
+    name: "The Guild Theatre",
     experiences: [
-      { title: "Crew climb night", description: "Day passes and shoe rental for your whole crew, plus a quick intro from the floor staff.", place: "Berkeley Bouldering Project", pricePerPerson: 26, minGroup: 2, maxGroup: 8, tags: ["climbing", "active", "social", "group-friendly"] },
-      { title: "First-timer bouldering clinic", description: "A one-hour coached session for crews who have never climbed.", place: "Berkeley Bouldering Project", pricePerPerson: 20, minGroup: 2, maxGroup: 6, tags: ["climbing", "active", "beginner-friendly"] },
+      { title: "Demo: Crew music night", description: "Fictional demo package based on the real Guild Theatre in Menlo Park. The $26 price and group booking are not venue offers; check the venue calendar for actual tickets and age restrictions.", place: "The Guild Theatre", pricePerPerson: 26, minGroup: 2, maxGroup: 8, tags: ["live-music", "lively", "social", "group-friendly"] },
+      { title: "Demo: Friends concert outing", description: "Fictional $20 demo package at the real Guild Theatre, not a student discount or a confirmed performance. Actual tickets, availability and age restrictions vary by show.", place: "The Guild Theatre", pricePerPerson: 20, minGroup: 2, maxGroup: 6, tags: ["live-music", "lively", "group-friendly"] },
     ],
   },
   {
-    name: "Cheese Board Collective",
+    name: "Pizza My Heart - Palo Alto",
     experiences: [
-      { title: "Whole-pie pizza night", description: "A whole veggie pie for every two people and a spot on the median strip to eat it.", place: "Cheese Board Pizza", pricePerPerson: 9, minGroup: 2, maxGroup: 10, tags: ["pizza", "cheap-eats", "vegetarian-friendly", "group-friendly"] },
+      { title: "Demo: Pizza study break", description: "Fictional $9-per-person demo package based on the real Pizza My Heart at 220 University Avenue. Not a restaurant offer, reservation or guaranteed meal price.", place: "Pizza My Heart - Palo Alto", pricePerPerson: 9, minGroup: 2, maxGroup: 10, tags: ["pizza", "cheap-eats", "vegetarian-friendly", "group-friendly"] },
     ],
   },
   {
-    name: "Pandora Karaoke",
+    name: "Teaspoon - Palo Alto",
     experiences: [
-      { title: "Finals-week scream session", description: "Two hours in a private room. Belt it out, then back to the library.", place: "Pandora Karaoke", pricePerPerson: 12, minGroup: 3, maxGroup: 10, tags: ["karaoke", "lively", "music", "group-friendly"] },
+      { title: "Demo: Boba with friends", description: "Fictional $12 demo tasting package based on the real Teaspoon at 2675 Middlefield Road. Not a shop offer or reserved event; order real drinks from the shop's menu.", place: "Teaspoon - Palo Alto", pricePerPerson: 12, minGroup: 3, maxGroup: 10, tags: ["boba", "dessert", "social", "group-friendly"] },
     ],
   },
   {
-    name: "Movement San Francisco",
+    name: "Coupa Cafe - Ramona",
     experiences: [
-      { title: "Friends climb night", description: "Discounted student day passes and gear for your friend group.", place: "Movement San Francisco", pricePerPerson: 22, minGroup: 2, maxGroup: 10, tags: ["climbing", "active", "social", "student-discount"] },
+      { title: "Demo: Coffee and catch-up", description: "Fictional $22 demo food-and-coffee package based on the real Coupa Cafe at 538 Ramona Street. Not a cafe offer, student discount or reservation.", place: "Coupa Cafe - Ramona", pricePerPerson: 22, minGroup: 2, maxGroup: 10, tags: ["coffee", "cozy", "social", "group-friendly"] },
     ],
   },
 ];
 
 // Goji rewards: unlocked with diamonds earned from group outings.
 const SPONSORS = [
-  { place: "Berkeley Bouldering Project", offer: "$10 into your crew's pot when you book a crew climb", rewardCost: 1, payPerVisit: 5 },
-  { place: "Asha Tea House", offer: "Free topping on any boba with your Cal ID", rewardCost: 1, payPerVisit: 2 },
-  { place: "Purple Kow", offer: "Buy one, get one milk tea for USF crews", rewardCost: 1, payPerVisit: 2 },
+  { place: "The Guild Theatre", offer: "Demo only: $10 into your crew's pot for music night. Fictional sponsorship, not a venue offer.", rewardCost: 1, payPerVisit: 5 },
+  { place: "Teaspoon - Palo Alto", offer: "Demo only: free boba topping for Stanford friends. Fictional reward, not redeemable at the shop.", rewardCost: 1, payPerVisit: 2 },
+  { place: "Coupa Cafe - Ramona", offer: "Demo only: two-for-one coffee for Stanford friends. Fictional reward, not redeemable at the cafe.", rewardCost: 1, payPerVisit: 2 },
 ];
 
 // Hack Crew history: [winner, other options...], ratings per Hack Crew member as [stars, vibe].
 // Ratings feed suggestions only; the seed awards no points for them.
 const PAST_PLANS: { daysAgo: number; places: string[]; why: string; ratings: [number, string][] }[] = [
-  { daysAgo: 28, places: ["Indian Rock Park", "Big C Trail", "Cesar Chavez Park"], why: "A free sunset hang a short walk from campus.", ratings: [[5, "chill"], [4, "chill"], [5, "would-redo"]] },
-  { daysAgo: 21, places: ["Cheese Board Pizza", "Gypsy's Trattoria Italiana", "Top Dog"], why: "Cheap, filling and everyone can eat it.", ratings: [[5, "cozy"], [5, "would-redo"], [4, "cozy"]] },
-  { daysAgo: 14, places: ["Amoeba Music Berkeley", "Buffalo Exchange Berkeley", "BAMPFA"], why: "A rainy-day browse on Telegraph.", ratings: [[2, "meh"], [3, "meh"], [2, "crowded"]] },
-  { daysAgo: 9, places: ["Berkeley Bouldering Project", "Indian Rock Park", "Cesar Chavez Park"], why: "Something active for a crew that loves a challenge.", ratings: [[4, "thrilling"], [5, "thrilling"], [5, "would-redo"]] },
+  { daysAgo: 28, places: ["Arizona Garden", "Stanford Dish - Stanford Avenue Trailhead", "Rodin Sculpture Garden"], why: "A free garden hang on campus.", ratings: [[5, "chill"], [4, "chill"], [5, "would-redo"]] },
+  { daysAgo: 21, places: ["Pizza My Heart - Palo Alto", "Coupa Cafe - Ramona", "Teaspoon - Palo Alto"], why: "A casual food stop in Palo Alto.", ratings: [[5, "cozy"], [5, "would-redo"], [4, "cozy"]] },
+  { daysAgo: 14, places: ["Kepler's Books", "Cantor Arts Center", "Anderson Collection"], why: "A rainy-day book browse in Menlo Park.", ratings: [[2, "meh"], [3, "meh"], [2, "crowded"]] },
+  { daysAgo: 9, places: ["The Guild Theatre", "Arizona Garden", "Rodin Sculpture Garden"], why: "Live music in Menlo Park for a crew that loves a lively night.", ratings: [[4, "thrilling"], [5, "thrilling"], [5, "would-redo"]] },
 ];
 
 // This week's completed outings per crew. Each name in checkedIn gets one +50 "checkin" pointEvent
 // carrying the crew's groupId and the outing's planId, which is all #10's crew leaderboard counts.
 // users.points is the sum of a user's check-ins.
 //
-// Weekly avg per member at Berkeley (points.groupLeaderboard):
+// Weekly avg per member at Stanford (points.groupLeaderboard):
 //   Midnight Crew    (4 members): 9 check-ins = 450 / 4 = 112.5  -> #1
 //   Hack Crew         (3 members): 6 check-ins = 300 / 3 = 100    -> #2, 12.5 behind
 //   Side Questers  (2 members): 100 / 2 = 50
@@ -132,24 +142,24 @@ const PAST_PLANS: { daysAgo: number; places: string[]; why: string; ratings: [nu
 // One +50 check-in by a Hack Crew member on its locked plan: 350 / 3 = 116.7 > 112.5, so Hack Crew takes #1.
 // One check-in adds only 16.7 to a 3-member crew's avg, so a 20-point gap could never flip.
 const CREW_OUTINGS: { crew: string; daysAgo: number; place: string; checkedIn: string[] }[] = [
-  { crew: "Hack Crew", daysAgo: 3, place: "Asha Tea House", checkedIn: ["Uma", "Ishan", "Gauri"] },
-  { crew: "Hack Crew", daysAgo: 1, place: "Jupiter", checkedIn: ["Uma", "Ishan", "Gauri"] },
-  { crew: "Midnight Crew", daysAgo: 4, place: "Top Dog", checkedIn: ["Maya", "Leo", "Priya", "Sam"] },
-  { crew: "Midnight Crew", daysAgo: 3, place: "Indian Rock Park", checkedIn: ["Maya", "Leo", "Priya"] },
-  { crew: "Midnight Crew", daysAgo: 1, place: "Yogurt Park", checkedIn: ["Maya", "Priya"] },
-  { crew: "Side Questers", daysAgo: 2, place: "Free Speech Movement Café", checkedIn: ["Leo", "Sam"] },
-  { crew: "Boba Besties", daysAgo: 2, place: "Sharetea Berkeley", checkedIn: ["Priya"] },
+  { crew: "Hack Crew", daysAgo: 3, place: "Teaspoon - Palo Alto", checkedIn: ["Uma", "Ishan", "Gauri"] },
+  { crew: "Hack Crew", daysAgo: 1, place: "Pizza My Heart - Palo Alto", checkedIn: ["Uma", "Ishan", "Gauri"] },
+  { crew: "Midnight Crew", daysAgo: 4, place: "Pizza My Heart - Palo Alto", checkedIn: ["Maya", "Leo", "Priya", "Sam"] },
+  { crew: "Midnight Crew", daysAgo: 3, place: "Arizona Garden", checkedIn: ["Maya", "Leo", "Priya"] },
+  { crew: "Midnight Crew", daysAgo: 1, place: "Teaspoon - Palo Alto", checkedIn: ["Maya", "Priya"] },
+  { crew: "Side Questers", daysAgo: 2, place: "Coupa Cafe - Ramona", checkedIn: ["Leo", "Sam"] },
+  { crew: "Boba Besties", daysAgo: 2, place: "Teaspoon - Palo Alto", checkedIn: ["Priya"] },
   { crew: "Chalk Pals", daysAgo: 3, place: "Movement San Francisco", checkedIn: ["Ava", "Diego", "Kai"] },
   { crew: "Sunset Crew", daysAgo: 2, place: "Genki Crepes", checkedIn: ["Ava"] },
-  { crew: "Night Owls", daysAgo: 4, place: "Pandora Karaoke", checkedIn: ["Noah", "Chloe"] },
-  { crew: "Night Owls", daysAgo: 1, place: "Ocean Beach", checkedIn: ["Noah"] },
-  { crew: "Boulder Buddies", daysAgo: 2, place: "Berkeley Bouldering Project", checkedIn: ["Kai", "Chloe"] },
+  { crew: "Night Owls", daysAgo: 4, place: "The Guild Theatre", checkedIn: ["Noah", "Chloe"] },
+  { crew: "Night Owls", daysAgo: 1, place: "Coupa Cafe - Ramona", checkedIn: ["Noah"] },
+  { crew: "Boulder Buddies", daysAgo: 2, place: "Movement San Francisco", checkedIn: ["Kai", "Chloe"] },
 ];
 
 const POT = {
   monthlyContribution: 20,
   memberContributions: { Uma: 10, Ishan: 15, Gauri: 10 } as Record<string, number>,
-  sponsorChipIn: { business: "Berkeley Bouldering Project", amount: 10 },
+  sponsorChipIn: { business: "The Guild Theatre", amount: 10 },
 };
 
 const CHECKIN_POINTS = 50;
@@ -268,12 +278,12 @@ export const seedDemo = mutation({
       window: { start: lockedStart, end: lockedStart + 3 * HOUR },
       status: "locked",
       options: [
-        option("Berkeley Bouldering Project", "Your crew rated climbing a 5, and BBP chips $10 into your pot.", {
-          experience: "Crew climb night",
-          sponsorId: sponsorIds.get("Berkeley Bouldering Project"),
+        option("The Guild Theatre", "Your crew loved music night. Demo package with a fictional $10 sponsor chip-in, not a venue offer.", {
+          experience: "Demo: Crew music night",
+          sponsorId: sponsorIds.get("The Guild Theatre"),
         }),
-        option("Cheese Board Pizza", "A crew favorite that fits a $20 budget.", { experience: "Whole-pie pizza night" }),
-        option("Indian Rock Park", "Free sunset views, a short walk from campus."),
+        option("Pizza My Heart - Palo Alto", "A crew favorite with a fictional $9 demo package, not a restaurant offer.", { experience: "Demo: Pizza study break" }),
+        option("Arizona Garden", "A free garden walk on the Stanford campus."),
       ],
       winningIndex: 0,
       confirmBy: now + DAY,

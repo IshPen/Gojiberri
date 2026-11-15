@@ -7,13 +7,14 @@ import type { GenericId as Id } from "convex/values";
 import { useMutation, useQuery } from "convex/react";
 import { Button, Card, ErrorState, LoadingState, Screen, Subtitle, Title } from "../components/ui";
 import { api } from "../convex/_generated/api";
-import PointsPill from "../components/PointsPill";
+import GojiBreakdown, { type GojiBreakdownData } from "../components/GojiBreakdown";
 import { brand, colors, font, radius, spacing } from "../constants/theme";
 import { formatGojis } from "../lib/format";
 import { mockDelay, useMockQuery } from "../lib/mock";
 import { useUserId } from "../lib/session";
 
-const USE_MOCK = true;
+const USE_MOCK = false;
+
 
 // TODO(convex): swap to api.photos.generateUploadUrl once it lands
 const generateUploadUrlRef = makeFunctionReference<"mutation", Record<string, never>, string>("photos:generateUploadUrl");
@@ -21,12 +22,14 @@ const generateUploadUrlRef = makeFunctionReference<"mutation", Record<string, ne
 const savePhotoRef = makeFunctionReference<
   "mutation",
   { userId: Id<"users">; storageId: Id<"_storage">; groupId?: Id<"groups">; planId?: Id<"plans">; caption?: string },
-  Id<"photos">
+  Id<"photos"> | ({ photoId: Id<"photos"> } & GojiBreakdownData)
 >("photos:savePhoto");
 
 const MOCK_PLAN = { title: "Boba run at Asha Tea House", groupId: "mock_hack_crew" as Id<"groups"> };
 
 const PHOTO_POINTS = 50;
+// Until HOME-35 deploys, savePhoto returns a bare id after awarding the base check-in.
+const BASE_BREAKDOWN: GojiBreakdownData = { total: PHOTO_POINTS, items: [{ reason: "checkin", points: PHOTO_POINTS, label: "Check-in" }] };
 
 type Picked = { uri: string; mimeType: string };
 
@@ -38,6 +41,7 @@ export default function CameraScreen() {
   const [caption, setCaption] = useState("");
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
+  const [gojis, setGojis] = useState<GojiBreakdownData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
 
@@ -118,13 +122,14 @@ export default function CameraScreen() {
       } else {
         await generateUploadUrl({});
       }
-      await savePhoto({
+      const saved = await savePhoto({
         userId: userId as Id<"users">,
         storageId: storageId as Id<"_storage">,
         groupId: groupId ? (groupId as Id<"groups">) : undefined,
         planId: planId ? (planId as Id<"plans">) : undefined,
         caption: caption.trim() || undefined,
       });
+      setGojis(typeof saved === "object" ? saved : planId ? BASE_BREAKDOWN : null);
       setDone(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed. Please try again.");
@@ -149,14 +154,7 @@ export default function CameraScreen() {
         <Card tone="success" style={styles.center}>
           <Text style={styles.big}>🎉</Text>
           <Title testID="upload-success-title">Photo uploaded!</Title>
-          {planId ? (
-            <>
-              <Text testID="upload-success-points" style={styles.reward}>
-                +{formatGojis(PHOTO_POINTS)}
-              </Text>
-              <PointsPill testID="upload-success-pill" size="lg" points={PHOTO_POINTS} />
-            </>
-          ) : null}
+          {gojis && gojis.total > 0 ? <GojiBreakdown data={gojis} /> : null}
           {plan ? (
             <Text testID="upload-success-plan" style={styles.planDone}>
               Checked in: {plan.title}
@@ -236,7 +234,6 @@ export default function CameraScreen() {
 const styles = StyleSheet.create({
   center: { alignItems: "center", gap: spacing.md },
   big: { fontSize: 56 },
-  reward: { fontSize: font.size.hero, fontWeight: font.weight.heavy, color: colors.success },
   fullWidth: { alignSelf: "stretch" },
   planCard: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
   planTitle: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.accentDark },

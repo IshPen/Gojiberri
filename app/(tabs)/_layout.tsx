@@ -19,19 +19,27 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="home"
+        name="recommended"
         options={{
-          title: "Home",
-          tabBarButtonTestID: "tab-home",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
+          title: "For You",
+          tabBarButtonTestID: "tab-recommended",
+          tabBarIcon: ({ focused }) => <TabIcon emoji="✨" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="groups"
         options={{
-          title: "Groups",
+          title: "Crews",
           tabBarButtonTestID: "tab-groups",
           tabBarIcon: ({ focused }) => <TabIcon emoji="👯" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="experiences"
+        options={{
+          title: "Experiences",
+          tabBarButtonTestID: "tab-experiences",
+          tabBarIcon: ({ focused }) => <TabIcon emoji="🎟️" focused={focused} />,
         }}
       />
       <Tabs.Screen
