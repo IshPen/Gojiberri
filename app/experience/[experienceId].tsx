@@ -5,6 +5,7 @@ import { Stack, useLocalSearchParams, useRouter, type ErrorBoundaryProps } from 
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
+import DemoPaymentLabel from "../../components/DemoPaymentLabel";
 import SponsoredBadge from "../../components/SponsoredBadge";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import { colors, font, radius, spacing, emoji as emojiSize } from "../../constants/theme";
@@ -61,7 +62,7 @@ const chargeCardRef = makeFunctionReference<
   Receipt
 >("cards:chargeCard");
 
-const WHOP_EXPERIENCE_CHECKOUT_LIVE = false;
+const WHOP_EXPERIENCE_CHECKOUT_LIVE = true;
 
 function errorText(e: unknown) {
   const message = e instanceof Error ? e.message : String(e);
@@ -229,6 +230,7 @@ export default function ExperienceDetailScreen() {
               onPress={buyWithWhop}
               style={styles.action}
             />
+            <DemoPaymentLabel testID="experience-buy-whop-demo" />
             {!userId ? (
               <Text style={styles.note} testID="experience-whop-signin">
                 Sign in to buy.
