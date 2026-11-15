@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { AppState, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Stack, useRouter, type ErrorBoundaryProps } from "expo-router";
+import { AppState, StyleSheet, Text, View } from "react-native";
+import { Redirect, Stack, useRouter, type ErrorBoundaryProps } from "expo-router";
 import { useQuery } from "convex/react";
-import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../components/ui";
+import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../components/ui";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import { brand, colors, emoji, font, radius, shadow, spacing, type } from "../constants/theme";
 import { formatTime } from "../lib/format";
 import type { FunctionReturnType } from "convex/server";
+import { clearBusinessAccount, useBusinessAccount } from "../lib/businessSession";
 import { offerStatus, perkLabel, sameBusiness, useBusinessMock } from "../lib/businessMock";
 import { cleanTitle } from "../lib/format";
 
@@ -50,7 +51,7 @@ function BusinessTools({ name, home }: { name: string; home: Home }) {
   const avg = reviews.length ? reviews.reduce((sum, r) => sum + r.stars, 0) / reviews.length : 0;
   const unreplied = reviews.filter((r) => !r.reply).length;
   const go = (pathname: "/business/offer" | "/business/rules" | "/business/reviews", params: Record<string, string> = {}) =>
-    router.push({ pathname, params: { business: name, ...params } });
+    router.push({ pathname, params });
 
   const stats = [
     { id: "claimed", label: "Offers claimed / redeemed", value: `${offers.reduce((s, o) => s + o.claimed, 0)} / ${offers.reduce((s, o) => s + o.redeemed, 0)}` },
@@ -140,13 +141,11 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 export default function SponsorDashboardScreen() {
   const router = useRouter();
-  const accounts = useQuery(api.businessDashboard.listAccounts);
-  const [selected, setSelected] = useState<number>(0);
+  const { account, loading } = useBusinessAccount();
   const since = useStartOfToday();
-  const account = accounts?.[selected] ?? accounts?.[0] ?? null;
   const home = useQuery(
     api.businessDashboard.getHome,
-    account ? { sponsorId: account.sponsorId ?? undefined, businessId: account.businessId ?? undefined, since } : "skip",
+    account ? { sponsorId: (account.sponsorId ?? undefined) as Id<"sponsors"> | undefined, businessId: (account.businessId ?? undefined) as Id<"businesses"> | undefined, since } : "skip",
   );
 
   const [funding, setFunding] = useState(false);
@@ -161,7 +160,12 @@ export default function SponsorDashboardScreen() {
 
   const header = <Stack.Screen options={{ title: "Business" }} />;
 
-  if (accounts === undefined) {
+  const switchAccount = async () => {
+    router.replace("/welcome");
+    await clearBusinessAccount();
+  };
+
+  if (loading) {
     return (
       <Screen testID="dashboard-screen">
         {header}
@@ -169,17 +173,7 @@ export default function SponsorDashboardScreen() {
       </Screen>
     );
   }
-  if (!account) {
-    return (
-      <Screen testID="dashboard-screen">
-        {header}
-        <EmptyState testID="dashboard-empty" emoji="🏪" title="No businesses yet" body="Sponsors and experience businesses show up here once they're seeded." />
-      </Screen>
-    );
-  }
-
-  const scanId = (account.sponsorActive ? account.sponsorId : account.businessId) ?? account.sponsorId ?? account.businessId;
-  const alsoId = scanId === account.sponsorId ? account.businessId : account.sponsorId;
+  if (!account) return <Redirect href="/business/signin" />;
 
   return (
     <Screen testID="dashboard-screen">
@@ -189,14 +183,6 @@ export default function SponsorDashboardScreen() {
         <Title testID="dashboard-title">{account.name}</Title>
         <Subtitle>Stanford crews redeeming, booking and chipping in with {brand.name}.</Subtitle>
       </View>
-
-      {accounts.length > 1 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} testID="sponsor-chips">
-          {accounts.map((a, i) => (
-            <Chip key={a.name} testID={`sponsor-chip-${i}`} label={a.name} selected={a.name === account.name} onPress={() => setSelected(i)} />
-          ))}
-        </ScrollView>
-      ) : null}
 
       <View testID="scan-hero" style={styles.hero}>
         <Text style={styles.heroEyebrow}>Today</Text>
@@ -208,7 +194,7 @@ export default function SponsorDashboardScreen() {
           testID="scan-qr-button"
           label="Scan QR"
           icon="📷"
-          onPress={() => router.push({ pathname: "/business/scan", params: alsoId ? { businessId: scanId!, alsoId } : { businessId: scanId! } })}
+          onPress={() => router.push("/business/scan")}
           style={styles.heroButton}
         />
       </View>
@@ -216,7 +202,7 @@ export default function SponsorDashboardScreen() {
       {home === undefined ? (
         <LoadingState testID="stats-loading" />
       ) : home === null ? (
-        <EmptyState testID="dashboard-missing" emoji="🔍" title="Business not found" body="This business was removed. Pick another one above." />
+        <EmptyState testID="dashboard-missing" emoji="🔍" title="Business not found" body="This business was removed. Switch account and sign in again." actionLabel="Switch account" actionTestID="dashboard-missing-switch" onAction={switchAccount} />
       ) : (
         <>
           <BusinessTools name={account.name} home={home} />
@@ -331,13 +317,13 @@ export default function SponsorDashboardScreen() {
           )}
         </>
       )}
+      <Button testID="switch-account" label="Switch account" variant="ghost" onPress={switchAccount} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   fundReceived: { fontSize: font.size.sm, fontWeight: font.weight.semibold, color: colors.success, textAlign: "center" },
-  chips: { gap: spacing.sm },
   hero: { backgroundColor: colors.ink, borderRadius: radius.xl, padding: spacing.xl, alignItems: "center", gap: spacing.xs, ...shadow.ink },
   heroEyebrow: { ...type.eyebrow, color: colors.onInkMuted },
   heroValue: { fontSize: emoji.xl, lineHeight: 72, fontWeight: font.weight.black, color: colors.onInk },

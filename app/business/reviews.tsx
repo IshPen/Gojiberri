@@ -1,22 +1,33 @@
 import { useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
-import { Button, Card, EmptyState, Screen, Subtitle, Title } from "../../components/ui";
+import { Redirect, Stack } from "expo-router";
+import { Button, Card, EmptyState, LoadingState, Screen, Subtitle, Title } from "../../components/ui";
 import { colors, font, radius, spacing, type } from "../../constants/theme";
 import { formatDay } from "../../lib/format";
+import { useBusinessAccount } from "../../lib/businessSession";
 import { replyToReview, sameBusiness, useBusinessMock, type MockReview } from "../../lib/businessMock";
 
 export default function ReviewsScreen() {
-  const { business } = useLocalSearchParams<{ business?: string }>();
+  const { account, loading } = useBusinessAccount();
+  const business = account?.name ?? null;
   const all = useBusinessMock((s) => s.reviews);
-  const reviews = business ? all.filter((r) => sameBusiness(r.businessName, business)) : [];
+  if (loading) {
+    return (
+      <Screen testID="reviews-screen">
+        <Stack.Screen options={{ title: "Reviews" }} />
+        <LoadingState testID="reviews-loading" />
+      </Screen>
+    );
+  }
+  if (!business) return <Redirect href="/business/signin" />;
+  const reviews = all.filter((r) => sameBusiness(r.businessName, business));
   const avg = reviews.length ? reviews.reduce((s, r) => s + r.stars, 0) / reviews.length : 0;
 
   return (
     <Screen testID="reviews-screen">
       <Stack.Screen options={{ title: "Reviews" }} />
       <View style={{ gap: spacing.xs }}>
-        {business ? <Text style={type.eyebrow}>{business}</Text> : null}
+        <Text style={type.eyebrow}>{business}</Text>
         <Title testID="reviews-title">{reviews.length ? `★ ${avg.toFixed(1)}` : "Reviews"}</Title>
         <Subtitle>Ratings from crews after their outing. You get one public reply per review.</Subtitle>
       </View>

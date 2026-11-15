@@ -162,46 +162,76 @@ export const getRedemption = query({
   },
 });
 
+type Own = { sponsorId?: Id<"sponsors">; businessId?: Id<"businesses"> };
+
+async function ownerName(ctx: QueryCtx, row: Doc<"redemptions">) {
+  if (row.sponsorId) return (await ctx.db.get("sponsors", row.sponsorId))?.business ?? "another business";
+  if (row.businessId) return (await ctx.db.get("businesses", row.businessId))?.name ?? "another business";
+  return "another business";
+}
+
+// Redeems only codes issued to this business. A sponsor and a business with the same name count as one account.
+async function redeemFor(ctx: MutationCtx, code: string, own: Own) {
+  const invalid = (reason: string, details?: { studentName: string; crewName: string | null; itemTitle: string; kind: Kind }) => ({
+    valid: false,
+    reason,
+    studentName: details?.studentName ?? null,
+    crewName: details?.crewName ?? null,
+    itemTitle: details?.itemTitle ?? null,
+    kind: details?.kind ?? null,
+  });
+
+  const token = normalizeCode(code);
+  if (!token) return invalid("enter a code");
+  const row = await ctx.db
+    .query("redemptions")
+    .withIndex("by_token", (q) => q.eq("token", token))
+    .first();
+  if (!row) return invalid("code not found");
+
+  const mine = (!!row.sponsorId && row.sponsorId === own.sponsorId) || (!!row.businessId && row.businessId === own.businessId);
+  if (!mine) return invalid(`This code is for ${await ownerName(ctx, row)}, not you`);
+
+  const student = await ctx.db.get("users", row.userId);
+  const details = { studentName: student?.name ?? "Student", crewName: null, itemTitle: await titleOf(ctx, row), kind: row.kind };
+  if (row.status === "redeemed") return invalid("already used", details);
+  if (row.status === "expired" || Date.now() > row.expiresAt) {
+    if (row.status !== "expired") await ctx.db.patch("redemptions", row._id, { status: "expired" });
+    return invalid("expired, ask for a fresh code", details);
+  }
+
+  let item: Item;
+  try {
+    item = await resolveItem(ctx, row.userId, row.kind, row.refId);
+  } catch (e) {
+    await ctx.db.patch("redemptions", row._id, { status: "expired" });
+    return invalid(e instanceof ConvexError ? String(e.data) : "No longer valid", details);
+  }
+
+  await ctx.db.patch("redemptions", row._id, { status: "redeemed", redeemedAt: Date.now() });
+  return { valid: true, reason: null, studentName: details.studentName, crewName: item.crewName, itemTitle: item.itemTitle, kind: row.kind };
+}
+
 export const redeemCode = mutation({
   args: { code: v.string(), businessId: v.union(v.id("businesses"), v.id("sponsors")) },
   handler: async (ctx, { code, businessId }) => {
-    const invalid = (reason: string, details?: { studentName: string; crewName: string | null; itemTitle: string; kind: Kind }) => ({
-      valid: false,
-      reason,
-      studentName: details?.studentName ?? null,
-      crewName: details?.crewName ?? null,
-      itemTitle: details?.itemTitle ?? null,
-      kind: details?.kind ?? null,
-    });
+    const sponsorId = ctx.db.normalizeId("sponsors", businessId) ?? undefined;
+    return await redeemFor(ctx, code, sponsorId ? { sponsorId } : { businessId: ctx.db.normalizeId("businesses", businessId) ?? undefined });
+  },
+});
 
-    const token = normalizeCode(code);
-    if (!token) return invalid("enter a code");
-    const row = await ctx.db
-      .query("redemptions")
-      .withIndex("by_token", (q) => q.eq("token", token))
-      .first();
-    if (!row) return invalid("code not found");
-
-    if ((row.sponsorId ?? row.businessId) !== businessId) return invalid("wrong business, this code is for another place");
-
-    const student = await ctx.db.get("users", row.userId);
-    const details = { studentName: student?.name ?? "Student", crewName: null, itemTitle: await titleOf(ctx, row), kind: row.kind };
-    if (row.status === "redeemed") return invalid("already used", details);
-    if (row.status === "expired" || Date.now() > row.expiresAt) {
-      if (row.status !== "expired") await ctx.db.patch("redemptions", row._id, { status: "expired" });
-      return invalid("expired, ask for a fresh code", details);
+export const redeemForBusiness = mutation({
+  args: { code: v.string(), sponsorId: v.optional(v.id("sponsors")), businessId: v.optional(v.id("businesses")) },
+  handler: async (ctx, { code, sponsorId, businessId }) => {
+    const [sponsor, business] = await Promise.all([
+      sponsorId ? ctx.db.get("sponsors", sponsorId) : null,
+      businessId ? ctx.db.get("businesses", businessId) : null,
+    ]);
+    if (!sponsor && !business) throw new ConvexError("Sign in as a business first");
+    if (sponsor && business && sponsor.business.trim().toLowerCase() !== business.name.trim().toLowerCase()) {
+      throw new ConvexError("These ids belong to different businesses");
     }
-
-    let item: Item;
-    try {
-      item = await resolveItem(ctx, row.userId, row.kind, row.refId);
-    } catch (e) {
-      await ctx.db.patch("redemptions", row._id, { status: "expired" });
-      return invalid(e instanceof ConvexError ? String(e.data) : "No longer valid", details);
-    }
-
-    await ctx.db.patch("redemptions", row._id, { status: "redeemed", redeemedAt: Date.now() });
-    return { valid: true, reason: null, studentName: details.studentName, crewName: item.crewName, itemTitle: item.itemTitle, kind: row.kind };
+    return await redeemFor(ctx, code, { sponsorId: sponsor?._id, businessId: business?._id });
   },
 });
 

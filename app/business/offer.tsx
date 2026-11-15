@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, Chip, EmptyState, ErrorState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
+import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import { colors, font, radius, spacing, type } from "../../constants/theme";
 import { formatDay } from "../../lib/format";
-import { nextDealAt, offerStatus, saveOffer, sendDeal, useBusinessMock, type MockOffer, type Perk } from "../../lib/businessMock";
+import { useBusinessAccount } from "../../lib/businessSession";
+import { nextDealAt, offerStatus, sameBusiness, saveOffer, sendDeal, useBusinessMock, type MockOffer, type Perk } from "../../lib/businessMock";
 
 const DAY = 24 * 60 * 60 * 1000;
 const EXPIRY_OPTIONS = [
@@ -28,18 +29,21 @@ const toInt = (text: string) => (text.trim() === "" ? null : Number.parseInt(tex
 
 export default function OfferEditorScreen() {
   const router = useRouter();
-  const { business, offerId } = useLocalSearchParams<{ business?: string; offerId?: string }>();
+  const { offerId } = useLocalSearchParams<{ offerId?: string }>();
+  const { account, loading } = useBusinessAccount();
+  const business = account?.name ?? null;
   const existing = useBusinessMock((s) => s.offers.find((o) => o.id === offerId) ?? null);
 
-  if (!business) {
+  if (loading) {
     return (
       <Screen testID="offer-editor-screen">
         <Stack.Screen options={{ title: "Offer" }} />
-        <EmptyState testID="offer-editor-empty" emoji="🏪" title="Pick a business first" body="Open this from your business dashboard." />
+        <LoadingState testID="offer-editor-loading" />
       </Screen>
     );
   }
-  if (offerId && !existing) {
+  if (!business) return <Redirect href="/business/signin" />;
+  if (offerId && (!existing || !sameBusiness(existing.businessName, business))) {
     return (
       <Screen testID="offer-editor-screen">
         <Stack.Screen options={{ title: "Offer" }} />
