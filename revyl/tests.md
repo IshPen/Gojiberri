@@ -4,13 +4,14 @@ These are three natural-language tests to run on iOS and Android. Each step name
 
 ## 1. Onboard, create a group, copy the invite code
 
-1. Launch the app fresh (clear app data). The Welcome to Gojiberri screen shows (`name-title`).
-2. Type "Uma" into `name-input`, tap `avatar-option-2`, then tap `name-continue`.
-3. On the swipe screen, tap `swipe-option-left` or `swipe-option-right` until the progress bar (`swipe-progress`) completes, or tap `swipe-skip`.
-4. On preferences, tap `area-chip-Mission`, `diet-chip-vegetarian` and `vibe-chip-cozy`, then tap `preferences-finish`.
-5. The Home tab is visible (`home-greeting`). Tap `tab-groups`, then `create-group-button`.
-6. Type "Hack Crew" into `group-name-input` and tap `create-group-submit`.
-7. Assert that `invite-code` shows a 6-character uppercase code. Tap `copy-invite-code` and assert that the button reads "Copied!".
+1. Launch the app fresh (clear app data). The school step shows first. Tap `school-chip-berkeley`, then `school-continue`.
+2. The Welcome to Gojiberri screen shows (`name-title`).
+3. Type "Uma" into `name-input`, tap `avatar-option-2`, then tap `name-continue`.
+4. On the swipe screen, tap `swipe-option-left` or `swipe-option-right` until the progress bar (`swipe-progress`) completes, or tap `swipe-skip`.
+5. On preferences, assert that `school-joined-name` reads "Repping Berkeley". Tap `diet-chip-vegetarian` and `vibe-chip-cozy`, then tap `preferences-finish`.
+6. The Home tab is visible (`home-greeting`). Tap `tab-groups`, then `create-group-button`.
+7. Type "Hack Crew" into `group-name-input` and tap `create-group-submit`.
+8. Assert that `invite-code` shows a 6-character uppercase code. Tap `copy-invite-code` and assert that the button reads "Copied!".
 
 ## 2. Open a plan, vote, confirm, see the lock banner
 
@@ -20,13 +21,14 @@ These are three natural-language tests to run on iOS and Android. Each step name
 4. Tap `vote-option-1`. Assert that `vote-count-1` increases and `lock-banner` appears with the winner title (`lock-winner-title`).
 5. Tap `confirm-attendance`. Assert that `confirmed-badge` is visible.
 
-## 3. Take a photo, see it in the story, Gojis go up
+## 3. Check in on a crew outing, see it in the story, Gojis go up
 
 1. Note the value of `home-points-value` on the Home tab.
-2. From the group page, tap `story-link`, then `story-add-photo` (or open the camera from a plan).
+2. On Home, tap `home-crew-checkin` to open the camera for your crew's locked plan. Assert that `camera-plan-title` is visible and `camera-subtitle` reads "Check in on your crew's outing and earn 50 Gojis."
 3. Tap `take-photo` (on the simulator, use `choose-photo`) and pick any image. Assert that `photo-preview` is visible.
 4. Type "best night" into `caption-input` and tap `upload-photo`.
 5. Assert that `upload-success` shows "+50 Gojis" (`upload-success-points`). Tap `view-story` and assert that a `photo-tile-0` is visible.
 6. Go back to Home and assert that `home-points-value` is higher than in step 1.
+7. From the group page, tap `story-link`, then `story-add-photo`. Assert that `camera-subtitle` reads "Share a photo with your crew. Check in on a crew outing to earn Gojis." Upload any photo and assert that `upload-success` shows no `upload-success-points`.
 
-> Note: steps 3.5 and 3.6 need the real backend (`USE_MOCK = false`). With mocks on, the story and points are static demo data.
+> Note: steps 3.5, 3.6 and 3.7 need the real backend (`USE_MOCK = false`). With mocks on, the story and points are static demo data.

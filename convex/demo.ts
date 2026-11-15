@@ -39,24 +39,6 @@ export const dropNow = mutation({
   },
 });
 
-export const assignSoloNow = mutation({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
-    requireDemo();
-    const quests = await ctx.db
-      .query("soloQuests")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId))
-      .order("desc")
-      .take(5);
-    for (const quest of quests) {
-      if (quest.status === "open") await ctx.db.delete("soloQuests", quest._id);
-    }
-    const user = await ctx.db.get("users", userId);
-    if (user?.lastSoloDate) await ctx.db.patch("users", userId, { lastSoloDate: undefined });
-    return await scheduleExternal(ctx, external.pickSoloQuest, { userId });
-  },
-});
-
 export const simulateContribution = mutation({
   args: { groupId: v.id("groups"), userId: v.id("users"), amount: v.number() },
   handler: async (ctx, { groupId, userId, amount }): Promise<{ transactionId: Id<"transactions">; balance: number }> => {

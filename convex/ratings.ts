@@ -1,37 +1,28 @@
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 import { internalQuery, mutation } from "./_generated/server";
 import { external, scheduleExternal } from "./refs";
 
 export const submitRating = mutation({
   args: {
     userId: v.id("users"),
-    planId: v.optional(v.id("plans")),
-    questId: v.optional(v.id("soloQuests")),
+    planId: v.id("plans"),
     stars: v.number(),
     vibe: v.string(),
   },
-  handler: async (ctx, { userId, planId, questId, stars, vibe }) => {
-    if (!planId === !questId) throw new ConvexError("Rate either a plan or a quest");
+  handler: async (ctx, { userId, planId, stars, vibe }) => {
     const clamped = Math.min(5, Math.max(1, Math.round(stars)));
     const word = vibe.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
-    const candidates = planId
-      ? await ctx.db
-          .query("ratings")
-          .withIndex("by_plan", (q) => q.eq("planId", planId))
-          .take(200)
-      : await ctx.db
-          .query("ratings")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .take(5000);
-    const existing = candidates.find(
-      (r) => r.userId === userId && (planId ? r.planId === planId : r.questId === questId),
-    );
+    const candidates = await ctx.db
+      .query("ratings")
+      .withIndex("by_plan", (q) => q.eq("planId", planId))
+      .take(200);
+    const existing = candidates.find((r) => r.userId === userId);
     let ratingId;
     if (existing) {
       await ctx.db.patch("ratings", existing._id, { stars: clamped, vibe: word });
       ratingId = existing._id;
     } else {
-      ratingId = await ctx.db.insert("ratings", { userId, planId, questId, stars: clamped, vibe: word });
+      ratingId = await ctx.db.insert("ratings", { userId, planId, stars: clamped, vibe: word });
     }
     await scheduleExternal(ctx, external.rememberRating, { ratingId });
     return ratingId;
@@ -49,8 +40,6 @@ export const getDetails = internalQuery({
       const plan = await ctx.db.get("plans", rating.planId);
       if (plan && plan.winningIndex !== undefined) placeId = plan.options[plan.winningIndex]?.placeId ?? null;
       groupId = plan?.groupId ?? null;
-    } else if (rating.questId) {
-      placeId = (await ctx.db.get("soloQuests", rating.questId))?.placeId ?? null;
     }
     const place = placeId ? await ctx.db.get("places", placeId) : null;
     return { rating, place, groupId };
