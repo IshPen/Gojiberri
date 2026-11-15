@@ -1,34 +1,30 @@
 import { useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import { useRouter } from "expo-router";
-import { makeFunctionReference } from "convex/server";
-import type { GenericId as Id } from "convex/values";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useMutation } from "convex/react";
 import { Button, Card, ErrorState, Screen, SectionHeader, Subtitle } from "../../components/ui";
+import { SchoolCrest } from "../../components/SchoolBadge";
 import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
-import { mockDelay } from "../../lib/mock";
+import { api } from "../../convex/_generated/api";
+import { schoolFor } from "../../lib/school";
 import { setUserId } from "../../lib/session";
-
-const USE_MOCK = true;
-
-// TODO(convex): swap to api.users.createUser once it lands
-const createUserRef = makeFunctionReference<"mutation", { name: string }, Id<"users">>("users:createUser");
 
 const AVATARS = ["🐱", "🦊", "🐼", "🐸", "🦄", "🐙", "🦁", "🐯", "🐵", "🐧", "🦉", "🐳"];
 
 export default function NameScreen() {
   const router = useRouter();
+  const { school } = useLocalSearchParams<{ school?: string }>();
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const createLive = useMutation(createUserRef);
-  const createUser = USE_MOCK
-    ? (args: { name: string }) => mockDelay("mock_user_uma" as Id<"users">, 700)
-    : createLive;
+  const createUser = useMutation(api.users.createUser);
 
   const trimmed = name.trim();
+
+  if (!school) return <Redirect href="/onboarding/school" />;
+  const s = schoolFor(school);
 
   const onContinue = async () => {
     if (!trimmed) return;
@@ -37,7 +33,7 @@ export default function NameScreen() {
     try {
       const id = await createUser({ name: trimmed });
       await setUserId(id);
-      router.replace("/onboarding/swipe");
+      router.replace({ pathname: "/onboarding/swipe", params: { school } });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not create your profile. Campus Wi-Fi, probably. Try again.");
       setSaving(false);
@@ -58,25 +54,23 @@ export default function NameScreen() {
       }
     >
       <View style={styles.hero}>
-        <Text testID="name-hero-emoji" style={styles.heroEmoji}>
-          {brand.emoji}
-        </Text>
+        <SchoolCrest school={s.name} size={64} testID="name-school-crest" />
         <Text testID="name-title" style={styles.heroTitle}>
-          Welcome to {brand.name}
+          Welcome to the {s.name} space
         </Text>
         <Subtitle testID="name-subtitle" style={styles.center}>
-          Plan hangouts with your crew and earn {brand.points} {brand.pointsEmoji}. Every {brand.pointsPerReward} unlocks a free treat from a local spot {brand.rewardEmoji}
+          Go out with your friend group, check in together and earn {brand.points} {brand.pointsEmoji} for your crew. Every {brand.pointsPerReward} unlocks a free treat from a spot near {s.name} {brand.rewardEmoji}
         </Subtitle>
       </View>
 
       {error ? <ErrorState testID="name-error" message={error} onRetry={onContinue} /> : null}
 
-      <SectionHeader title="What does your floor call you?" testID="name-label" />
+      <SectionHeader title="What do your friends call you?" testID="name-label" />
       <TextInput
         testID="name-input"
         value={name}
         onChangeText={setName}
-        placeholder="e.g. Uma from Unit 3"
+        placeholder="e.g. Uma"
         placeholderTextColor={colors.textMuted}
         autoCapitalize="words"
         autoCorrect={false}
@@ -106,7 +100,6 @@ export default function NameScreen() {
 
 const styles = StyleSheet.create({
   hero: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.lg },
-  heroEmoji: { fontSize: 72 },
   heroTitle: { fontSize: font.size.hero, fontWeight: font.weight.heavy, color: colors.text, textAlign: "center" },
   center: { textAlign: "center" },
   input: {

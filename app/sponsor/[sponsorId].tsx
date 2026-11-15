@@ -166,7 +166,7 @@ export default function SponsorScreen() {
             loading={redeeming}
             disabled={missing > 0}
           />
-          {missing > 0 ? <Subtitle testID="redeem-hint" style={styles.center}>Every {brand.pointsPerReward} {brand.points} unlocks a free reward. Check in and finish quests to earn them.</Subtitle> : null}
+          {missing > 0 ? <Subtitle testID="redeem-hint" style={styles.center}>Every {brand.pointsPerReward} {brand.points} unlocks a free reward. Check in on group outings to earn them.</Subtitle> : null}
         </>
       )}
     </Screen>
