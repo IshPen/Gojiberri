@@ -190,7 +190,7 @@ export default defineSchema({
 
   pointEvents: defineTable({             // audit log for points
     userId: v.id("users"),
-    reason: v.union(v.literal("checkin"), v.literal("solo"), v.literal("confirm"), v.literal("rate")),
+    reason: v.union(v.literal("checkin"), v.literal("solo"), v.literal("confirm"), v.literal("rate"), v.literal("novel_bonus"), v.literal("regular_bonus"), v.literal("fullcrew_bonus")),
     points: v.number(),
     planId: v.optional(v.id("plans")),
     groupId: v.optional(v.id("groups")),

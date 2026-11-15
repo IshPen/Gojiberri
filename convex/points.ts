@@ -4,7 +4,15 @@ import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { addDays, localDate, localTime, weekday } from "./time";
 
-export const POINTS = { checkin: 50, confirm: 15, rate: 10 } as const;
+export const POINTS = {
+  checkin: 50,
+  confirm: 15,
+  rate: 10,
+  novel_bonus: 25,
+  regular_bonus: 15,
+  fullcrew_bonus: 20,
+} as const;
+export const STREAK_BONUS = 30;
 export const POINTS_PER_DIAMOND = 500;
 
 const reasonValidator = v.union(
@@ -18,10 +26,10 @@ export async function awardPoints(
   userId: Id<"users">,
   reason: keyof typeof POINTS,
   source: { planId?: Id<"plans">; groupId?: Id<"groups"> } = {},
+  points: number = POINTS[reason],
 ) {
   const user = await ctx.db.get("users", userId);
   if (!user) throw new Error("User not found");
-  const points = POINTS[reason];
   const total = user.points + points;
   const newDiamonds =
     Math.floor(total / POINTS_PER_DIAMOND) - Math.floor(user.points / POINTS_PER_DIAMOND);
