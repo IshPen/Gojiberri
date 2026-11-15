@@ -14,7 +14,7 @@ import { mockDelay } from "../lib/mock";
 import { useUserId } from "../lib/session";
 
 const USE_MOCK = true;
-const MOCK_VERDICT: CheckInVerdict = "approved";
+const MOCK_VERDICT = "approved" as CheckInVerdict;
 const MOCK_REJECT_REASON = "This looks like a screenshot, not a photo taken at Tartine Bakery.";
 const MOCK_INITIAL: CheckIn = { status: "open" };
 
@@ -49,16 +49,18 @@ type Picked = { uri: string; mimeType: string };
 
 const LOCATION_TIMEOUT_MS = 6000;
 
-async function readCoords(): Promise<{ lat: number; lng: number } | null> {
-  const permission = await Location.requestForegroundPermissionsAsync();
-  if (!permission.granted) return null;
-  const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-  return { lat: position.coords.latitude, lng: position.coords.longitude };
-}
-
 async function currentCoords(): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (!permission.granted) return null;
+  } catch {
+    return null;
+  }
+  const position = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+    .then((p) => ({ lat: p.coords.latitude, lng: p.coords.longitude }))
+    .catch(() => null);
   const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), LOCATION_TIMEOUT_MS));
-  return Promise.race([readCoords().catch(() => null), timeout]);
+  return Promise.race([position, timeout]);
 }
 
 export default function CameraScreen() {
