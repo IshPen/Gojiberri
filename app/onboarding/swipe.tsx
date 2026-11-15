@@ -1,55 +1,32 @@
 import { useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useAction } from "convex/react";
 import { Button, ErrorState, LoadingState, Screen, Subtitle, Title } from "../../components/ui";
 import SwipeCard, { type SwipeSide } from "../../components/SwipeCard";
 import { colors, font, radius, spacing } from "../../constants/theme";
-import { mockDelay } from "../../lib/mock";
+import { api } from "../../convex/_generated/api";
+import { THIS_OR_THAT, type ThisOrThatSide } from "../../data/thisOrThat";
+import { schoolFor } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 
-const USE_MOCK = true;
-
-type SwipeArgs = { userId: Id<"users">; chosen: string; rejected: string; category: string };
-// TODO(convex): swap to api.memory.rememberSwipe once it lands
-const rememberSwipeRef = makeFunctionReference<"action", SwipeArgs, null>("memory:rememberSwipe");
-
-type Option = { label: string; emoji: string };
-type Pair = { id: string; category: string; left: Option; right: Option };
-
-// TODO: import { THIS_OR_THAT } from "../../data/thisOrThat" once Gauri's file lands
-const THIS_OR_THAT: Pair[] = [
-  { id: "t1", category: "nightlife", left: { label: "Frat party", emoji: "🎉" }, right: { label: "Late-night study cafe", emoji: "☕" } },
-  { id: "t2", category: "food", left: { label: "$3 taqueria tacos", emoji: "🌮" }, right: { label: "Dining hall ramen bar", emoji: "🍜" } },
-  { id: "t3", category: "outdoors", left: { label: "Sunset from the campus hill", emoji: "🌅" }, right: { label: "Beach bonfire with the floor", emoji: "🔥" } },
-  { id: "t4", category: "culture", left: { label: "Free student museum night", emoji: "🖼️" }, right: { label: "Campus open mic", emoji: "🎸" } },
-  { id: "t5", category: "active", left: { label: "Rec center climbing wall", emoji: "🧗" }, right: { label: "Bike ride with the club", emoji: "🚴" } },
-  { id: "t6", category: "food", left: { label: "Dumplings after lecture", emoji: "🥟" }, right: { label: "Sunday pancake brunch", emoji: "🥞" } },
-  { id: "t7", category: "vibe", left: { label: "Your floor vs. theirs", emoji: "🏆" }, right: { label: "Chill game night in the lounge", emoji: "🎲" } },
-  { id: "t8", category: "sweets", left: { label: "Midnight boba run", emoji: "🧋" }, right: { label: "Bakery day-old deals", emoji: "🥐" } },
-  { id: "t9", category: "planning", left: { label: "Text the group chat at 9pm", emoji: "💬" }, right: { label: "Planned around midterms", emoji: "📅" } },
-  { id: "t10", category: "drinks", left: { label: "Coffee shop crawl", emoji: "☕" }, right: { label: "Smoothie run after the gym", emoji: "🥤" } },
-  { id: "t11", category: "outdoors", left: { label: "Picnic on the quad", emoji: "🧺" }, right: { label: "Kayak rental on student discount", emoji: "🛶" } },
-  { id: "t12", category: "entertainment", left: { label: "Improv club show", emoji: "🎤" }, right: { label: "$5 student movie night", emoji: "🎬" } },
-  { id: "t13", category: "food", left: { label: "Cheap eats crawl", emoji: "🌯" }, right: { label: "Splurge for someone's birthday", emoji: "🎂" } },
-  { id: "t14", category: "culture", left: { label: "Used bookstore wander", emoji: "📚" }, right: { label: "Thrift store haul", emoji: "🛍️" } },
-  { id: "t15", category: "vibe", left: { label: "Into the city", emoji: "🌃" }, right: { label: "Stay near campus", emoji: "🌲" } },
-];
+type Pair = { id: string; category: string; left: ThisOrThatSide; right: ThisOrThatSide };
+const PAIRS: Pair[] = THIS_OR_THAT.map((p, i) => ({ id: `t${i + 1}`, category: p.category, left: p.a, right: p.b }));
 
 export default function SwipeScreen() {
   const router = useRouter();
+  const { school } = useLocalSearchParams<{ school?: string }>();
   const { userId, loading } = useUserId();
   const [index, setIndex] = useState(0);
   const lastError = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const rememberLive = useAction(rememberSwipeRef);
-  const rememberSwipe = USE_MOCK ? (args: SwipeArgs) => mockDelay(null, 200) : rememberLive;
+  const rememberSwipe = useAction(api.memory.rememberSwipe);
+  const schoolName = school ? schoolFor(school).name : "your school";
 
-  const goNext = () => router.replace("/onboarding/preferences");
+  const goNext = () => router.replace({ pathname: "/onboarding/preferences", params: school ? { school } : {} });
 
   if (loading) return <Screen testID="swipe-screen"><LoadingState testID="swipe-loading" /></Screen>;
 
@@ -59,13 +36,13 @@ export default function SwipeScreen() {
         <ErrorState
           testID="swipe-no-user"
           message="We lost your profile somewhere between classes. Let's start over."
-          onRetry={() => router.replace("/onboarding/name")}
+          onRetry={() => router.replace("/onboarding/school")}
         />
       </Screen>
     );
   }
 
-  if (THIS_OR_THAT.length === 0) {
+  if (PAIRS.length === 0) {
     return (
       <Screen testID="swipe-screen">
         <Button testID="swipe-empty-continue" label="Continue" onPress={goNext} />
@@ -73,8 +50,8 @@ export default function SwipeScreen() {
     );
   }
 
-  const pair = THIS_OR_THAT[index];
-  const progress = index / THIS_OR_THAT.length;
+  const pair = PAIRS[index];
+  const progress = index / PAIRS.length;
 
   const onPick = (side: SwipeSide) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -86,7 +63,7 @@ export default function SwipeScreen() {
       lastError.current = e instanceof Error ? e.message : "Could not save a pick";
       setError(lastError.current);
     });
-    if (index + 1 >= THIS_OR_THAT.length) goNext();
+    if (index + 1 >= PAIRS.length) goNext();
     else setIndex(index + 1);
   };
 
@@ -97,15 +74,15 @@ export default function SwipeScreen() {
       footer={<Button testID="swipe-skip" label="Skip" variant="ghost" onPress={goNext} />}
     >
       <View>
-        <Title testID="swipe-title">This or that?</Title>
-        <Subtitle testID="swipe-subtitle">Tap or swipe toward your pick. We'll find campus spots your crew can afford.</Subtitle>
+        <Title testID="swipe-title">What do {schoolName} students like?</Title>
+        <Subtitle testID="swipe-subtitle">This or that? Tap or swipe toward your pick. Your crew's suggestions near {schoolName} learn from every swipe.</Subtitle>
       </View>
       <View style={styles.progressRow}>
         <View testID="swipe-progress" style={styles.track}>
           <View testID="swipe-progress-fill" style={[styles.fill, { width: `${Math.round(progress * 100)}%` }]} />
         </View>
         <Text testID="swipe-progress-label" style={styles.progressLabel}>
-          {index + 1}/{THIS_OR_THAT.length}
+          {index + 1}/{PAIRS.length}
         </Text>
       </View>
       {error ? <ErrorState testID="swipe-error" message={error} onRetry={() => setError(null)} /> : null}

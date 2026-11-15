@@ -1,30 +1,17 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import Slider from "@react-native-community/slider";
-import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useMutation } from "convex/react";
 import { Button, Card, Chip, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
+import { SchoolCrest, SchoolPicker } from "../../components/SchoolBadge";
 import { colors, font, spacing } from "../../constants/theme";
-import { readBusyBlocks, type TimeBlock } from "../../lib/calendar";
-import { mockDelay } from "../../lib/mock";
+import { api } from "../../convex/_generated/api";
+import { readBusyBlocks } from "../../lib/calendar";
 import { registerForPushToken } from "../../lib/notifications";
 import { useUserId } from "../../lib/session";
 
-const USE_MOCK = true;
-
-type PrefsArgs = { userId: Id<"users">; budgetMax: number; homeArea: string; diet: string[]; vibes: string[] };
-type BlocksArgs = { userId: Id<"users">; blocks: TimeBlock[] };
-type TokenArgs = { userId: Id<"users">; token: string };
-// TODO(convex): swap to api.users.updatePreferences once it lands
-const updatePreferencesRef = makeFunctionReference<"mutation", PrefsArgs, null>("users:updatePreferences");
-// TODO(convex): swap to api.users.setBusyBlocks once it lands
-const setBusyBlocksRef = makeFunctionReference<"mutation", BlocksArgs, null>("users:setBusyBlocks");
-// TODO(convex): swap to api.users.setPushToken once it lands
-const setPushTokenRef = makeFunctionReference<"mutation", TokenArgs, null>("users:setPushToken");
-
-const SCHOOLS = ["Berkeley", "Stanford", "USF", "SF State", "Other"];
 const DIETS = ["vegetarian", "vegan", "gluten-free", "halal", "kosher", "no restrictions"];
 const VIBES = ["cozy", "active", "artsy", "foodie", "nightlife", "outdoors", "chill", "adventurous"];
 const BUDGET_MIN = 5;
@@ -32,9 +19,11 @@ const BUDGET_MAX = 60;
 
 export default function PreferencesScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ school?: string }>();
   const { userId, loading } = useUserId();
   const [budget, setBudget] = useState(20);
-  const [school, setSchool] = useState<string | null>(null);
+  const [school, setSchool] = useState<string | null>(params.school ?? null);
+  const [changingSchool, setChangingSchool] = useState(!params.school);
   const [diet, setDiet] = useState<string[]>(["no restrictions"]);
   const [vibes, setVibes] = useState<string[]>([]);
   const [calendarStatus, setCalendarStatus] = useState<string | null>(null);
@@ -42,12 +31,9 @@ export default function PreferencesScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const updateLive = useMutation(updatePreferencesRef);
-  const blocksLive = useMutation(setBusyBlocksRef);
-  const tokenLive = useMutation(setPushTokenRef);
-  const updatePreferences = USE_MOCK ? (args: PrefsArgs) => mockDelay(null, 700) : updateLive;
-  const setBusyBlocks = USE_MOCK ? (args: BlocksArgs) => mockDelay(null, 300) : blocksLive;
-  const setPushToken = USE_MOCK ? (args: TokenArgs) => mockDelay(null, 100) : tokenLive;
+  const updatePreferences = useMutation(api.users.updatePreferences);
+  const setBusyBlocks = useMutation(api.users.setBusyBlocks);
+  const setPushToken = useMutation(api.users.setPushToken);
 
   if (loading) return <Screen testID="preferences-screen"><LoadingState testID="preferences-loading" /></Screen>;
 
@@ -57,7 +43,7 @@ export default function PreferencesScreen() {
         <ErrorState
           testID="preferences-no-user"
           message="We lost your profile somewhere between classes. Let's start over."
-          onRetry={() => router.replace("/onboarding/name")}
+          onRetry={() => router.replace("/onboarding/school")}
         />
       </Screen>
     );
@@ -117,10 +103,10 @@ export default function PreferencesScreen() {
   return (
     <Screen
       testID="preferences-screen"
-      footer={<Button testID="preferences-finish" label="Find my first sidequest" onPress={onFinish} loading={saving} />}
+      footer={<Button testID="preferences-finish" label={school ? `Enter the ${school} space` : "Enter your school's space"} onPress={onFinish} loading={saving} />}
     >
-      <Title testID="preferences-title">Last step, then you're in</Title>
-      <Subtitle testID="preferences-subtitle">Tell us your school and your budget so plans fit a student wallet and your floor can start racking up points.</Subtitle>
+      <Title testID="preferences-title">{school ? `What do ${school} students like?` : "Last step, then you're in"}</Title>
+      <Subtitle testID="preferences-subtitle">Your budget and vibe shape the outings we suggest for your crew{school ? ` around ${school}` : ""}, so plans fit a student wallet.</Subtitle>
 
       {error ? <ErrorState testID="preferences-error" message={error} onRetry={() => setError(null)} /> : null}
 
@@ -148,20 +134,30 @@ export default function PreferencesScreen() {
       </Card>
 
       <SectionHeader title="Your school" testID="school-header" />
-      <Text testID="school-hint" style={styles.hint}>
-        Your floor vs. theirs, your school vs. theirs. This is the leaderboard you climb.
-      </Text>
-      <View testID="school-picker" style={styles.chips}>
-        {SCHOOLS.map((s) => (
-          <Chip
-            key={s}
-            testID={`school-chip-${s.toLowerCase().replace(/\s+/g, "-")}`}
-            label={s}
-            selected={school === s}
-            onPress={() => setSchool(s)}
+      {changingSchool || !school ? (
+        <>
+          <Text testID="school-hint" style={styles.hint}>
+            Your crew vs. theirs, on your school's board. This is the leaderboard you climb.
+          </Text>
+          <SchoolPicker
+            selected={school}
+            onSelect={(s) => {
+              setSchool(s);
+              setChangingSchool(false);
+            }}
           />
-        ))}
-      </View>
+        </>
+      ) : (
+        <Card testID="school-joined" onPress={() => setChangingSchool(true)} style={styles.joined}>
+          <SchoolCrest school={school} size={40} testID="school-joined-crest" />
+          <View style={styles.joinedBody}>
+            <Text testID="school-joined-name" style={styles.calendarTitle}>
+              Repping {school}
+            </Text>
+            <Text style={styles.hint}>Tap to switch schools</Text>
+          </View>
+        </Card>
+      )}
 
       <SectionHeader title="Diet" testID="diet-header" />
       <View style={styles.chips}>
@@ -200,6 +196,8 @@ const styles = StyleSheet.create({
   slider: { width: "100%", height: 48, marginTop: spacing.sm },
   sliderRange: { flexDirection: "row", justifyContent: "space-between" },
   rangeText: { color: colors.textMuted, fontSize: font.size.sm },
+  joined: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  joinedBody: { flex: 1 },
   hint: { color: colors.textMuted, fontSize: font.size.sm, marginBottom: spacing.sm },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   calendarTitle: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
