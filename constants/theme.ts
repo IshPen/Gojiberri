@@ -74,10 +74,10 @@ export const brand = {
   points: "Gojis",
   pointsSingular: "Goji",
   pointsEmoji: "🍓",
-  diamonds: "Golden Gojis",
-  diamondsSingular: "Golden Goji",
-  diamondsEmoji: "✨",
-  pointsPerDiamond: 500,
+  rewards: "rewards",
+  rewardSingular: "reward",
+  rewardEmoji: "🎁",
+  pointsPerReward: 500,
 };
 
 export const theme = { colors, spacing, radius, font, minTapTarget, shadow, brand };

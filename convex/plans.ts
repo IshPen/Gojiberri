@@ -15,6 +15,7 @@ export const optionValidator = v.object({
   costMax: v.number(),
   why: v.string(),
   travel: v.optional(v.string()),
+  experienceId: v.optional(v.id("experiences")),
   sponsorId: v.optional(v.id("sponsors")),
 });
 

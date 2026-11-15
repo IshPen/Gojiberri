@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
 import { brand, colors, font, radius, spacing } from "../../constants/theme";
-import { formatGoldenGojis, formatGojis } from "../../lib/format";
+import { formatGojis, formatRewards } from "../../lib/format";
 import { mockDelay, useMockQuery } from "../../lib/mock";
 import { clearUserId, useUserId } from "../../lib/session";
 
@@ -92,8 +92,8 @@ export default function ProfileScreen() {
     }
   };
 
-  const toNext = user ? user.points % brand.pointsPerDiamond : 0;
-  const pct = Math.round((toNext / brand.pointsPerDiamond) * 100);
+  const toNext = user ? user.points % brand.pointsPerReward : 0;
+  const pct = Math.round((toNext / brand.pointsPerReward) * 100);
 
   return (
     <Screen testID="profile-screen">
@@ -117,10 +117,10 @@ export default function ProfileScreen() {
               <Text style={styles.statValue}>{user.points.toLocaleString()}</Text>
               <Text style={styles.statLabel}>{brand.points}</Text>
             </Card>
-            <Card testID="profile-golden-gojis" style={styles.stat}>
-              <Text style={styles.statEmoji}>{brand.diamondsEmoji}</Text>
+            <Card testID="profile-rewards-ready" style={styles.stat}>
+              <Text style={styles.statEmoji}>{brand.rewardEmoji}</Text>
               <Text style={styles.statValue}>{user.diamonds}</Text>
-              <Text style={styles.statLabel}>{brand.diamonds}</Text>
+              <Text style={styles.statLabel}>Rewards ready</Text>
             </Card>
             <Card testID="profile-streak" style={styles.stat}>
               <Text style={styles.statEmoji}>🔥</Text>
@@ -129,23 +129,23 @@ export default function ProfileScreen() {
             </Card>
           </View>
 
-          <Card testID="golden-progress">
+          <Card testID="reward-progress">
             <Text style={styles.progressTitle}>
-              {formatGojis(toNext)} / {brand.pointsPerDiamond} to your next {brand.diamondsSingular} {brand.diamondsEmoji}
+              {formatGojis(toNext)} / {brand.pointsPerReward} to your next free reward {brand.rewardEmoji}
             </Text>
             <View style={styles.track}>
-              <View testID="golden-progress-fill" style={[styles.fill, { width: `${pct}%` }]} />
+              <View testID="reward-progress-fill" style={[styles.fill, { width: `${pct}%` }]} />
             </View>
-            <Text style={styles.progressHint}>You have {formatGoldenGojis(user.diamonds)} to spend on rewards.</Text>
+            <Text style={styles.progressHint}>{user.diamonds > 0 ? `You have ${formatRewards(user.diamonds)} ready. Redeem at any sponsor.` : `Every ${brand.pointsPerReward} ${brand.points} unlocks a free treat.`}</Text>
           </Card>
         </>
       )}
 
-      <SectionHeader title="My rewards" testID="rewards-header" />
+      <SectionHeader title="My promo codes" testID="rewards-header" />
       {rewards === undefined ? (
         <LoadingState testID="rewards-loading" />
       ) : rewards.length === 0 ? (
-        <EmptyState testID="rewards-empty" emoji="🎁" title="No rewards yet" body={`Spend ${brand.diamonds} on sponsor offers to earn promo codes.`} />
+        <EmptyState testID="rewards-empty" emoji="🎁" title="No codes yet" body="Redeem a reward at a sponsor and your promo code shows up here." />
       ) : (
         rewards.map((r, i) => (
           <Card key={r._id} testID={`reward-${i}`}>

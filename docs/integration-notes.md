@@ -14,7 +14,7 @@ The full spec lives in [SPEC.md](./SPEC.md). This page covers what the G-tasks a
 | `convex/suggest.ts` | `generateSuggestions`. If the LLM fails, it falls back to the top 3 places by tag overlap |
 | `convex/solo.ts` | `getToday`, `pickSoloQuest`, `assignAll`, `complete` |
 | `convex/sponsors.ts` | `listActive` (each sponsor with its `place`), `pickSponsored`, `redeemReward` (returns `{ code, offer, business }`), `stats` |
-| `convex/whop.ts` | `createSponsorCheckout`, `createDeposit`, `handleEvent`, `refundDeposit`, `refundForCheckin` |
+| `convex/whop.ts` | `createSponsorCheckout` for the sponsor dashboard. The rest is in the [FUND] section below |
 | `convex/keiki.ts` | `handleMessage`, `sendMessage`, `announceLock` |
 | `convex/context.ts` | Internal queries and mutations that the `"use node"` actions above use to read and write the database |
 | `convex/llm.ts` | OpenAI JSON and text helpers (plain `fetch`, so they work in any runtime) |
@@ -25,9 +25,7 @@ The full spec lives in [SPEC.md](./SPEC.md). This page covers what the G-tasks a
 - `users.updatePreferences` → `internal.memory.rememberPreferences, { userId }`
 - `ratings.submitRating` → `internal.memory.rememberRating, { ratingId }`
 - When a plan locks (in `castVote` and on the auto-lock at confirmBy) → `internal.keiki.announceLock, { planId }`. It does nothing if the group has no linked chat
-- `photos.savePhoto` on a plan check-in → `internal.whop.refundForCheckin, { planId, userId }`
 - Keiki only acts on "plan" and "vote" when the chat sender's name exactly matches one member's Sidequest name
-- `reminders.dropUnconfirmed` → `ctx.runMutation(internal.context.forfeitDeposits, { planId, userIds })`
 - `http.ts` `/whop/webhook` → `internal.whop.handleEvent, { event }`, passing the parsed JSON body. `/keiki/webhook` → `internal.keiki.handleMessage, { chatId, sender, text }`
 - `crons.ts` → `internal.solo.assignAll`. `demo.assignSoloNow` can schedule `internal.solo.pickSoloQuest, { userId }`
 - `solo.complete` saves its own photo, inserts the sponsor visit and calls `internal.points.award` with reason `"solo"`. It does not call `savePhoto`, so the user doesn't also get the +50 check-in points
@@ -40,7 +38,23 @@ The G files reference `internal.plans.saveOptions`, `internal.points.award`, `ap
 - Home: `api.solo.getToday({ userId, date })` returns `{ quest, place, sponsor, streak }` or `null`. Pass `date` as the phone's `YYYY-MM-DD` so the query moves to the new day at midnight; without it, the server's PT date is used. `solo.complete` only accepts today's quest. Sponsored cards come from `api.sponsors.listActive`
 - Profile: `api.memory.getMyProfile({ userId })` returns `string[]`
 - Camera with `?questId=`: `api.solo.complete({ userId, questId, storageId })` returns `{ photoId, streak }`
-- `whop.createDeposit` and `whop.createSponsorCheckout` return a URL. Open it with `expo-web-browser`
+
+## [FUND] Group fund, experiences and card (G-9 to G-12)
+
+| File | What it does |
+| --- | --- |
+| `convex/whop.ts` | `createContributionCheckout(userId, groupId, amount)` returns a Whop checkout URL with metadata `{kind: "contribution", potId, userId, amount}`. `handleEvent` turns `payment.succeeded` into `funds.recordContribution` and skips payment ids it already recorded. `createExperienceProduct(experienceId)` creates a Whop product plus a one-time variant (Whop's replacement for plans) and saves both ids. `transferToBusiness(transactionId)` sends a Whop balance transfer to `business.whopAccountId`; if there's no account or Whop refuses, it sets the transaction note to `ledger-only` and doesn't throw |
+| `convex/cards.ts` | **Mock card.** `issueCard(groupId)` (iM) makes a random last4 with status `mock-active`. `getCard(groupId)` returns `{ card, groupName, limit }` with limit = pot balance. `chargeCard(userId, groupId, planId)` requires a locked plan whose winning option has an `experienceId`, and either every member confirmed or the confirm deadline passed. The confirmed count must be within the experience's min/max group size. It charges pricePerPerson × confirmed members through `funds.spend`, refuses a second charge for the same plan, schedules `transferToBusiness`, and returns a receipt `{ amount, people, experience, business, last4, balance, transactionId }` |
+| `convex/suggest.ts` | Keeps active experiences that fit the group size, aren't at a venue the group rated 2 stars or lower, and where pricePerPerson × members ≤ pot balance, plus 1 cheap place. If fewer than 3 experiences fit (for example while the pot is still $0), it fills the gap with cheap places so the vote still has 3 options. Experience options carry `experienceId` and costMin = costMax = pricePerPerson |
+| `convex/seed.ts` | Adds 3 businesses (Palace Games, SF Makers Collective, Bay Adventures), 7 experiences at real venues, a $0 pot with `monthlyContribution` 20 for Hack Crew, and its mock card |
+
+**Ishan (I-7):** `experiences.createExperience` needs to attach a `placeId`, either as an extra arg or by creating a place. Plan options require one, so suggestions skip experiences without it. `context.recordContributionOnce` checks for an existing transaction with the same `whopPaymentId` and calls your `recordContribution` in the same mutation, so a duplicate webhook can't double-credit. `cards.ts` calls `funds:recordContribution` and `funds:spend` by name, with the contract's args. `chargeCard` uses `spend`'s return value as the transaction id when it's a string, and otherwise reads the newest transaction in the pot. Please return the id. `groups.createGroup` → `createPot` should call `internal.cards.issueCard`. Please also add `pots`, `transactions`, `cards`, `experiences` and `businesses` to `DEMO_TABLES` in `demo.ts` so `resetDemo` clears them. This PR adds `experienceId` to `optionValidator` in `plans.ts` and the [FUND] tables to `schema.ts`, copied word for word from the spec.
+
+**Uma:** Fund screen: open `whop.createContributionCheckout`'s URL with `expo-web-browser`. Card screen: `cards.getCard` and `cards.chargeCard` (use the receipt it returns). Option cards: show "$X from your $Y pot" when `experienceId` is set.
+
+**Env:** `WHOP_COMPANY_ID` (`biz_...`) is the account that creates the checkouts and products and sends the transfers. To get real transfers, set `whopAccountId` on a business; otherwise the ledger is the source of truth.
+
+**Cut:** the $5 deposit is gone, and Keiki is cut. `keiki.ts` is left in place but unused.
 
 ## Environment variables
 

@@ -10,6 +10,7 @@
 
 import type * as availability from "../availability.js";
 import type * as businesses from "../businesses.js";
+import type * as cards from "../cards.js";
 import type * as context from "../context.js";
 import type * as crons from "../crons.js";
 import type * as demo from "../demo.js";
@@ -48,6 +49,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   availability: typeof availability;
   businesses: typeof businesses;
+  cards: typeof cards;
   context: typeof context;
   crons: typeof crons;
   demo: typeof demo;

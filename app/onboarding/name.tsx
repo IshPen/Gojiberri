@@ -39,7 +39,7 @@ export default function NameScreen() {
       await setUserId(id);
       router.replace("/onboarding/swipe");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create your profile.");
+      setError(e instanceof Error ? e.message : "Could not create your profile. Campus Wi-Fi, probably. Try again.");
       setSaving(false);
     }
   };
@@ -65,19 +65,18 @@ export default function NameScreen() {
           Welcome to {brand.name}
         </Text>
         <Subtitle testID="name-subtitle" style={styles.center}>
-          Plan hangouts with your crew, earn {brand.points} {brand.pointsEmoji} and unlock {brand.diamonds}{" "}
-          {brand.diamondsEmoji}.
+          Plan hangouts with your crew and earn {brand.points} {brand.pointsEmoji}. Every {brand.pointsPerReward} unlocks a free treat from a local spot {brand.rewardEmoji}
         </Subtitle>
       </View>
 
       {error ? <ErrorState testID="name-error" message={error} onRetry={onContinue} /> : null}
 
-      <SectionHeader title="What should we call you?" testID="name-label" />
+      <SectionHeader title="What does your floor call you?" testID="name-label" />
       <TextInput
         testID="name-input"
         value={name}
         onChangeText={setName}
-        placeholder="e.g. Uma"
+        placeholder="e.g. Uma from Unit 3"
         placeholderTextColor={colors.textMuted}
         autoCapitalize="words"
         autoCorrect={false}
@@ -86,7 +85,7 @@ export default function NameScreen() {
         style={styles.input}
       />
 
-      <SectionHeader title="Pick your avatar" testID="avatar-label" />
+      <SectionHeader title="Pick your mascot" testID="avatar-label" />
       <Card testID="avatar-grid" style={styles.grid}>
         {AVATARS.map((emoji, i) => (
           <Card
