@@ -54,6 +54,7 @@ export default defineSchema({
       costMax: v.number(),
       why: v.string(),
       travel: v.optional(v.string()),    // "12 min by transit"
+      experienceId: v.optional(v.id("experiences")), // [FUND]
       sponsorId: v.optional(v.id("sponsors")),
     })),
     winningIndex: v.optional(v.number()),
@@ -134,6 +135,58 @@ export default defineSchema({
     nextRun: v.number(),
     active: v.boolean(),
   }).index("by_nextRun", ["nextRun"]),
+
+  // [FUND] experiences that businesses sell
+  experiences: defineTable({
+    businessId: v.id("businesses"),
+    title: v.string(),                   // "Private escape room for 4"
+    description: v.string(),
+    placeId: v.optional(v.id("places")),
+    pricePerPerson: v.number(),          // $
+    minGroup: v.number(),
+    maxGroup: v.number(),
+    tags: v.array(v.string()),
+    imageUrl: v.optional(v.string()),
+    whopProductId: v.optional(v.string()),
+    whopPlanId: v.optional(v.string()),
+    active: v.boolean(),
+  }).index("by_business", ["businessId"]),
+
+  // [FUND] local businesses
+  businesses: defineTable({
+    name: v.string(),
+    whopAccountId: v.optional(v.string()),
+    earned: v.number(),                  // $ total sales
+  }),
+
+  // [FUND] one pot per group
+  pots: defineTable({
+    groupId: v.id("groups"),
+    balance: v.number(),                 // $ available
+    monthlyContribution: v.number(),     // $ per member per month
+    whopPlanId: v.optional(v.string()),
+  }).index("by_group", ["groupId"]),
+
+  // [FUND] ledger: every $ in and out of a pot
+  transactions: defineTable({
+    potId: v.id("pots"),
+    type: v.union(v.literal("contribution"), v.literal("spend"), v.literal("refund")),
+    amount: v.number(),
+    userId: v.optional(v.id("users")),
+    experienceId: v.optional(v.id("experiences")),
+    planId: v.optional(v.id("plans")),
+    whopPaymentId: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("completed"), v.literal("failed")),
+    note: v.optional(v.string()),
+  }).index("by_pot", ["potId"]),
+
+  // [FUND] MOCK Whop group card until card issuing is verified
+  cards: defineTable({
+    groupId: v.id("groups"),
+    last4: v.string(),
+    status: v.union(v.literal("mock-active"), v.literal("active"), v.literal("frozen")),
+    whopCardId: v.optional(v.string()),
+  }).index("by_group", ["groupId"]),
 
   pointEvents: defineTable({             // audit log for points
     userId: v.id("users"),
