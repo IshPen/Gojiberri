@@ -125,6 +125,7 @@ export const ratingContext = internalQuery({
     if (!rating) return null;
     const user = await ctx.db.get("users", rating.userId);
     let place: Doc<"places"> | null = null;
+    let experience: Doc<"experiences"> | null = null;
     let groupId: Id<"groups"> | undefined;
     if (rating.planId) {
       const plan = await ctx.db.get("plans", rating.planId);
@@ -132,6 +133,7 @@ export const ratingContext = internalQuery({
         groupId = plan.groupId;
         const option = plan.options[plan.winningIndex ?? 0];
         if (option) place = await ctx.db.get("places", option.placeId);
+        if (option?.experienceId) experience = await ctx.db.get("experiences", option.experienceId);
       }
     }
     return {
@@ -141,6 +143,10 @@ export const ratingContext = internalQuery({
       vibe: rating.vibe,
       placeName: place?.name ?? "an outing",
       groupId,
+      placeId: place?._id,
+      experienceId: experience?._id,
+      category: place?.category,
+      tags: [...new Set([...(experience?.tags ?? []), ...(place?.tags ?? [])])],
     };
   },
 });
@@ -261,5 +267,56 @@ export const latestOpenPlan = internalQuery({
       .order("desc")
       .collect();
     return plans.find((p) => p.status === "voting" || p.status === "locked" || p.status === "generating") ?? null;
+  },
+});
+
+export const ideasByTitle = internalQuery({
+  args: { titles: v.array(v.string()) },
+  handler: async (ctx, { titles }) => {
+    const wanted = new Set(titles);
+    const experiences = (await ctx.db.query("experiences").take(500)).filter((e) => wanted.has(e.title));
+    const places = (await ctx.db.query("places").take(1000)).filter((p) => wanted.has(p.name));
+    return await Promise.all(
+      titles.map(async (title) => {
+        const experience = experiences.find((e) => e.title === title);
+        const place = experience?.placeId
+          ? await ctx.db.get("places", experience.placeId)
+          : (places.find((p) => p.name === title) ?? null);
+        return {
+          title,
+          placeId: place?._id,
+          experienceId: experience?._id,
+          category: place?.category,
+          tags: [...new Set([...(experience?.tags ?? []), ...(place?.tags ?? [])])],
+        };
+      }),
+    );
+  },
+});
+
+export const checkinContext = internalQuery({
+  args: { photoId: v.id("photos") },
+  handler: async (ctx, { photoId }) => {
+    const photo = await ctx.db.get("photos", photoId);
+    const plan = photo?.planId ? await ctx.db.get("plans", photo.planId) : null;
+    const winner = plan?.winningIndex !== undefined ? plan.options[plan.winningIndex] : undefined;
+    if (!photo || !plan || !winner) return null;
+    const [user, place, experience] = await Promise.all([
+      ctx.db.get("users", photo.userId),
+      ctx.db.get("places", winner.placeId),
+      winner.experienceId ? ctx.db.get("experiences", winner.experienceId) : null,
+    ]);
+    return {
+      userId: photo.userId,
+      userName: user?.name ?? "Someone",
+      groupId: plan.groupId,
+      title: winner.title,
+      caption: photo.caption,
+      placeId: winner.placeId,
+      experienceId: winner.experienceId,
+      category: place?.category,
+      tags: [...new Set([...(experience?.tags ?? []), ...(place?.tags ?? [])])],
+      at: photo._creationTime,
+    };
   },
 });

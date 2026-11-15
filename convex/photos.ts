@@ -75,6 +75,7 @@ export const savePhoto = mutation({
     const items = checkinItems(novelty.points, await crewStreak(ctx, group, plan.window.start, plan._id));
     for (const item of items) await awardPoints(ctx, args.userId, item.reason, source, item.points);
     await ctx.scheduler.runAfter(0, internal.taste.rebuild, { userId: args.userId });
+    await ctx.scheduler.runAfter(0, internal.memory.rememberCheckin, { photoId });
 
     const wholeCrew = group.memberIds.every(
       (id) => id === args.userId || (memberEvents.get(id) ?? []).some(isCheckin),
