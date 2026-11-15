@@ -288,5 +288,5 @@ const styles = StyleSheet.create({
   title: type.heading,
   muted: type.muted,
   basketCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: -spacing.md },
-  basketTitle: { fontSize: font.size.lg, fontWeight: font.weight.heavy, color: colors.accentDark },
+  basketTitle: { fontSize: font.size.lg, fontWeight: font.weight.heavy, color: colors.berryDark },
 });

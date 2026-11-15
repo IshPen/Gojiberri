@@ -1,7 +1,10 @@
 export const colors = {
-  accent: "#D62E4A",
-  accentDark: "#A3193A",
-  accentSoft: "#FCE6E8",
+  accent: "#6A2C9E",
+  accentDark: "#4A1C73",
+  accentSoft: "#F1E7FA",
+  berry: "#D62E4A",
+  berryDark: "#A3193A",
+  berrySoft: "#FCE6E8",
   background: "#FFF8EF",
   card: "#FFFFFF",
   cardMuted: "#F9EFE4",
@@ -20,7 +23,7 @@ export const colors = {
   gold: "#F2B630",
   silver: "#B9B4B0",
   bronze: "#D08A4E",
-  ink: "#3A0E1C",
+  ink: "#2A1240",
   inkSoft: "rgba(255, 255, 255, 0.16)",
   onInk: "#FFFFFF",
   onInkMuted: "rgba(255, 255, 255, 0.62)",
@@ -117,7 +120,7 @@ export const motion = {
   base: 250,
   slow: 400,
   countUp: 900,
-  confettiColors: [colors.accent, colors.accentDark, "#FF8FA3", colors.gold, colors.leaf, "#FFFFFF"],
+  confettiColors: [colors.berry, colors.berryDark, "#FF8FA3", colors.gold, colors.leaf, colors.accent],
 };
 
 export const brand = {

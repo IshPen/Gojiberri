@@ -48,7 +48,7 @@ const WICKER_LIGHT = "#E0AE72";
 const styles = StyleSheet.create({
   handle: { position: "absolute", top: 0, borderColor: WICKER_DARK, borderBottomColor: "transparent", borderLeftColor: WICKER_DARK, borderRightColor: WICKER_DARK },
   berries: { position: "absolute", flexDirection: "row", flexWrap: "wrap-reverse", justifyContent: "center" },
-  berry: { backgroundColor: colors.accent, borderWidth: 1, borderColor: colors.accentDark, marginTop: -2 },
+  berry: { backgroundColor: colors.berry, borderWidth: 1, borderColor: colors.berryDark, marginTop: -2 },
   leaf: { position: "absolute", backgroundColor: colors.leaf, borderRadius: 4 },
   body: { position: "absolute", left: "6%", right: "6%", bottom: 0, backgroundColor: WICKER, overflow: "hidden", paddingTop: 4, gap: 2 },
   weaveRow: { flex: 1, flexDirection: "row", gap: 2, paddingHorizontal: 2 },

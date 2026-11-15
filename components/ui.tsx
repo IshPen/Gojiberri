@@ -311,5 +311,5 @@ export const styles = StyleSheet.create({
   stateEmoji: { fontSize: emoji.lg, marginBottom: spacing.sm },
   stateTitle: { ...type.heading, fontSize: font.size.xl, textAlign: "center", marginTop: spacing.md },
   stateBody: { ...type.muted, textAlign: "center", marginTop: spacing.xs },
-  berry: { alignItems: "center", justifyContent: "center", backgroundColor: colors.accentSoft, borderWidth: 3, borderColor: colors.card, ...shadow.sm },
+  berry: { alignItems: "center", justifyContent: "center", backgroundColor: colors.berrySoft, borderWidth: 3, borderColor: colors.card, ...shadow.sm },
 });
