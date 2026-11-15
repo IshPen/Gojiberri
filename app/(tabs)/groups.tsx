@@ -110,7 +110,7 @@ export default function GroupsScreen() {
           {board === undefined ? (
             <LoadingState label="Scouting rival crews…" testID="rivals-loading" />
           ) : rivals.length === 0 ? (
-            <EmptyState testID="rivals-empty" emoji="🏁" title="No rivals yet" body={`Yours could be the first crew at ${school}. Invite another friend group to compete.`} />
+            <EmptyState testID="rivals-empty" emoji="🍓" title="No rivals yet" body={`Yours could be the first crew at ${school}. Invite another friend group to compete.`} />
           ) : (
             rivals.slice(0, 5).map((c, i) => (
               <Card key={c.groupId} testID={`rival-row-${i}`} style={styles.rivalRow}>

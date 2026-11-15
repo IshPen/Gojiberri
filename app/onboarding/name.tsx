@@ -11,6 +11,7 @@ import { schoolFor } from "../../lib/school";
 import { AVATARS } from "../../lib/avatar";
 import { setUserId } from "../../lib/session";
 import { TimeoutError, withTimeout } from "../../lib/timeout";
+import Basket from "../../components/Basket";
 
 export default function NameScreen() {
   const router = useRouter();
@@ -58,7 +59,10 @@ export default function NameScreen() {
       }
     >
       <View style={styles.hero}>
-        <SchoolCrest school={s.name} size={64} testID="name-school-crest" />
+        <View style={styles.heroArt}>
+          <SchoolCrest school={s.name} size={64} testID="name-school-crest" />
+          <Basket size={64} progress={0.4} testID="name-basket" />
+        </View>
         <Text testID="name-title" style={styles.heroTitle}>
           Welcome to the {s.name} space
         </Text>
@@ -103,6 +107,7 @@ export default function NameScreen() {
 }
 
 const styles = StyleSheet.create({
+  heroArt: { flexDirection: "row", alignItems: "flex-end", gap: spacing.md },
   hero: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.lg },
   heroTitle: { ...type.display, textAlign: "center" },
   center: { textAlign: "center" },

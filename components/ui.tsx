@@ -179,6 +179,7 @@ export function BerryMark({ emoji: glyph = brand.emoji, size = 88, testID }: { e
   return (
     <View testID={testID} style={[styles.berry, { width: size, height: size, borderRadius: size / 2 }]}>
       <Text style={{ fontSize: size * 0.5 }}>{glyph}</Text>
+      <View style={[styles.berryLeaf, { width: size * 0.26, height: size * 0.14, top: size * 0.02, right: size * 0.12, borderRadius: size * 0.1 }]} />
     </View>
   );
 }
@@ -202,9 +203,12 @@ export function Subtitle({ children, testID, style }: { children: ReactNode; tes
 export function SectionHeader({ title, testID, action }: { title: string; testID?: string; action?: ReactNode }) {
   return (
     <View style={styles.sectionHeader}>
-      <Text testID={testID} style={styles.sectionTitle}>
-        {title}
-      </Text>
+      <View style={styles.sectionLead}>
+        <View style={styles.sectionLeaf} />
+        <Text testID={testID} style={styles.sectionTitle}>
+          {title}
+        </Text>
+      </View>
       {action}
     </View>
   );
@@ -299,6 +303,9 @@ export const styles = StyleSheet.create({
   subtitle: type.muted,
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.sm },
   sectionTitle: type.heading,
+  sectionLead: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexShrink: 1 },
+  sectionLeaf: { width: 12, height: 7, borderTopLeftRadius: 7, borderBottomRightRadius: 7, backgroundColor: colors.leaf, transform: [{ rotate: "-30deg" }] },
+  berryLeaf: { position: "absolute", backgroundColor: colors.leaf, transform: [{ rotate: "-25deg" }] },
   state: { alignItems: "center", justifyContent: "center", paddingVertical: spacing.xxxl, gap: spacing.md },
   stateCard: { alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.xs, ...shadow.sm },
   stateEmoji: { fontSize: emoji.lg, marginBottom: spacing.sm },
