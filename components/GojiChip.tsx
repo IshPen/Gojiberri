@@ -1,7 +1,7 @@
-import { useAction, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { brand, colors, font, radius, spacing } from "../constants/theme";
 
@@ -12,7 +12,7 @@ export type IdeaFallback = { ideaKey: string; novel: boolean };
 // HOME-35: points.gojiPreview and novelty.requestScores, referenced by name until they deploy. Flip PREVIEW_MOCK once they do.
 const PREVIEW_MOCK = true;
 const previewRef = makeFunctionReference<"query", { userId: Id<"users">; ideaKeys: string[] }, GojiPreview[]>("points:gojiPreview");
-const requestScoresRef = makeFunctionReference<"action", { userId: Id<"users">; ideaKeys: string[] }, null>("novelty:requestScores");
+const requestScoresRef = makeFunctionReference<"mutation", { userId: Id<"users">; ideaKeys: string[] }, null>("novelty:requestScores");
 
 function mockPreview({ ideaKey, novel }: IdeaFallback): GojiPreview {
   const items: GojiPreviewItem[] = [{ reason: "checkin", points: 50, label: "Check-in" }];
@@ -31,7 +31,7 @@ export function useGojiPreviews(userId: string | null, ideas: IdeaFallback[]): M
   const ideaKeys = ideas.map((i) => i.ideaKey);
   const joined = ideaKeys.join(",");
   const live = useQuery(previewRef, PREVIEW_MOCK || !userId || ideaKeys.length === 0 ? "skip" : { userId: userId as Id<"users">, ideaKeys });
-  const requestScores = useAction(requestScoresRef);
+  const requestScores = useMutation(requestScoresRef);
 
   useEffect(() => {
     if (PREVIEW_MOCK || !userId || !joined) return;
@@ -43,41 +43,52 @@ export function useGojiPreviews(userId: string | null, ideas: IdeaFallback[]): M
   return new Map(previews.map((p) => [p.ideaKey, p]));
 }
 
-export default function GojiChip({ preview, testID }: { preview: GojiPreview | undefined; testID: string }) {
-  const [open, setOpen] = useState(false);
+export default function GojiChip({ preview, testID, open, onPress }: { preview: GojiPreview | undefined; testID: string; open: boolean; onPress: () => void }) {
   if (!preview) return null;
   return (
-    <View style={styles.wrap}>
-      <Pressable testID={testID} onPress={() => setOpen((o) => !o)} accessibilityRole="button" style={styles.chip}>
-        <Text style={styles.chipText}>
-          {brand.pointsEmoji} +{preview.total} {brand.points} for you {open ? "▴" : "▾"}
-        </Text>
-      </Pressable>
-      {open ? (
-        <View testID={`${testID}-breakdown`} style={styles.breakdown}>
-          {preview.items.map((item) => (
-            <View key={item.reason} style={styles.row}>
-              <Text style={[styles.points, item.conditional && styles.muted]}>+{item.points}</Text>
-              <Text style={[styles.label, item.conditional && styles.muted]}>
-                {item.label}
-                {item.conditional ? " · if everyone comes" : ""}
-              </Text>
-            </View>
-          ))}
-          {preview.noveltyReason ? (
-            <Text style={styles.reason}>
-              🧭 {preview.noveltyReason}
-              {preview.scored ? "" : " · scoring…"}
-            </Text>
-          ) : null}
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`+${preview.total} ${brand.points} for you`}
+      accessibilityState={{ expanded: open }}
+      style={styles.chip}
+    >
+      <Text style={styles.chipText}>
+        {brand.pointsEmoji} +{preview.total}
+      </Text>
+    </Pressable>
+  );
+}
+
+export function GojiDetails({ preview, testID }: { preview: GojiPreview | undefined; testID: string }) {
+  if (!preview) return null;
+  return (
+    <View testID={testID} style={styles.breakdown}>
+      <Text style={styles.heading}>
+        +{preview.total} {brand.points} for you
+      </Text>
+      {preview.items.map((item) => (
+        <View key={item.reason} style={styles.row}>
+          <Text style={[styles.points, item.conditional && styles.muted]}>+{item.points}</Text>
+          <Text style={[styles.label, item.conditional && styles.muted]}>
+            {item.label}
+            {item.conditional ? " · if everyone comes" : ""}
+          </Text>
         </View>
+      ))}
+      {preview.noveltyReason ? (
+        <Text style={styles.reason}>
+          {preview.noveltyReason}
+          {preview.scored ? "" : " · scoring…"}
+        </Text>
       ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: spacing.sm },
+  heading: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text },
   chip: { alignSelf: "flex-start", backgroundColor: colors.warningSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
   chipText: { fontSize: font.size.sm, fontWeight: font.weight.heavy, color: colors.text },
   breakdown: { backgroundColor: colors.cardMuted, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs },

@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics";
+import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Card } from "./ui";
-import SponsoredBadge from "./SponsoredBadge";
 import VoteBar from "./VoteBar";
 import { colors, font, spacing } from "../constants/theme";
 import { formatCostPerPerson } from "../lib/format";
@@ -24,9 +24,11 @@ type Props = {
   winner: boolean;
   disabled: boolean;
   onPress: () => void;
+  extra?: ReactNode;
+  footer?: ReactNode;
 };
 
-export default function OptionCard({ index, option, count, total, selected, winner, disabled, onPress }: Props) {
+export default function OptionCard({ index, option, count, total, selected, winner, disabled, onPress, extra, footer }: Props) {
   const handlePress = () => {
     Haptics.selectionAsync().catch(() => {});
     onPress();
@@ -42,24 +44,21 @@ export default function OptionCard({ index, option, count, total, selected, winn
       accessibilityLabel={`Vote for ${option.title}`}
     >
       <View style={styles.header}>
-        <Text style={styles.number}>{index + 1}</Text>
-        <Text testID={`option-title-${index}`} style={styles.title}>
+        <Text testID={`option-title-${index}`} style={styles.title} numberOfLines={1}>
           {winner ? "🏆 " : ""}
           {option.title}
         </Text>
+        {extra}
       </View>
-      {option.sponsorId ? <SponsoredBadge testID={`sponsored-badge-${index}`} /> : null}
-      <Text testID={`option-cost-${index}`} style={styles.cost}>
+      <Text testID={`option-cost-${index}`} style={styles.cost} numberOfLines={1}>
         {formatCostPerPerson(option.costMin, option.costMax)}
+        {option.travel ? <Text testID={`option-travel-${index}`}> · {option.travel}</Text> : null}
+        {option.sponsorId ? <Text testID={`sponsored-badge-${index}`}> · Sponsored</Text> : null}
       </Text>
-      <Text testID={`option-why-${index}`} style={styles.why}>
+      <Text testID={`option-why-${index}`} style={styles.why} numberOfLines={1}>
         {option.why}
       </Text>
-      {option.travel ? (
-        <Text testID={`option-travel-${index}`} style={styles.travel}>
-          🚇 {option.travel}
-        </Text>
-      ) : null}
+      {footer}
       <VoteBar testID={`vote-count-${index}`} count={count} total={total} highlight={selected || winner} />
       {selected ? (
         <Text testID={`my-vote-${index}`} style={styles.mine}>
@@ -71,7 +70,7 @@ export default function OptionCard({ index, option, count, total, selected, winn
 }
 
 const styles = StyleSheet.create({
-  card: { gap: spacing.md, borderWidth: 2 },
+  card: { gap: spacing.sm, borderWidth: 2 },
   header: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   number: {
     width: 32,
@@ -84,9 +83,8 @@ const styles = StyleSheet.create({
     color: colors.accentDark,
     fontWeight: font.weight.heavy,
   },
-  title: { flex: 1, fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.text },
-  cost: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.accentDark },
-  why: { fontSize: font.size.md, color: colors.text, lineHeight: 22 },
-  travel: { fontSize: font.size.sm, color: colors.textMuted },
+  title: { flex: 1, fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
+  cost: { fontSize: font.size.md, color: colors.textMuted },
+  why: { fontSize: font.size.md, color: colors.textMuted },
   mine: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.accentDark },
 });

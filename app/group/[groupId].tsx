@@ -5,11 +5,10 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
-import { SchoolHeader } from "../../components/SchoolBadge";
 import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatWindow } from "../../lib/format";
-import { crewStanding, formatPts, schoolFor, withAlpha } from "../../lib/school";
+import { crewStanding, formatPts, schoolFor } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 
 type Plan = FunctionReturnType<typeof api.plans.getGroupPlans>[number];
@@ -110,7 +109,7 @@ export default function GroupScreen() {
         </Text>
         <Text style={styles.planWindow}>{formatWindow(p.window)}</Text>
         {p.status === "voting" && p.options.length > 0 ? (
-          <Text testID={`plan-suggestions-${i}`} style={styles.planWindow} numberOfLines={2}>
+          <Text testID={`plan-suggestions-${i}`} style={styles.planWindow} numberOfLines={1}>
             Vote: {p.options.map((o) => o.title).join(" · ")}
           </Text>
         ) : null}
@@ -124,14 +123,11 @@ export default function GroupScreen() {
   return (
     <Screen testID="group-screen">
       <Stack.Screen options={{ title: group.name }} />
-      <SchoolHeader school={school} testID="group-school-header" />
       <Title testID="group-title">{group.name}</Title>
       {standing ? (
-        <View testID="group-standing" style={[styles.standing, { backgroundColor: withAlpha(accent, 0.1) }]}>
-          <Text testID="group-standing-text" style={[styles.standingText, { color: accent }]}>
-            🏆 {standing}
-          </Text>
-        </View>
+        <Text testID="group-standing-text" style={[styles.standingText, { color: accent }]}>
+          {standing}
+        </Text>
       ) : null}
 
       <View testID="member-row" style={styles.members}>
@@ -147,28 +143,27 @@ export default function GroupScreen() {
         ))}
       </View>
 
-      <View testID="invite-code-chip" style={styles.inviteChip}>
-        <Text style={styles.inviteLabel}>Invite code</Text>
+      <Text testID="invite-code-chip" style={styles.inviteLabel}>
+        Invite code{" "}
         <Text testID="group-invite-code" style={styles.inviteCode} selectable>
           {group.inviteCode}
         </Text>
-      </View>
+      </Text>
 
       {pick ? (
         <Card testID="group-pick-banner" tone="accent" style={styles.pickBanner}>
-          <Text style={styles.pickLabel}>YOU PICKED</Text>
-          <Text testID="group-pick-title" style={styles.planTitle}>
+          <Text testID="group-pick-title" style={styles.planTitle} numberOfLines={1}>
             {pick}
           </Text>
-          <Text style={styles.planWindow}>Pick a time below. We'll line up 3 ideas your crew will like, and everyone votes.</Text>
+          <Text style={styles.planWindow}>Pick a time, then your crew votes.</Text>
         </Card>
       ) : null}
 
-      <SectionHeader title="1. Pick a time you're all free" testID="free-windows-header" />
+      <SectionHeader title="Pick a time" testID="free-windows-header" />
       {windows === undefined ? (
         <LoadingState label="Finding times that work…" testID="windows-loading" />
       ) : windows.length === 0 ? (
-        <EmptyState testID="windows-empty" emoji="📅" title="No shared free time" body="Nothing 2+ hours long in the next 7 days. Connect calendars or check back soon." />
+        <EmptyState testID="windows-empty" emoji="📅" title="No shared free time" body="Nothing free in the next 7 days." />
       ) : (
         windows.map((win, i) => (
           <Card
@@ -186,8 +181,7 @@ export default function GroupScreen() {
       {planError ? <ErrorState testID="plan-error" message={planError} onRetry={planOuting} /> : null}
       <Button
         testID="plan-outing-button"
-        label={selected === null ? "Pick a time first" : "2. Get 3 ideas to vote on"}
-        icon="🍓"
+        label="Get 3 ideas"
         loading={planning}
         disabled={selected === null}
         onPress={planOuting}
@@ -243,20 +237,9 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.accentDark },
   memberName: { fontSize: font.size.sm, color: colors.textMuted, fontWeight: font.weight.semibold },
-  inviteChip: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    minHeight: minTapTarget,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.pill,
-    backgroundColor: colors.cardMuted,
-  },
   inviteLabel: { fontSize: font.size.sm, color: colors.textMuted },
   inviteCode: { fontSize: font.size.md, fontWeight: font.weight.heavy, letterSpacing: 2, color: colors.accentDark },
   pickBanner: { gap: spacing.xs },
-  pickLabel: { fontSize: font.size.xs, fontWeight: font.weight.heavy, color: colors.accent, letterSpacing: 0.5 },
   windowCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 64, borderWidth: 2 },
   windowText: { fontSize: font.size.lg, fontWeight: font.weight.semibold, color: colors.text, flex: 1 },
   windowCheck: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.accent },
@@ -264,7 +247,6 @@ const styles = StyleSheet.create({
   planInfo: { flex: 1, gap: spacing.xs },
   planTitle: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
   planWindow: { fontSize: font.size.sm, color: colors.textMuted },
-  standing: { alignSelf: "flex-start", borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   standingText: { fontSize: font.size.sm, fontWeight: font.weight.heavy },
   pill: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: colors.warningSoft },
   pillSuccess: { backgroundColor: colors.successSoft },

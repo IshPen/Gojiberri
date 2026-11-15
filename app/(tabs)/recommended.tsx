@@ -3,16 +3,15 @@ import { useAction, useQuery } from "convex/react";
 import { useRouter, type ErrorBoundaryProps } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import GojiChip, { useGojiPreviews } from "../../components/GojiChip";
+import GojiChip, { GojiDetails, useGojiPreviews } from "../../components/GojiChip";
 import PointsPill from "../../components/PointsPill";
-import { SchoolHeader } from "../../components/SchoolBadge";
-import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
-import { brand, colors, font, radius, spacing } from "../../constants/theme";
+import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
+import { colors, font, spacing } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatWindow } from "../../lib/format";
 import { useUserId } from "../../lib/session";
 
-const MAX_PICKS = 4;
+const MAX_PICKS = 3;
 
 export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
   return (
@@ -34,6 +33,7 @@ export default function RecommendedScreen() {
   const getProfile = useAction(api.memory.getMyProfile);
   const [knows, setKnows] = useState<string[] | null | undefined>(undefined);
   const [crewIndex, setCrewIndex] = useState(0);
+  const [openGoji, setOpenGoji] = useState<string | null>(null);
 
   const loadKnows = useCallback(() => {
     if (!userId) return;
@@ -80,60 +80,51 @@ export default function RecommendedScreen() {
     );
   }
 
-  const why = (matched: string[], fits: boolean) => {
-    const vibe = matched.length > 0 ? `You swiped for ${matched.slice(0, 2).join(" + ")}` : "Something outside your usual vibes";
-    return fits ? `${vibe}, and it fits your $${budget} budget.` : `${vibe}.`;
-  };
+  const why = (matched: string[]) => (matched.length > 0 ? `You like ${matched[0]}` : "Something new");
 
   const planWith = (title: string) => {
     if (!crew) return router.push("/group/new");
     router.push({ pathname: "/group/[groupId]", params: { groupId: crew._id, pick: title } });
   };
 
+  const gap = ranks && ranks.crewRank && ranks.crewRank > 1 ? Math.round(((ranks.leaderAvg ?? 0) - (ranks.crewAvg ?? 0)) * 10) / 10 : null;
+
   return (
-    <Screen testID="recommended-screen">
-      <SchoolHeader school={user?.homeArea} testID="home-school-header" />
+    <Screen testID="recommended-screen" contentStyle={styles.screen}>
       <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Title testID="home-greeting">For you, {user?.name ?? "friend"}</Title>
-          <Subtitle>Ideas for you and your crew, picked from your swipes and ratings.</Subtitle>
-        </View>
+        <Title testID="home-greeting" style={{ flex: 1 }}>
+          For you, {user?.name ?? "friend"}
+        </Title>
         {user ? <PointsPill testID="home-points" points={user.points} /> : null}
       </View>
 
       {ranks?.crewRank ? (
-        <Card testID="home-crew-rank" tone="muted" onPress={() => router.push("/(tabs)/leaderboard")} style={styles.rankRow}>
-          <Text style={styles.rankText}>
-            🏆 {ranks.crewName} is #{ranks.crewRank} at {ranks.school}
-            {ranks.crewRank > 1 && ranks.leaderName
-              ? `, ${Math.round(((ranks.leaderAvg ?? 0) - (ranks.crewAvg ?? 0)) * 10) / 10} pts behind ${ranks.leaderName}`
-              : ""}
-          </Text>
-          <Text style={styles.rankSub}>Check in together on group outings to climb.</Text>
-        </Card>
+        <Text testID="home-crew-rank" style={styles.rank} onPress={() => router.push("/(tabs)/leaderboard")}>
+          🏆 {ranks.crewName} is #{ranks.crewRank} at {ranks.school}
+          {gap !== null ? ` · ${gap} pts behind ${ranks.leaderName}` : ""}
+        </Text>
       ) : null}
 
       {plans === undefined ? null : nextPlan ? (
-        <Card testID="home-up-next" tone="accent" style={styles.gap} onPress={() => router.push(`/plan/${nextPlan._id}`)}>
-          <Text style={styles.eyebrow}>UP NEXT · {nextPlan.groupName.toUpperCase()}</Text>
-          <Text testID="home-crew-next-plan" style={styles.title}>
-            {nextPlan.status === "voting" ? "Your crew is voting on 3 ideas" : nextPlan.winner?.title ?? "Your crew's outing"}
+        <Card testID="home-up-next" tone="accent" style={styles.card} onPress={() => router.push(`/plan/${nextPlan._id}`)}>
+          <Text style={styles.eyebrow}>Up next · {nextPlan.groupName}</Text>
+          <Text testID="home-crew-next-plan" style={styles.title} numberOfLines={1}>
+            {nextPlan.status === "voting" ? "Vote on 3 ideas" : nextPlan.winner?.title ?? "Your crew's outing"}
           </Text>
-          <Text style={styles.muted}>🗓️ {formatWindow(nextPlan.window)}</Text>
+          <Text style={styles.muted}>{formatWindow(nextPlan.window)}</Text>
           {nextPlan.status === "voting" ? (
-            <Button testID="home-vote-now" label="Vote now" icon="🗳️" onPress={() => router.push(`/plan/${nextPlan._id}`)} />
+            <Button testID="home-vote-now" label="Vote now" onPress={() => router.push(`/plan/${nextPlan._id}`)} />
           ) : (
             <Button
               testID="home-crew-checkin"
-              label={`Check in to earn ${brand.points}`}
-              icon="📸"
+              label="Check in"
               onPress={() => router.push({ pathname: "/camera", params: { planId: nextPlan._id, groupId: nextPlan.groupId } })}
             />
           )}
         </Card>
       ) : null}
 
-      <SectionHeader title={crew ? `Picked for you and ${crew.name}` : "Picked for you"} testID="picks-header" />
+      <SectionHeader title="Picked for you" testID="picks-header" />
       {groups && groups.length > 1 ? (
         <View style={styles.chips}>
           {groups.map((g, i) => (
@@ -145,84 +136,66 @@ export default function RecommendedScreen() {
         <EmptyState
           testID="crew-empty"
           emoji="👯"
-          title="Plans need a crew"
-          body={`Start a crew with your friends or join one with an invite code. Your crew earns ${brand.points} when you check in together.`}
+          title="Start a crew first"
+          body="Plans are made with friends."
           actionLabel="Start a crew"
           actionTestID="crew-empty-action"
           onAction={() => router.push("/group/new")}
         />
       ) : null}
       {experiences === undefined || user === undefined ? (
-        <LoadingState testID="picks-loading" label="Picking ideas for you…" />
+        <LoadingState testID="picks-loading" label="Finding ideas…" />
       ) : picks.length === 0 ? (
         <EmptyState
           testID="picks-empty"
           emoji="🧭"
           title="No picks yet"
-          body="Nothing fits your crew right now. Pick a time and we'll suggest 3 outings anyway."
-          actionLabel={crew ? `Plan an outing with ${crew.name}` : undefined}
+          actionLabel={crew ? "Plan an outing" : undefined}
           actionTestID="picks-empty-action"
           onAction={crew ? () => router.push(`/group/${crew._id}`) : undefined}
         />
       ) : (
-        picks.map(({ e, matched, fits }, i) => (
-          <Card key={e._id} testID={`pick-card-${i}`} style={styles.gap}>
+        picks.map(({ e, matched }, i) => (
+          <Card key={e._id} testID={`pick-card-${i}`} style={styles.card}>
             <View style={styles.row}>
-              <Text style={styles.eyebrow} numberOfLines={1}>
-                {e.businessName.toUpperCase() || "LOCAL SPOT"}
+              <Text testID={`pick-title-${i}`} style={[styles.title, { flex: 1 }]} numberOfLines={1}>
+                {e.title}
               </Text>
-              <View style={styles.price}>
-                <Text style={styles.priceText}>${e.pricePerPerson}/person</Text>
-              </View>
+              <GojiChip
+                testID={`pick-gojis-${i}`}
+                preview={previews.get(`exp:${e._id}`)}
+                open={openGoji === e._id}
+                onPress={() => setOpenGoji(openGoji === e._id ? null : e._id)}
+              />
             </View>
-            <Text testID={`pick-title-${i}`} style={styles.title}>
-              {e.title}
+            <Text style={styles.muted} numberOfLines={1}>
+              {e.businessName || "Local spot"} · ${e.pricePerPerson}/person
             </Text>
-            <Text testID={`pick-why-${i}`} style={styles.muted}>
-              ✨ {why(matched, fits)}
+            <Text testID={`pick-why-${i}`} style={styles.muted} numberOfLines={1}>
+              {why(matched)}
             </Text>
-            <GojiChip testID={`pick-gojis-${i}`} preview={previews.get(`exp:${e._id}`)} />
+            {openGoji === e._id ? <GojiDetails testID={`pick-gojis-${i}-breakdown`} preview={previews.get(`exp:${e._id}`)} /> : null}
             <Button
               testID={`pick-plan-${i}`}
-              label={crew ? `Plan this with ${crew.name}` : "Start a crew to plan this"}
-              variant={i === 0 ? "primary" : "secondary"}
+              label={crew ? `Plan with ${crew.name}` : "Start a crew"}
+              variant={i === 0 && !nextPlan ? "primary" : "secondary"}
               onPress={() => planWith(e.title)}
             />
           </Card>
         ))
       )}
-
-      <SectionHeader title="Why these picks" testID="knows-home-header" />
-      <Card testID="home-knows" tone="muted" style={styles.gap}>
-        {knows === undefined ? (
-          <Text style={styles.muted}>Reading your swipes and ratings…</Text>
-        ) : knows === null ? (
-          <Button testID="home-knows-retry" label="Couldn't load your taste. Try again" variant="ghost" onPress={loadKnows} />
-        ) : knows.length === 0 ? (
-          <Text style={styles.muted}>Swipe and rate your crew's outings and {brand.name} will learn your taste.</Text>
-        ) : (
-          knows.slice(0, 4).map((k, i) => (
-            <Text key={i} testID={`home-knows-item-${i}`} style={styles.muted}>
-              • {k}
-            </Text>
-          ))
-        )}
-      </Card>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { gap: spacing.xl },
   header: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  gap: { gap: spacing.sm },
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  card: { gap: spacing.sm },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  eyebrow: { flex: 1, fontSize: font.size.xs, fontWeight: font.weight.heavy, color: colors.accent, letterSpacing: 0.5 },
+  rank: { fontSize: font.size.md, fontWeight: font.weight.semibold, color: colors.textMuted, marginTop: -spacing.md },
+  eyebrow: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.accentDark },
   title: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
   muted: { fontSize: font.size.md, color: colors.textMuted },
-  rankRow: { gap: spacing.xs, paddingVertical: spacing.lg },
-  rankText: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text },
-  rankSub: { fontSize: font.size.sm, color: colors.textMuted },
-  price: { backgroundColor: colors.successSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  priceText: { fontSize: font.size.xs, fontWeight: font.weight.heavy, color: colors.success },
 });
