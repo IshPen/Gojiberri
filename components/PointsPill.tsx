@@ -3,18 +3,18 @@ import { brand, colors, font, radius, spacing } from "../constants/theme";
 
 type Props = {
   points: number;
-  kind?: "gojis" | "golden";
+  kind?: "gojis" | "rewards";
   testID?: string;
   size?: "sm" | "lg";
 };
 
 export default function PointsPill({ points, kind = "gojis", testID = "points-pill", size = "sm" }: Props) {
-  const golden = kind === "golden";
+  const golden = kind === "rewards";
   const large = size === "lg";
   return (
     <View
       testID={testID}
-      accessibilityLabel={`${points} ${golden ? brand.diamonds : brand.points}`}
+      accessibilityLabel={`${points} ${golden ? brand.rewards : brand.points}`}
       style={{
         alignSelf: "flex-start",
         flexDirection: "row",
@@ -26,7 +26,7 @@ export default function PointsPill({ points, kind = "gojis", testID = "points-pi
         paddingVertical: large ? spacing.sm : spacing.xs,
       }}
     >
-      <Text style={{ fontSize: large ? font.size.lg : font.size.sm }}>{golden ? brand.diamondsEmoji : brand.pointsEmoji}</Text>
+      <Text style={{ fontSize: large ? font.size.lg : font.size.sm }}>{golden ? brand.rewardEmoji : brand.pointsEmoji}</Text>
       <Text
         testID={`${testID}-value`}
         style={{

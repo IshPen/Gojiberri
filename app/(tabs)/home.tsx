@@ -58,7 +58,7 @@ const MOCK_UPCOMING: UpcomingPlan[] = [
   { _id: "plan-locked-2" as Id<"plans">, groupName: "Hack Crew", title: "Sunset at Twin Peaks + Tacos", window: { start: NOW + 5 * 86400000, end: NOW + 5 * 86400000 + 4 * 3600000 } },
 ];
 const MOCK_SPONSORS: Sponsor[] = [
-  { _id: "sp1" as Id<"sponsors">, business: "Ritual Coffee Roasters", offer: "Free pastry with any drink", rewardCost: 3, priceLevel: 2, active: true },
+  { _id: "sp1" as Id<"sponsors">, business: "Ritual Coffee Roasters", offer: "Free pastry with any drink", rewardCost: 1, priceLevel: 2, active: true },
 ];
 
 export default function HomeScreen() {
