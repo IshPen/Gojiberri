@@ -14,17 +14,17 @@ These are three natural-language tests to run on iOS and Android. Each step name
 
 ## 2. Open a plan, vote, confirm, see the lock banner
 
-1. On the For You tab, tap `pick-plan-0` ("Plan this with Hack Crew"). Assert that the crew page opens with `group-pick-banner` showing the pick (`group-pick-title`). Alternatively, from the Crews tab (`tab-groups`), tap `group-card-0`.
-2. Tap `free-window-0`, then `plan-outing-button`.
-3. Assert that `plan-generating` shows, then that `vote-option-0`, `vote-option-1` and `vote-option-2` appear.
-4. Tap `vote-option-1`. Assert that `vote-count-1` increases and `lock-banner` appears with the winner title (`lock-winner-title`).
+1. On the For You tab, tap `pick-plan-0` ("Plan with Hack Crew"). The pick card expands inline (`pick-planner-0`). The crew page no longer plans; its `plan-on-for-you` card links back here.
+2. Tap `free-window-0`, then `plan-outing-button` ("Send to Hack Crew to vote").
+3. Assert that the `home-up-next` card on For You shows the plan inline (`plan-inline`): first `plan-generating`, then one idea, `vote-option-0`, with `plan-im-in` ("I'm in") and `plan-reject` ("Not feeling it · 10 Gojis"). If the backend still returns 3 options, only the first is shown. When the crew has several active plans, switch between them with `home-plan-chip-N`. The same panel is still available at /plan/[planId] (`plan-screen`) for deep links and notifications.
+4. Tap `plan-im-in`. Assert that `vote-count-0` increases. Once a majority is in, `lock-banner` appears with the winner title (`lock-winner-title`).
 5. Tap `confirm-attendance`. Assert that `confirmed-badge` is visible.
-6. (Pass on ideas) On a plan that is still voting, tap `plan-reject` ("Not feeling these · 10 Gojis"). Assert that `plan-goji-balance` reads "Spend 10 of your N Gojis to pass?", then tap `plan-reject-confirm`. Assert that `plan-reject-count` starts with "1 of N passed" and `plan-reject-spent` shows "-10 Gojis". When more than half the crew passes, `plan-generating` shows "New ideas on the way", then `plan-new-ideas` appears above the new `vote-option-*` cards. Needs votes.rejectOptions (HOME-34) deployed and `REJECT_MOCK = false`.
+6. (Pass on ideas) On a plan that is still voting, tap `plan-reject` ("Not feeling it · 10 Gojis"). Assert that `plan-goji-balance` reads "Spend 10 of your N Gojis to pass?", then tap `plan-reject-confirm`. Assert that `plan-reject-count` starts with "1 of N out, at half we'll find a new idea" and `plan-reject-spent` shows "-10 Gojis". When half or more of the crew opts out, `plan-generating` shows "New idea on the way", then `plan-new-ideas` appears above the new `vote-option-0` idea. Needs votes.rejectOptions (HOME-34) deployed and `REJECT_MOCK = false`.
 
 ## 3. Take a photo, see it in the story, Gojis go up
 
 1. Note the value of `home-points-value` on the For You tab.
-2. From the group page, tap `story-link`, then `story-add-photo` (or tap `home-crew-checkin` on For You, or `plan-checkin` on a locked plan).
+2. From the group page, tap `story-link`, then `story-add-photo` (or tap `plan-checkin` on the locked plan in For You's `home-up-next` card).
 3. Tap `take-photo` (on the simulator, use `choose-photo`) and pick any image. Assert that `photo-preview` is visible.
 4. Type "best night" into `caption-input` and tap `upload-photo`.
 5. Assert that `upload-success` shows the Goji breakdown (`goji-breakdown`) with a `goji-item-checkin` line, and that `upload-success-points` shows the total (at least "+50 Gojis"). Tap `view-story` and assert that a `photo-tile-0` is visible.

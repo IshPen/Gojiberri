@@ -1,9 +1,10 @@
 import type { GenericId as Id } from "convex/values";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { useRouter, type ErrorBoundaryProps } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import GojiChip, { GojiDetails, useGojiPreviews } from "../../components/GojiChip";
+import PlanPanel from "../../components/PlanPanel";
 import PointsPill from "../../components/PointsPill";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
 import { colors, font, spacing, type } from "../../constants/theme";
@@ -35,6 +36,11 @@ export default function RecommendedScreen() {
   const [knows, setKnows] = useState<string[] | null | undefined>(undefined);
   const [crewIndex, setCrewIndex] = useState(0);
   const [openGoji, setOpenGoji] = useState<string | null>(null);
+  const [focusPlanId, setFocusPlanId] = useState<string | null>(null);
+  const [planningPick, setPlanningPick] = useState<string | null>(null);
+  const [selectedWindow, setSelectedWindow] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
 
   const loadKnows = useCallback(() => {
     if (!userId) return;
@@ -45,7 +51,34 @@ export default function RecommendedScreen() {
   useEffect(loadKnows, [loadKnows]);
 
   const crew = groups?.[Math.min(crewIndex, groups.length - 1)];
-  const nextPlan = plans?.find((p) => p.status === "voting" || p.status === "locked");
+  const activePlans = plans ?? [];
+  const nextPlan = activePlans.find((p) => p._id === focusPlanId) ?? activePlans.find((p) => p.status === "voting" || p.status === "generating") ?? activePlans[0];
+  const range = useMemo(() => {
+    const from = Date.now();
+    return { from, to: from + 7 * 24 * 60 * 60 * 1000 };
+  }, []);
+  const windows = useQuery(api.availability.findFreeWindows, crew && planningPick ? { groupId: crew._id, ...range, minHours: 2 } : "skip");
+  const createPlan = useMutation(api.plans.createPlan);
+  const sendToCrew = async () => {
+    if (!crew || !planningPick || selectedWindow === null || !windows?.[selectedWindow]) return;
+    setSending(true);
+    setPlanError(null);
+    try {
+      const planId = await createPlan({
+        userId: userId as Id<"users">,
+        groupId: crew._id,
+        window: windows[selectedWindow],
+        seedExperienceId: planningPick as Id<"experiences">,
+      });
+      setFocusPlanId(planId);
+      setPlanningPick(null);
+      setSelectedWindow(null);
+    } catch (e) {
+      setPlanError(e instanceof Error ? e.message : "Couldn't send it to your crew. Try again.");
+    } finally {
+      setSending(false);
+    }
+  };
   const vibes = new Set((user?.vibes ?? []).map((v) => v.toLowerCase()));
   const memoryText = (knows ?? []).join(" ").toLowerCase();
   const budget = user?.budgetMax ?? Infinity;
@@ -85,7 +118,9 @@ export default function RecommendedScreen() {
 
   const planWith = (experienceId: string) => {
     if (!crew) return router.push("/group/new");
-    router.push({ pathname: "/group/[groupId]", params: { groupId: crew._id, pick: experienceId } });
+    setPlanError(null);
+    setSelectedWindow(null);
+    setPlanningPick(planningPick === experienceId ? null : experienceId);
   };
 
   const gap = ranks && ranks.crewRank && ranks.crewRank > 1 ? Math.round(((ranks.leaderAvg ?? 0) - (ranks.crewAvg ?? 0)) * 10) / 10 : null;
@@ -107,21 +142,24 @@ export default function RecommendedScreen() {
       ) : null}
 
       {plans === undefined ? null : nextPlan ? (
-        <Card testID="home-up-next" tone="accent" style={styles.card} onPress={() => router.push(`/plan/${nextPlan._id}`)}>
-          <Text style={styles.eyebrow}>Up next · {nextPlan.groupName}</Text>
-          <Text testID="home-crew-next-plan" style={styles.title} numberOfLines={1}>
-            {nextPlan.status === "voting" ? "Vote on 3 ideas" : (nextPlan.winner ? cleanTitle(nextPlan.winner.title) : undefined) ?? "Your crew's outing"}
+        <Card testID="home-up-next" tone="accent" style={styles.card}>
+          <Text testID="home-crew-next-plan" style={styles.eyebrow}>
+            Up next · {nextPlan.groupName}
           </Text>
-          <Text style={styles.muted}>{formatWindow(nextPlan.window)}</Text>
-          {nextPlan.status === "voting" ? (
-            <Button testID="home-vote-now" label="Vote now" onPress={() => router.push(`/plan/${nextPlan._id}`)} />
-          ) : (
-            <Button
-              testID="home-crew-checkin"
-              label="Check in"
-              onPress={() => router.push({ pathname: "/camera", params: { planId: nextPlan._id, groupId: nextPlan.groupId } })}
-            />
-          )}
+          {activePlans.length > 1 ? (
+            <View style={styles.chips}>
+              {activePlans.map((p, i) => (
+                <Chip
+                  key={p._id}
+                  testID={`home-plan-chip-${i}`}
+                  label={p.winner ? cleanTitle(p.winner.title) : p.status === "generating" ? "New ideas" : "Vote"}
+                  selected={p._id === nextPlan._id}
+                  onPress={() => setFocusPlanId(p._id)}
+                />
+              ))}
+            </View>
+          ) : null}
+          <PlanPanel key={nextPlan._id} planId={nextPlan._id} inline />
         </Card>
       ) : null}
 
@@ -176,12 +214,37 @@ export default function RecommendedScreen() {
               {why(matched)}
             </Text>
             {openGoji === e._id ? <GojiDetails testID={`pick-gojis-${i}-breakdown`} preview={previews.get(`exp:${e._id}`)} /> : null}
-            <Button
-              testID={`pick-plan-${i}`}
-              label={crew ? `Plan with ${crew.name}` : "Start a crew"}
-              variant={i === 0 && !nextPlan ? "primary" : "secondary"}
-              onPress={() => planWith(e._id)}
-            />
+            {planningPick === e._id ? (
+              <View testID={`pick-planner-${i}`} style={styles.card}>
+                <Text style={styles.eyebrow}>Pick a time</Text>
+                {windows === undefined ? (
+                  <LoadingState label="Finding times that work…" testID="windows-loading" />
+                ) : windows.length === 0 ? (
+                  <Text testID="windows-empty" style={styles.muted}>No shared free time in the next 7 days.</Text>
+                ) : (
+                  <View style={styles.chips}>
+                    {windows.map((win, w) => (
+                      <Chip key={win.start} testID={`free-window-${w}`} label={formatWindow(win)} selected={selectedWindow === w} onPress={() => setSelectedWindow(w)} />
+                    ))}
+                  </View>
+                )}
+                {planError ? <ErrorState testID="plan-error" message={planError} onRetry={sendToCrew} /> : null}
+                <Button
+                  testID="plan-outing-button"
+                  label={`Send to ${crew?.name ?? "your crew"} to vote`}
+                  loading={sending}
+                  disabled={selectedWindow === null}
+                  onPress={sendToCrew}
+                />
+              </View>
+            ) : (
+              <Button
+                testID={`pick-plan-${i}`}
+                label={crew ? `Plan with ${crew.name}` : "Start a crew"}
+                variant={i === 0 && !nextPlan ? "primary" : "secondary"}
+                onPress={() => planWith(e._id)}
+              />
+            )}
           </Card>
         ))
       )}

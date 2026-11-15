@@ -1,11 +1,10 @@
 import type { GenericId as Id } from "convex/values";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
-import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
+import { brand, colors, font, radius, spacing } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatWindow } from "../../lib/format";
 import { avatarFor } from "../../lib/avatar";
@@ -15,11 +14,8 @@ import { cleanTitle } from "../../lib/format";
 
 type Plan = FunctionReturnType<typeof api.plans.getGroupPlans>[number];
 
-type TimeBlock = { start: number; end: number };
 type PlanStatus = "generating" | "voting" | "locked" | "done" | "cancelled";
 
-const HOUR = 60 * 60 * 1000;
-const DAY = 24 * HOUR;
 
 const STATUS_LABEL: Record<PlanStatus, string> = {
   generating: "Cooking…",
@@ -32,49 +28,15 @@ const STATUS_LABEL: Record<PlanStatus, string> = {
 export default function GroupScreen() {
   const router = useRouter();
   const { userId } = useUserId();
-  const { groupId, pick } = useLocalSearchParams<{ groupId: string; pick?: string }>();
+  const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const gid = groupId as Id<"groups">;
-  const [selected, setSelected] = useState<number | null>(null);
-  const [planning, setPlanning] = useState(false);
-  const [planError, setPlanError] = useState<string | null>(null);
-
-  const range = useMemo(() => {
-    const from = Date.now();
-    return { from, to: from + 7 * DAY };
-  }, []);
 
   const liveArgs = groupId ? { groupId: gid } : "skip";
   const group = useQuery(api.groups.getGroup, liveArgs);
-  const windows = useQuery(api.availability.findFreeWindows, groupId ? { groupId: gid, ...range, minHours: 2 } : "skip");
   const plans = useQuery(api.plans.getGroupPlans, liveArgs);
   const user = useQuery(api.users.getUser, userId ? { userId: userId as Id<"users"> } : "skip");
   const school = user?.homeArea ?? null;
   const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
-  const createPlan = useMutation(api.plans.createPlan);
-  const picked = useQuery(api.experiences.getExperience, pick ? { experienceId: pick as Id<"experiences"> } : "skip");
-
-  const planOuting = async () => {
-    if (selected === null || !windows) return;
-    if (!userId) {
-      setPlanError("Finish joining your school first.");
-      return;
-    }
-    setPlanning(true);
-    setPlanError(null);
-    try {
-      const planId = await createPlan({
-        userId: userId as Id<"users">,
-        groupId: gid,
-        window: windows[selected],
-        seedExperienceId: picked ? picked._id : undefined,
-      });
-      router.push(`/plan/${planId}`);
-    } catch (e) {
-      setPlanError(e instanceof Error ? e.message : "Couldn't ask for suggestions. Try again.");
-    } finally {
-      setPlanning(false);
-    }
-  };
 
   if (group === undefined) {
     return (
@@ -157,48 +119,19 @@ export default function GroupScreen() {
         </Text>
       </Text>
 
-      {picked ? (
-        <Card testID="group-pick-banner" tone="accent" style={styles.pickBanner}>
-          <Text testID="group-pick-title" style={styles.planTitle} numberOfLines={1}>
-            {cleanTitle(picked.title)}
-          </Text>
-          <Text style={styles.planWindow}>Pick a time, then your crew votes.</Text>
-        </Card>
-      ) : null}
-
-      <SectionHeader title="Pick a time" testID="free-windows-header" />
-      {windows === undefined ? (
-        <LoadingState label="Finding times that work…" testID="windows-loading" />
-      ) : windows.length === 0 ? (
-        <EmptyState testID="windows-empty" emoji="📅" title="No shared free time" body="Nothing free in the next 7 days." />
-      ) : (
-        windows.map((win, i) => (
-          <Card
-            key={win.start}
-            testID={`free-window-${i}`}
-            tone={selected === i ? "accent" : "default"}
-            onPress={() => setSelected(i)}
-            style={styles.windowCard}
-          >
-            <Text style={styles.windowText}>{formatWindow(win)}</Text>
-            <Text style={styles.windowCheck}>{selected === i ? "✓" : ""}</Text>
-          </Card>
-        ))
-      )}
-      {planError ? <ErrorState testID="plan-error" message={planError} onRetry={planOuting} /> : null}
-      <Button
-        testID="plan-outing-button"
-        label="Get 3 ideas"
-        loading={planning}
-        disabled={selected === null}
-        onPress={planOuting}
-      />
+      <Card testID="plan-on-for-you" tone="accent" onPress={() => router.push("/(tabs)/recommended")} style={styles.planCard}>
+        <View style={styles.planInfo}>
+          <Text style={styles.planTitle}>Pick an outing on For You</Text>
+          <Text style={styles.planWindow}>Tap a pick, choose a time and your crew votes right there.</Text>
+        </View>
+        <Text style={styles.planTitle}>›</Text>
+      </Card>
 
       <SectionHeader title="Your crew's plans" testID="upcoming-header" />
       {plans === undefined ? (
         <LoadingState label="Loading plans…" testID="plans-loading" />
       ) : upcoming.length === 0 ? (
-        <EmptyState testID="plans-empty" emoji="🗓️" title="No plans yet" body={`Pick a time above and we'll suggest 3 outings your crew will like. Check in together to earn ${brand.points}.`} />
+        <EmptyState testID="plans-empty" emoji="🗓️" title="No plans yet" body={`Pick an outing on For You and your crew votes. Check in together to earn ${brand.points}.`} />
       ) : (
         upcoming.map(renderPlan)
       )}
@@ -246,9 +179,6 @@ const styles = StyleSheet.create({
   memberName: { fontSize: font.size.sm, color: colors.textMuted, fontWeight: font.weight.semibold },
   inviteLabel: { fontSize: font.size.sm, color: colors.textMuted },
   inviteCode: { fontSize: font.size.md, fontWeight: font.weight.heavy, letterSpacing: 2, color: colors.accentDark },
-  pickBanner: { gap: spacing.xs },
-  windowCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 64, borderWidth: 2 },
-  windowText: { fontSize: font.size.lg, fontWeight: font.weight.semibold, color: colors.text, flex: 1 },
   windowCheck: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.accent },
   planCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, minHeight: 64 },
   planInfo: { flex: 1, gap: spacing.xs },
