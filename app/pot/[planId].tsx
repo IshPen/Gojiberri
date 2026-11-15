@@ -142,7 +142,7 @@ export default function PotScreen() {
         <EmptyState
           testID="pot-empty"
           actionTestID="pot-start-button"
-          emoji="🫙"
+          emoji="🧺"
           title="Start a crew basket"
           body="Everyone keeps their own share inside it. It only pays for experiences, split evenly between whoever's going."
           actionLabel={busy === "start" ? "Starting…" : "Start a basket"}

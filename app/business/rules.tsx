@@ -84,7 +84,7 @@ function RuleForm({ business, rule }: { business: string; rule: MockRule | null 
         <Text style={type.muted}>Chip-ins stop automatically when the budget runs out.</Text>
       </Card>
       {!rule || rule.chipIns.length === 0 ? (
-        <EmptyState testID="rules-chipins-empty" emoji="🫙" title="No chip-ins yet" body="They show up here when crews lock a plan with you." />
+        <EmptyState testID="rules-chipins-empty" emoji="🧺" title="No chip-ins yet" body="They show up here when crews lock a plan with you." />
       ) : (
         rule.chipIns.map((c, i) => (
           <Card key={`${c.crew}-${c.at}`} testID={`rules-chipin-${i}`} style={styles.row}>

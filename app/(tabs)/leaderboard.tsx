@@ -144,7 +144,7 @@ function CrewsSection({ school, myGroupIds, testID = "crews-section" }: { school
       ) : rows.length === 0 ? (
         <EmptyState
           testID="crews-empty"
-          emoji="🏁"
+          emoji="🍓"
           title={school ? `No crews at ${school} yet` : "No crews on the board yet"}
           body="Start a crew with your friends and check in on a group outing to put it on the map."
         />
@@ -290,7 +290,7 @@ function MeSection({ userId, crewId, myGroupIds }: { userId: string | null; crew
   if (ranks === null || standing === null) {
     return (
       <View style={styles.section}>
-        <EmptyState testID="me-empty" emoji="🧭" title="No crew yet" body="Join or start a crew, then check in on a group outing to get on the board." />
+        <EmptyState testID="me-empty" emoji="🧺" title="No crew yet" body="Join or start a crew, then check in on a group outing to get on the board." />
         {climb}
       </View>
     );

@@ -7,11 +7,12 @@ import GojiChip, { GojiDetails, useGojiPreviews } from "../../components/GojiChi
 import PlanPanel from "../../components/PlanPanel";
 import PointsPill from "../../components/PointsPill";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
-import { colors, font, spacing, type } from "../../constants/theme";
+import { brand, colors, font, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatWindow } from "../../lib/format";
 import { useUserId } from "../../lib/session";
 import { cleanTitle } from "../../lib/format";
+import Basket from "../../components/Basket";
 
 const MAX_PICKS = 3;
 const OPEN_PLAN = "open";
@@ -159,6 +160,17 @@ export default function RecommendedScreen() {
         </Title>
         {user ? <PointsPill testID="home-points" points={user.points} /> : null}
       </View>
+      {user ? (
+        <Card testID="home-basket" tone="muted" style={styles.basketCard} onPress={() => router.push("/(tabs)/profile")}>
+          <Basket size={56} progress={(user.points % brand.pointsPerReward) / brand.pointsPerReward} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.basketTitle}>
+              {brand.emoji} {user.points % brand.pointsPerReward} / {brand.pointsPerReward}
+            </Text>
+            <Text style={styles.muted}>berries toward your next free treat</Text>
+          </View>
+        </Card>
+      ) : null}
 
       {ranks?.crewRank ? (
         <Text testID="home-crew-rank" style={styles.rank} onPress={() => router.push("/(tabs)/leaderboard")}>
@@ -275,4 +287,6 @@ const styles = StyleSheet.create({
   eyebrow: type.eyebrow,
   title: type.heading,
   muted: type.muted,
+  basketCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: -spacing.md },
+  basketTitle: { fontSize: font.size.lg, fontWeight: font.weight.heavy, color: colors.accentDark },
 });
