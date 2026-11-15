@@ -16,6 +16,11 @@ function emit(userId: string | null) {
 export async function getUserId(): Promise<string | null> {
   if (cached !== undefined) return cached;
   const stored = await AsyncStorage.getItem(USER_ID_KEY);
+  if (stored && !/^[a-z0-9]{20,40}$/.test(stored)) {
+    await AsyncStorage.removeItem(USER_ID_KEY);
+    cached = null;
+    return null;
+  }
   cached = stored;
   return stored;
 }

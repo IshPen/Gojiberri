@@ -1,98 +1,28 @@
-import { makeFunctionReference } from "convex/server";
+import type { FunctionReturnType } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useQuery } from "convex/react";
 import { useRouter, type ErrorBoundaryProps } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LayoutAnimation, Pressable, StyleSheet, Text, View } from "react-native";
-import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, Subtitle, Title } from "../../components/ui";
+import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
+import { SchoolHeader } from "../../components/SchoolBadge";
 import { api } from "../../convex/_generated/api";
 import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
-import { useMockQuery } from "../../lib/mock";
+import { formatPts, schoolFor, withAlpha } from "../../lib/school";
 import { useUserId } from "../../lib/session";
-
-const USE_MOCK = true;
 
 type CrewRow = { groupId: Id<"groups">; name: string; school: string; avgPoints: number; memberCount: number };
 type SchoolRow = { school: string; avgPoints: number; userCount: number };
-type MyRanks = {
-  crewRank: number;
-  crewName: string;
-  crewAvg: number;
-  leaderName: string;
-  leaderAvg: number;
-  schoolRank: number;
-  school: string;
-};
-
-// TODO(convex): swap to api.points.groupLeaderboard / schoolLeaderboard / myRanks once I-8 lands
-const groupLeaderboardRef = makeFunctionReference<"query", { school?: string; limit: number }, CrewRow[]>(
-  "points:groupLeaderboard",
-);
-const schoolLeaderboardRef = makeFunctionReference<"query", { limit: number }, SchoolRow[]>("points:schoolLeaderboard");
-const myRanksRef = makeFunctionReference<"query", { userId: Id<"users"> }, MyRanks | null>("points:myRanks");
-
-const MOCK_MY_GROUP = "mock_hack_crew" as Id<"groups">;
-const MOCK_MY_SCHOOL = "Berkeley";
-const crew = (id: string, name: string, school: string, avgPoints: number, memberCount: number): CrewRow => ({
-  groupId: id as Id<"groups">,
-  name,
-  school,
-  avgPoints,
-  memberCount,
-});
-const MOCK_CREWS: CrewRow[] = [
-  crew("mock_unit3", "Unit 3 Floor 2", "Berkeley", 340, 6),
-  crew(MOCK_MY_GROUP, "Hack Crew", "Berkeley", 320, 3),
-  crew("mock_usf_climb", "USF Climbing Club", "USF", 310, 5),
-  crew("mock_boba", "Stanford Boba Society", "Stanford", 295, 6),
-  crew("mock_61b", "CS 61B Survivors", "Berkeley", 275, 5),
-  crew("mock_frosoco", "FroSoCo 2nd Floor", "Stanford", 230, 5),
-  crew("mock_lone_mtn", "Lone Mountain Lofts", "USF", 205, 4),
-  crew("mock_ck", "Clark Kerr Climbers", "Berkeley", 190, 4),
-];
-const MOCK_SCHOOLS: SchoolRow[] = [
-  { school: "Berkeley", avgPoints: 298, userCount: 18 },
-  { school: "Stanford", avgPoints: 262, userCount: 11 },
-  { school: "USF", avgPoints: 251, userCount: 9 },
-  { school: "SF State", avgPoints: 140, userCount: 4 },
-];
-const MOCK_MY_RANKS: MyRanks = {
-  crewRank: 2,
-  crewName: "Hack Crew",
-  crewAvg: 320,
-  leaderName: "Unit 3 Floor 2",
-  leaderAvg: 340,
-  schoolRank: 1,
-  school: "Berkeley",
-};
-
-type LockedPlan = {
-  _id: Id<"plans">;
-  _creationTime: number;
-  groupId: Id<"groups">;
-  groupName: string;
-  status: "generating" | "voting" | "locked" | "done" | "cancelled";
-  winner: { title: string } | null;
-};
-const MOCK_UPCOMING_PLANS: LockedPlan[] = [
-  {
-    _id: "mock_plan_locked" as Id<"plans">,
-    _creationTime: 0,
-    groupId: MOCK_MY_GROUP,
-    groupName: "Hack Crew",
-    status: "locked",
-    winner: { title: "Boba run at Asha Tea House" },
-  },
-];
+type LockedPlan = FunctionReturnType<typeof api.plans.getMyUpcomingPlans>[number];
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 const LIMIT = 20;
 
 type Segment = "crews" | "schools" | "me";
 const SEGMENTS: { key: Segment; label: string }[] = [
-  { key: "crews", label: "Crews" },
-  { key: "schools", label: "Schools" },
+  { key: "crews", label: "My school" },
   { key: "me", label: "Me" },
+  { key: "schools", label: "All schools" },
 ];
 
 const crewKey = (row: CrewRow) => row.groupId;
@@ -144,33 +74,59 @@ function RankBadge({ index, delta, testID }: { index: number; delta?: number; te
   );
 }
 
-function CrewsSection({ mySchool, myGroupIds }: { mySchool: string | null; myGroupIds: Set<string> }) {
-  const [scope, setScope] = useState<"mine" | "all">("mine");
-  const school = scope === "mine" && mySchool ? mySchool : undefined;
-  const live = useQuery(groupLeaderboardRef, USE_MOCK ? "skip" : { school, limit: LIMIT });
-  const mockRows = useMemo(() => MOCK_CREWS.filter((c) => !school || c.school === school).slice(0, LIMIT), [school]);
-  const mock = useMockQuery(mockRows, USE_MOCK);
-  const { rows, deltas } = useRankedRows(USE_MOCK ? mock : live, crewKey, school ?? "all");
+function RivalryCard({ rows, myGroupIds, school }: { rows: CrewRow[]; myGroupIds: Set<string>; school: string }) {
+  const i = rows.findIndex((r) => myGroupIds.has(r.groupId));
+  const accent = schoolFor(school).color;
+  if (i < 0) {
+    const top = rows[0];
+    return (
+      <Card testID="crews-rivalry" style={[styles.rivalry, { backgroundColor: withAlpha(accent, 0.08), borderColor: withAlpha(accent, 0.3) }]}>
+        <Text style={[styles.rivalryVs, { color: accent }]}>TOP OF {school.toUpperCase()}</Text>
+        <Text style={styles.rivalryName} numberOfLines={1}>
+          {top.name}
+        </Text>
+        <Text testID="crews-rivalry-gap" style={styles.rivalryGap}>
+          Start a crew with your friends and check in on an outing to challenge them.
+        </Text>
+      </Card>
+    );
+  }
+  const mine = rows[i];
+  const rival = i > 0 ? rows[i - 1] : rows[i + 1];
+  if (!rival) {
+    return (
+      <Card testID="crews-rivalry" style={[styles.rivalry, { backgroundColor: withAlpha(accent, 0.08), borderColor: withAlpha(accent, 0.3) }]}>
+        <Text style={styles.rivalryName}>{mine.name}</Text>
+        <Text testID="crews-rivalry-gap" style={styles.rivalryGap}>
+          The only crew on the {school} board so far. Invite another friend group to compete.
+        </Text>
+      </Card>
+    );
+  }
+  const gap = formatPts(Math.abs(rival.avgPoints - mine.avgPoints));
+  return (
+    <Card testID="crews-rivalry" style={[styles.rivalry, { backgroundColor: withAlpha(accent, 0.08), borderColor: withAlpha(accent, 0.3) }]}>
+      <Text style={styles.rivalryName} numberOfLines={1}>
+        {mine.name}
+      </Text>
+      <Text style={[styles.rivalryVs, { color: accent }]}>VS</Text>
+      <Text style={styles.rivalryName} numberOfLines={1}>
+        {rival.name}
+      </Text>
+      <Text testID="crews-rivalry-gap" style={styles.rivalryGap}>
+        {i > 0 ? `${rival.name} is ${gap} pts ahead. One group outing could close it.` : `You're #1 at ${school}, ${gap} pts ahead of ${rival.name}. Hold the lead!`}
+      </Text>
+    </Card>
+  );
+}
+
+function CrewsSection({ school, myGroupIds, testID = "crews-section" }: { school?: string; myGroupIds: Set<string>; testID?: string }) {
+  const live = useQuery(api.points.groupLeaderboard, { school, limit: LIMIT });
+  const { rows, deltas } = useRankedRows(live, crewKey, school ?? "all");
 
   return (
-    <View style={styles.section} testID="crews-section">
-      <View style={styles.toggle}>
-        {(["mine", "all"] as const).map((key) => (
-          <Pressable
-            key={key}
-            testID={"crews-scope-" + key}
-            accessibilityRole="button"
-            accessibilityState={{ selected: scope === key }}
-            onPress={() => setScope(key)}
-            style={[styles.toggleItem, scope === key && styles.toggleItemOn]}
-          >
-            <Text style={[styles.toggleText, scope === key && styles.toggleTextOn]}>
-              {key === "mine" ? (mySchool ?? "My school") : "All schools"}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
+    <View style={styles.section} testID={testID}>
+      {school && rows && rows.length > 0 ? <RivalryCard rows={rows} myGroupIds={myGroupIds} school={school} /> : null}
       {rows === undefined ? (
         <LoadingState testID="crews-loading" label="Loading crews…" />
       ) : rows === null ? (
@@ -179,8 +135,8 @@ function CrewsSection({ mySchool, myGroupIds }: { mySchool: string | null; myGro
         <EmptyState
           testID="crews-empty"
           emoji="🏁"
-          title="No crews on the board yet"
-          body="Check in somewhere with your crew this week to put your floor on the map."
+          title={school ? `No crews at ${school} yet` : "No crews on the board yet"}
+          body="Start a crew with your friends and check in on a group outing to put it on the map."
         />
       ) : (
         rows.map((c, i) => {
@@ -194,12 +150,13 @@ function CrewsSection({ mySchool, myGroupIds }: { mySchool: string | null; myGro
                   {mine ? " (you)" : ""}
                 </Text>
                 <Text style={styles.rowMeta}>
-                  {c.school} · {c.memberCount} {c.memberCount === 1 ? "member" : "members"}
+                  {school ? "" : c.school + " · "}
+                  {c.memberCount} {c.memberCount === 1 ? "member" : "members"}
                 </Text>
               </View>
               <View style={styles.scoreCol}>
                 <Text testID={"crew-points-" + i} style={styles.score}>
-                  {Math.round(c.avgPoints).toLocaleString()}
+                  {formatPts(c.avgPoints)}
                 </Text>
                 <Text style={styles.scoreUnit}>avg {brand.pointsEmoji}</Text>
               </View>
@@ -213,15 +170,14 @@ function CrewsSection({ mySchool, myGroupIds }: { mySchool: string | null; myGro
 }
 
 function SchoolsSection({ mySchool }: { mySchool: string | null }) {
-  const live = useQuery(schoolLeaderboardRef, USE_MOCK ? "skip" : { limit: LIMIT });
-  const mock = useMockQuery(MOCK_SCHOOLS, USE_MOCK);
-  const { rows, deltas } = useRankedRows(USE_MOCK ? mock : live, schoolKey);
+  const live = useQuery(api.points.schoolLeaderboard, { limit: LIMIT });
+  const { rows, deltas } = useRankedRows(live, schoolKey);
 
   if (rows === undefined) return <LoadingState testID="schools-loading" label="Loading schools…" />;
   if (rows === null) return <ErrorState testID="schools-error" message="Couldn't load the school leaderboard." />;
   if (rows.length === 0) {
     return (
-      <EmptyState testID="schools-empty" emoji="🏫" title="No schools yet" body="Pick your school in your profile to rep it here." />
+      <EmptyState testID="schools-empty" emoji="🏫" title="No schools yet" body="Join your school and check in with your crew to rep it here." />
     );
   }
 
@@ -238,7 +194,7 @@ function SchoolsSection({ mySchool }: { mySchool: string | null }) {
             {second.school}
           </Text>
           <Text testID="schools-rivalry-gap" style={styles.rivalryGap}>
-            {top.school} leads by {Math.round(top.avgPoints - second.avgPoints)} avg {brand.points}
+            {top.school} leads by {formatPts(top.avgPoints - second.avgPoints)} avg {brand.points}
           </Text>
         </Card>
       ) : null}
@@ -258,7 +214,7 @@ function SchoolsSection({ mySchool }: { mySchool: string | null }) {
             </View>
             <View style={styles.scoreCol}>
               <Text testID={"school-points-" + i} style={styles.score}>
-                {Math.round(s.avgPoints).toLocaleString()}
+                {formatPts(s.avgPoints)}
               </Text>
               <Text style={styles.scoreUnit}>avg {brand.pointsEmoji}</Text>
             </View>
@@ -272,12 +228,10 @@ function SchoolsSection({ mySchool }: { mySchool: string | null }) {
 
 function MeSection({ userId, crewId }: { userId: string | null; crewId: string | null }) {
   const router = useRouter();
-  const live = useQuery(myRanksRef, USE_MOCK || !userId ? "skip" : { userId: userId as Id<"users"> });
-  const mock = useMockQuery(MOCK_MY_RANKS, USE_MOCK);
-  const ranks = USE_MOCK ? mock : userId ? live : null;
-  const livePlans = useQuery(api.plans.getMyUpcomingPlans, USE_MOCK || !userId ? "skip" : { userId: userId as Id<"users"> });
-  const mockPlans = useMockQuery(MOCK_UPCOMING_PLANS, USE_MOCK);
-  const plans: LockedPlan[] | undefined | null = USE_MOCK ? mockPlans : userId ? livePlans : null;
+  const live = useQuery(api.points.myRanks, userId ? { userId: userId as Id<"users"> } : "skip");
+  const ranks = userId ? live : null;
+  const livePlans = useQuery(api.plans.getMyUpcomingPlans, userId ? { userId: userId as Id<"users"> } : "skip");
+  const plans: LockedPlan[] | undefined | null = userId ? livePlans : null;
   const lockedPlan = plans
     ?.filter((p) => p.status === "locked")
     .reduce<LockedPlan | null>((latest, p) => (!latest || p._creationTime > latest._creationTime ? p : latest), null);
@@ -319,9 +273,9 @@ function MeSection({ userId, crewId }: { userId: string | null; crewId: string |
     </View>
   );
 
-  if (!USE_MOCK && !userId) return <ErrorState testID="me-error" message="Sign in to see your ranks." />;
+  if (!userId) return <ErrorState testID="me-error" message="Sign in to see your ranks." />;
   if (ranks === undefined) return <LoadingState testID="me-loading" label="Finding your rank…" />;
-  if (ranks === null) {
+  if (ranks === null || ranks.crewRank === null) {
     return (
       <View style={styles.section}>
         <EmptyState testID="me-empty" emoji="🧭" title="No crew yet" body="Join or start a crew, then check in on a group outing to get on the board." />
@@ -330,7 +284,7 @@ function MeSection({ userId, crewId }: { userId: string | null; crewId: string |
     );
   }
 
-  const gap = Math.max(0, Math.round(ranks.leaderAvg - ranks.crewAvg));
+  const gap = formatPts(Math.max(0, (ranks.leaderAvg ?? 0) - (ranks.crewAvg ?? 0)));
   return (
     <View style={styles.section} testID="me-section">
       <Card testID="me-crew-card" tone="accent" style={styles.meCard}>
@@ -341,12 +295,12 @@ function MeSection({ userId, crewId }: { userId: string | null; crewId: string |
             : "Your crew is #" + ranks.crewRank + " at " + ranks.school + ", " + gap + " pts behind " + ranks.leaderName}
         </Text>
         <Text testID="me-crew-name" style={styles.meSub}>
-          {ranks.crewName} · {Math.round(ranks.crewAvg)} avg {brand.points} this week
+          {ranks.crewName} · {formatPts(ranks.crewAvg ?? 0)} avg {brand.points} this week
         </Text>
       </Card>
       <Card testID="me-school-card" style={styles.meCard}>
         <Text testID="me-school-rank" style={styles.meSchool}>
-          {ranks.school} is #{ranks.schoolRank} among schools
+          {ranks.schoolRank ? `${ranks.school} is #${ranks.schoolRank} among schools` : `${ranks.school} isn't on the schools board yet`}
         </Text>
         <Text style={styles.meSub}>Every group outing check-in raises your school's average too.</Text>
       </Card>
@@ -367,15 +321,17 @@ export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
 export default function LeaderboardScreen() {
   const { userId } = useUserId();
   const [segment, setSegment] = useState<Segment>("crews");
-  const liveUser = useQuery(api.users.getUser, USE_MOCK || !userId ? "skip" : { userId: userId as Id<"users"> });
-  const liveGroups = useQuery(api.groups.getMyGroups, USE_MOCK || !userId ? "skip" : { userId: userId as Id<"users"> });
-  const mySchool = USE_MOCK ? MOCK_MY_SCHOOL : (liveUser?.homeArea ?? null);
-  const myGroupIds = new Set<string>(USE_MOCK ? [MOCK_MY_GROUP] : (liveGroups ?? []).map((g) => g._id));
+  const args = userId ? { userId: userId as Id<"users"> } : "skip";
+  const liveUser = useQuery(api.users.getUser, args);
+  const liveGroups = useQuery(api.groups.getMyGroups, args);
+  const mySchool = liveUser?.homeArea ?? null;
+  const myGroupIds = new Set<string>((liveGroups ?? []).map((g) => g._id));
 
   return (
     <Screen testID="leaderboard-screen">
-      <Title testID="leaderboard-title">Leaderboard</Title>
-      <Subtitle testID="leaderboard-subtitle">Your floor vs. theirs. Weekly average {brand.points} per member.</Subtitle>
+      <SchoolHeader school={mySchool} testID="leaderboard-school-header" />
+      <Title testID="leaderboard-title">{mySchool ? `${mySchool} leaderboard` : "Leaderboard"}</Title>
+      <Subtitle testID="leaderboard-subtitle">Your crew vs. theirs. Weekly average {brand.points} per member, earned from group outing check-ins.</Subtitle>
 
       <View style={styles.segments} accessibilityRole="tablist">
         {SEGMENTS.map((s) => (
@@ -392,9 +348,23 @@ export default function LeaderboardScreen() {
         ))}
       </View>
 
-      {segment === "crews" ? <CrewsSection mySchool={mySchool} myGroupIds={myGroupIds} /> : null}
-      {segment === "schools" ? <SchoolsSection mySchool={mySchool} /> : null}
-      {segment === "me" ? <MeSection userId={userId} crewId={USE_MOCK ? MOCK_MY_GROUP : (liveGroups?.[0]?._id ?? null)} /> : null}
+      {segment === "crews" ? (
+        mySchool ? (
+          <CrewsSection school={mySchool} myGroupIds={myGroupIds} />
+        ) : liveUser === undefined && userId ? (
+          <LoadingState testID="crews-loading" label="Finding your school…" />
+        ) : (
+          <EmptyState testID="crews-no-school" emoji="🏫" title="Join your school" body="Pick your school to see the crews you're up against." />
+        )
+      ) : null}
+      {segment === "schools" ? (
+        <>
+          <SchoolsSection mySchool={mySchool} />
+          <SectionHeader title="Top crews everywhere" testID="all-crews-header" />
+          <CrewsSection myGroupIds={myGroupIds} testID="all-crews-section" />
+        </>
+      ) : null}
+      {segment === "me" ? <MeSection userId={userId} crewId={liveGroups?.[0]?._id ?? null} /> : null}
     </Screen>
   );
 }
