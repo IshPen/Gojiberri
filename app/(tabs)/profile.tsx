@@ -56,7 +56,8 @@ export default function ProfileScreen() {
     }
   };
 
-  const toNext = user ? user.points % brand.pointsPerReward : 0;
+  const lifetime = user ? user.points + ((user as { gojisSpent?: number }).gojisSpent ?? 0) : 0;
+  const toNext = lifetime % brand.pointsPerReward;
   const pct = Math.round((toNext / brand.pointsPerReward) * 100);
   const school = schoolFor(user?.homeArea);
   const myIds = new Set<string>((groups ?? []).map((g) => g._id));
