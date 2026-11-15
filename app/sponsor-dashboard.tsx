@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { AppState, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useRouter, type ErrorBoundaryProps } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useAction, useQuery } from "convex/react";
@@ -19,6 +19,21 @@ function startOfToday() {
   return d.getTime();
 }
 
+function useStartOfToday() {
+  const [since, setSince] = useState(startOfToday);
+  useEffect(() => {
+    const refresh = () => setSince(startOfToday());
+    const nextMidnight = startOfToday() + 24 * 60 * 60 * 1000;
+    const timer = setTimeout(refresh, Math.max(1000, nextMidnight - Date.now() + 1000));
+    const sub = AppState.addEventListener("change", (state) => state === "active" && refresh());
+    return () => {
+      clearTimeout(timer);
+      sub.remove();
+    };
+  }, [since]);
+  return since;
+}
+
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
     <Screen testID="dashboard-screen">
@@ -32,7 +47,7 @@ export default function SponsorDashboardScreen() {
   const router = useRouter();
   const accounts = useQuery(api.businessDashboard.listAccounts);
   const [selected, setSelected] = useState<number>(0);
-  const since = useMemo(startOfToday, []);
+  const since = useStartOfToday();
   const account = accounts?.[selected] ?? accounts?.[0] ?? null;
   const home = useQuery(
     api.businessDashboard.getHome,
@@ -74,7 +89,8 @@ export default function SponsorDashboardScreen() {
     );
   }
 
-  const scanId = account.sponsorId ?? account.businessId;
+  const scanId = (account.sponsorActive ? account.sponsorId : account.businessId) ?? account.sponsorId ?? account.businessId;
+  const alsoId = scanId === account.sponsorId ? account.businessId : account.sponsorId;
 
   return (
     <Screen testID="dashboard-screen">
@@ -103,7 +119,7 @@ export default function SponsorDashboardScreen() {
           testID="scan-qr-button"
           label="Scan QR"
           icon="📷"
-          onPress={() => router.push({ pathname: "/business/scan", params: { businessId: scanId! } })}
+          onPress={() => router.push({ pathname: "/business/scan", params: alsoId ? { businessId: scanId!, alsoId } : { businessId: scanId! } })}
           style={styles.heroButton}
         />
       </View>

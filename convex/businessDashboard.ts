@@ -2,8 +2,6 @@ import { v } from "convex/values";
 import { query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
-const MAX_ROWS = 2000;
-
 const nameKey = (name: string) => name.trim().toLowerCase();
 
 async function sponsorChipIns(ctx: QueryCtx, sponsor: Doc<"sponsors">, transactions: Doc<"transactions">[]) {
@@ -21,25 +19,24 @@ async function sponsorChipIns(ctx: QueryCtx, sponsor: Doc<"sponsors">, transacti
   return { pots: pots.size, total };
 }
 
+// Every redemption since the client's local midnight, newest first. The index range keeps this to one day of scans.
 async function redeemedSince(ctx: QueryCtx, since: number, sponsorId: Id<"sponsors"> | null, businessId: Id<"businesses"> | null) {
-  const [bySponsor, byBusiness] = await Promise.all([
-    sponsorId
-      ? ctx.db
-          .query("redemptions")
-          .withIndex("by_sponsor_and_status_and_redeemedAt", (q) => q.eq("sponsorId", sponsorId).eq("status", "redeemed").gte("redeemedAt", since))
-          .order("desc")
-          .take(200)
-      : [],
-    businessId
-      ? ctx.db
-          .query("redemptions")
-          .withIndex("by_business_and_status_and_redeemedAt", (q) => q.eq("businessId", businessId).eq("status", "redeemed").gte("redeemedAt", since))
-          .order("desc")
-          .take(200)
-      : [],
-  ]);
-  const rows = [...new Map([...bySponsor, ...byBusiness].map((r) => [r._id, r])).values()];
-  return rows.sort((a, b) => (b.redeemedAt ?? 0) - (a.redeemedAt ?? 0));
+  const rows = new Map<Id<"redemptions">, Doc<"redemptions">>();
+  if (sponsorId) {
+    for await (const r of ctx.db
+      .query("redemptions")
+      .withIndex("by_sponsor_and_status_and_redeemedAt", (q) => q.eq("sponsorId", sponsorId).eq("status", "redeemed").gte("redeemedAt", since))) {
+      rows.set(r._id, r);
+    }
+  }
+  if (businessId) {
+    for await (const r of ctx.db
+      .query("redemptions")
+      .withIndex("by_business_and_status_and_redeemedAt", (q) => q.eq("businessId", businessId).eq("status", "redeemed").gte("redeemedAt", since))) {
+      rows.set(r._id, r);
+    }
+  }
+  return [...rows.values()].sort((a, b) => (b.redeemedAt ?? 0) - (a.redeemedAt ?? 0));
 }
 
 async function redemptionTitle(ctx: QueryCtx, row: Doc<"redemptions">) {
@@ -111,12 +108,12 @@ export const listAccounts = query({
   args: {},
   handler: async (ctx) => {
     const [sponsors, businesses] = await Promise.all([ctx.db.query("sponsors").take(200), ctx.db.query("businesses").take(200)]);
-    const accounts = new Map<string, { name: string; sponsorId: Id<"sponsors"> | null; businessId: Id<"businesses"> | null }>();
-    for (const s of sponsors) accounts.set(nameKey(s.business), { name: s.business, sponsorId: s._id, businessId: null });
+    const accounts = new Map<string, { name: string; sponsorId: Id<"sponsors"> | null; sponsorActive: boolean; businessId: Id<"businesses"> | null }>();
+    for (const s of sponsors) accounts.set(nameKey(s.business), { name: s.business, sponsorId: s._id, sponsorActive: s.active, businessId: null });
     for (const b of businesses) {
       const existing = accounts.get(nameKey(b.name));
       if (existing) existing.businessId = b._id;
-      else accounts.set(nameKey(b.name), { name: b.name, sponsorId: null, businessId: b._id });
+      else accounts.set(nameKey(b.name), { name: b.name, sponsorId: null, sponsorActive: false, businessId: b._id });
     }
     return [...accounts.values()].sort((a, b) => a.name.localeCompare(b.name));
   },
@@ -142,21 +139,27 @@ export const getHome = query({
       })),
     );
 
-    const transactions = await ctx.db.query("transactions").order("desc").take(MAX_ROWS);
+    // The ledger has no sponsor or experience index, so lifetime totals read every transaction once.
+    const transactions: Doc<"transactions">[] = [];
+    for await (const t of ctx.db.query("transactions")) {
+      if (!t.userId || t.type === "spend") transactions.push(t);
+    }
 
     let sponsorship = null;
     if (sponsor) {
-      const visits = await ctx.db
-        .query("visits")
-        .withIndex("by_sponsor", (q) => q.eq("sponsorId", sponsor._id))
-        .take(MAX_ROWS);
+      let visits = 0;
+      let spentOnVisits = 0;
+      for await (const visit of ctx.db.query("visits").withIndex("by_sponsor", (q) => q.eq("sponsorId", sponsor._id))) {
+        visits++;
+        spentOnVisits += visit.amount;
+      }
       sponsorship = {
         sponsorId: sponsor._id,
         offer: sponsor.offer,
         active: sponsor.active,
         rewardCost: sponsor.rewardCost,
-        visits: visits.length,
-        spentOnVisits: visits.reduce((sum, visit) => sum + visit.amount, 0),
+        visits,
+        spentOnVisits,
         chipIns: await sponsorChipIns(ctx, sponsor, transactions),
       };
     }
@@ -169,17 +172,17 @@ export const getHome = query({
         .take(100);
       const rows = await Promise.all(
         experiences.map(async (e) => {
-          const purchases = await ctx.db
-            .query("experiencePurchases")
-            .withIndex("by_experience", (q) => q.eq("experienceId", e._id))
-            .take(MAX_ROWS);
+          let purchases = 0;
+          for await (const p of ctx.db.query("experiencePurchases").withIndex("by_experience", (q) => q.eq("experienceId", e._id))) {
+            if (p.status === "completed") purchases++;
+          }
           const potSales = transactions.filter((t) => t.type === "spend" && t.status === "completed" && t.experienceId === e._id).length;
           return {
             experienceId: e._id,
             title: e.title,
             pricePerPerson: e.pricePerPerson,
             active: e.active,
-            sold: potSales + purchases.filter((p) => p.status === "completed").length,
+            sold: potSales + purchases,
           };
         }),
       );
