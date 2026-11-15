@@ -13,7 +13,7 @@ export const createContribution = internalMutation({
   handler: async (ctx, { token, userId, groupId, amount }) => {
     const url = checkoutUrl(token);
     const cents = Math.round(amount * 100);
-    if (!Number.isSafeInteger(cents) || amount < 1 || Math.abs(amount * 100 - cents) > 1e-6) {
+    if (!Number.isSafeInteger(cents) || cents < 1 || Math.abs(amount * 100 - cents) > 1e-6) {
       throw new Error("Enter a valid contribution in dollars and cents");
     }
     const group = await ctx.db.get("groups", groupId);

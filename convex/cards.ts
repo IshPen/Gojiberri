@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
@@ -14,9 +14,10 @@ const spend = makeFunctionReference<
   unknown
 >("funds:spend");
 
-export const issueCard = internalMutation({
+export const issueCard = mutation({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
+    if (!(await ctx.db.get("groups", groupId))) throw new Error("Group not found");
     const existing = await ctx.db
       .query("cards")
       .withIndex("by_group", (q) => q.eq("groupId", groupId))
