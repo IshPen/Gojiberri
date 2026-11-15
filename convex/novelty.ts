@@ -253,8 +253,29 @@ export const scoringContext = internalQuery({
 
 const SYSTEM = `You rate how novel each outing idea would be for ONE person, given their taste and recent outings.
 Score 0 to 1: 1 = something they've never done and is outside their usual taste, 0 = exactly their usual.
-Return JSON: {"scores":[{"ideaKey":"<as given>","score":0.0,"reason":"<one short line, under 90 characters, that mentions their own taste>"}]}.
+Return JSON: {"scores":[{"ideaKey":"<as given>","score":0.0,"reason":"<see below>"}]}.
+Each reason is shown to that person on a "+X Gojis for you" card, so write it TO them in the second person ("You…", "your…"), never "They", "This user", or "The user".
+Keep it to one short line, at most 90 characters, about their own taste, e.g. "You usually go for brunch spots; live jazz is new for you."
 Score every idea exactly once and use the ideaKey values exactly as given.`;
+
+const SECOND_PERSON: [RegExp, string][] = [
+  [/\bthey're\b/gi, "you're"],
+  [/\bthey've\b/gi, "you've"],
+  [/\bthey'd\b/gi, "you'd"],
+  [/\bthey'll\b/gi, "you'll"],
+  [/\bthey\b/gi, "you"],
+  [/\bthemselves\b/gi, "yourself"],
+  [/\bthem\b/gi, "you"],
+  [/\btheirs\b/gi, "yours"],
+  [/\btheir\b/gi, "your"],
+];
+
+export function secondPersonReason(reason: string): string {
+  if (/^(this|the) user\b/i.test(reason)) return "New for you.";
+  if (!/^they\b/i.test(reason)) return reason;
+  const rewritten = SECOND_PERSON.reduce((text, [pattern, to]) => text.replace(pattern, to), reason);
+  return rewritten.charAt(0).toUpperCase() + rewritten.slice(1);
+}
 
 export const scoreIdeas = internalAction({
   args: { userId: v.id("users"), ideaKeys: v.array(v.string()) },
@@ -282,7 +303,7 @@ export const scoreIdeas = internalAction({
     const scores = (Array.isArray(result?.scores) ? result.scores : []).flatMap((entry) => {
       const score = cleanScore(entry?.score);
       if (typeof entry?.ideaKey !== "string" || !requested.has(entry.ideaKey) || score === null) return [];
-      const reason = typeof entry.reason === "string" ? entry.reason.trim().slice(0, 140) : "";
+      const reason = typeof entry.reason === "string" ? secondPersonReason(entry.reason.trim()).slice(0, 140) : "";
       return [{ ideaKey: entry.ideaKey, score, reason }];
     });
     if (scores.length > 0) await ctx.runMutation(internal.novelty.saveScores, { userId, scores });
