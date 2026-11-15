@@ -2,8 +2,11 @@ import { useMutation, useQuery } from "convex/react";
 import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { brand, colors, font, radius, spacing } from "../constants/theme";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { brand, colors, font, radius, spacing, type } from "../constants/theme";
+import { usePressScale } from "./ui";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export type GojiPreviewItem = { reason: string; points: number; label: string; conditional?: boolean };
 export type GojiPreview = { ideaKey: string; total: number; items: GojiPreviewItem[]; noveltyReason: string | null; scored: boolean };
@@ -44,20 +47,23 @@ export function useGojiPreviews(userId: string | null, ideas: IdeaFallback[]): M
 }
 
 export default function GojiChip({ preview, testID, open, onPress }: { preview: GojiPreview | undefined; testID: string; open: boolean; onPress: () => void }) {
+  const press = usePressScale(0.92);
   if (!preview) return null;
   return (
-    <Pressable
+    <AnimatedPressable
       testID={testID}
       onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       accessibilityRole="button"
       accessibilityLabel={`+${preview.total} ${brand.points} for you`}
       accessibilityState={{ expanded: open }}
-      style={styles.chip}
+      style={[styles.chip, open && styles.chipOpen, { transform: [{ scale: press.scale }] }]}
     >
       <Text style={styles.chipText}>
         {brand.pointsEmoji} +{preview.total}
       </Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -88,12 +94,13 @@ export function GojiDetails({ preview, testID }: { preview: GojiPreview | undefi
 }
 
 const styles = StyleSheet.create({
-  heading: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text },
-  chip: { alignSelf: "flex-start", backgroundColor: colors.warningSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  chipText: { fontSize: font.size.sm, fontWeight: font.weight.heavy, color: colors.text },
+  heading: { ...type.heading, fontSize: font.size.md },
+  chip: { alignSelf: "flex-start", backgroundColor: colors.accentSoft, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.accentSoft, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  chipOpen: { borderColor: colors.accent },
+  chipText: { fontSize: font.size.sm, fontWeight: font.weight.heavy, color: colors.accentDark },
   breakdown: { backgroundColor: colors.cardMuted, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs },
   row: { flexDirection: "row", gap: spacing.md },
-  points: { width: 40, fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.success, textAlign: "right" },
+  points: { width: 40, fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.leaf, textAlign: "right" },
   label: { flex: 1, fontSize: font.size.md, color: colors.text },
   muted: { color: colors.textMuted },
   reason: { fontSize: font.size.sm, color: colors.textMuted, marginTop: spacing.xs },

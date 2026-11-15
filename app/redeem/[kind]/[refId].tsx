@@ -7,7 +7,7 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, Subtitle, T
 import QrCode from "../../../components/QrCode";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { colors, font, radius, spacing } from "../../../constants/theme";
+import { colors, emoji, font, radius, shadow, spacing, type } from "../../../constants/theme";
 import { useUserId } from "../../../lib/session";
 
 const KINDS = ["offer", "reward", "experience"] as const;
@@ -99,7 +99,7 @@ export default function RedeemScreen() {
   const remaining = issued.expiresAt - now;
   const redeemed = status?.status === "redeemed";
   const expired = !redeemed && (status?.status === "expired" || remaining <= 0);
-  const qrSize = Math.min(width - spacing.xl * 2, 320);
+  const qrSize = Math.min(width - spacing.xl * 2 - spacing.lg * 2, 300);
 
   return (
     <Screen testID="redeem-screen" contentStyle={styles.content}>
@@ -127,7 +127,7 @@ export default function RedeemScreen() {
       ) : (
         <>
           <View style={styles.qrFrame}>
-            <QrCode testID="redeem-qr" value={issued.code} size={qrSize} />
+            <QrCode testID="redeem-qr" value={issued.code} size={qrSize} color={colors.text} background={colors.card} />
           </View>
           <Text testID="redeem-code-text" selectable style={styles.code}>
             {issued.code}
@@ -135,7 +135,7 @@ export default function RedeemScreen() {
           <Text testID="redeem-countdown" style={styles.countdown}>
             Expires in {formatCountdown(remaining)}
           </Text>
-          <Subtitle style={styles.center}>Show this to the staff. It works once.</Subtitle>
+          <Subtitle style={styles.center}>Show this at the counter. It works once, so no sharing berries.</Subtitle>
         </>
       )}
     </Screen>
@@ -145,10 +145,10 @@ export default function RedeemScreen() {
 const styles = StyleSheet.create({
   content: { alignItems: "center" },
   center: { textAlign: "center" },
-  qrFrame: { padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
-  code: { fontSize: font.size.xxl, fontWeight: font.weight.heavy, letterSpacing: 2, color: colors.text },
-  countdown: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.accentDark },
+  qrFrame: { marginTop: spacing.sm, padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.card, borderWidth: 4, borderColor: colors.accentSoft, ...shadow.card },
+  code: { ...type.title, letterSpacing: 4, fontVariant: ["tabular-nums"] },
+  countdown: { fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.accentDark, backgroundColor: colors.accentSoft, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, overflow: "hidden", fontVariant: ["tabular-nums"] },
   result: { alignSelf: "stretch", alignItems: "center", gap: spacing.md },
-  resultEmoji: { fontSize: 48 },
-  resultText: { fontSize: font.size.xl, fontWeight: font.weight.heavy, textAlign: "center" },
+  resultEmoji: { fontSize: emoji.lg },
+  resultText: { ...type.title, fontSize: font.size.xl, textAlign: "center" },
 });

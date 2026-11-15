@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import SponsoredBadge from "../../components/SponsoredBadge";
 import { Card, Chip, EmptyState, ErrorState, LoadingState, Screen, Subtitle, Title } from "../../components/ui";
-import { colors, font, radius, spacing } from "../../constants/theme";
+import { colors, font, radius, spacing, emoji as emojiSize } from "../../constants/theme";
 import { DEFAULT_SCHOOL, experienceEmoji, groupSize, SCHOOL_AREAS } from "../../lib/experiences";
 import { useUserId } from "../../lib/session";
 
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", gap: spacing.md, alignItems: "center" },
   photo: { width: 72, height: 72, borderRadius: radius.md },
   emojiBox: { backgroundColor: colors.cardMuted, alignItems: "center", justifyContent: "center" },
-  emoji: { fontSize: 34 },
+  emoji: { fontSize: emojiSize.md },
   body: { flex: 1, gap: spacing.xs },
   business: { fontSize: font.size.xs, fontWeight: font.weight.semibold, color: colors.textMuted },
   title: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text },

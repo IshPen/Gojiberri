@@ -1,22 +1,31 @@
 export const colors = {
-  accent: "#E5394B",
-  accentDark: "#B82235",
-  accentSoft: "#FDE3E4",
-  background: "#FFF8F3",
+  accent: "#D62E4A",
+  accentDark: "#A3193A",
+  accentSoft: "#FCE6E8",
+  background: "#FFF8EF",
   card: "#FFFFFF",
-  cardMuted: "#F7EEE8",
-  text: "#221A18",
-  textMuted: "#7B6E69",
+  cardMuted: "#F9EFE4",
+  text: "#2B1A17",
+  textMuted: "#7E6A62",
   textOnAccent: "#FFFFFF",
-  border: "#EFE2DA",
-  success: "#2E9E62",
-  successSoft: "#DFF4E8",
-  warning: "#E8A33B",
+  border: "#F1E2D4",
+  leaf: "#3F8F5B",
+  leafSoft: "#E4F3E7",
+  success: "#3F8F5B",
+  successSoft: "#E4F3E7",
+  warning: "#E59A2F",
   warningSoft: "#FCF0DA",
-  danger: "#D4342B",
-  dangerSoft: "#FBE1DF",
+  danger: "#CC2E2A",
+  dangerSoft: "#FBE3E0",
   gold: "#F2B630",
-  overlay: "rgba(34, 26, 24, 0.45)",
+  silver: "#B9B4B0",
+  bronze: "#D08A4E",
+  ink: "#3A0E1C",
+  inkSoft: "rgba(255, 255, 255, 0.16)",
+  onInk: "#FFFFFF",
+  onInkMuted: "rgba(255, 255, 255, 0.62)",
+  partner: "#FF6243",
+  overlay: "rgba(43, 26, 23, 0.45)",
 };
 
 export const spacing = {
@@ -53,19 +62,62 @@ export const font = {
     semibold: "600" as const,
     bold: "700" as const,
     heavy: "800" as const,
+    black: "900" as const,
   },
 };
+
+export const type = {
+  display: { fontSize: font.size.hero, lineHeight: 42, fontWeight: font.weight.black, letterSpacing: -0.8, color: colors.text },
+  title: { fontSize: font.size.xxl, lineHeight: 34, fontWeight: font.weight.heavy, letterSpacing: -0.5, color: colors.text },
+  heading: { fontSize: font.size.lg, lineHeight: 24, fontWeight: font.weight.bold, letterSpacing: -0.2, color: colors.text },
+  body: { fontSize: font.size.md, lineHeight: 22, fontWeight: font.weight.regular, color: colors.text },
+  muted: { fontSize: font.size.md, lineHeight: 22, fontWeight: font.weight.regular, color: colors.textMuted },
+  label: { fontSize: font.size.sm, lineHeight: 18, fontWeight: font.weight.semibold, color: colors.textMuted },
+  eyebrow: { fontSize: font.size.xs, lineHeight: 16, fontWeight: font.weight.heavy, letterSpacing: 1.2, textTransform: "uppercase" as const, color: colors.accentDark },
+};
+
+export const emoji = { sm: 20, md: 28, lg: 44, xl: 64 };
 
 export const minTapTarget = 44;
 
 export const shadow = {
+  sm: {
+    shadowColor: "#7A2A2A",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
   card: {
-    shadowColor: "#4A2A20",
+    shadowColor: "#7A2A2A",
     shadowOpacity: 0.08,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 3,
   },
+  lift: {
+    shadowColor: colors.accentDark,
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
+  },
+  ink: {
+    shadowColor: colors.ink,
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+};
+
+export const motion = {
+  pressScale: 0.97,
+  fast: 150,
+  base: 250,
+  slow: 400,
+  countUp: 900,
+  confettiColors: [colors.accent, colors.accentDark, "#FF8FA3", colors.gold, colors.leaf, "#FFFFFF"],
 };
 
 export const brand = {
@@ -80,5 +132,5 @@ export const brand = {
   pointsPerReward: 500,
 };
 
-export const theme = { colors, spacing, radius, font, minTapTarget, shadow, brand };
+export const theme = { colors, spacing, radius, font, type, emoji, minTapTarget, shadow, motion, brand };
 export default theme;

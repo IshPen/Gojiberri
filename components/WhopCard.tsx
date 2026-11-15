@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { colors, font, radius, spacing } from "../constants/theme";
+import { colors, font, radius, shadow, spacing, type } from "../constants/theme";
 
 type WhopCardProps = {
   crewName: string;
@@ -13,8 +13,6 @@ type WhopCardProps = {
 
 const RING_SIZE = 76;
 const RING_WIDTH = 7;
-const CARD_DARK = "#1B1230";
-const WHOP_ORANGE = "#FF6243";
 
 export default function WhopCard({ crewName, balance, goal, last4, limit, sandbox = true, testID = "whop-card" }: WhopCardProps) {
   const ready = !!last4 && goal > 0 && balance >= goal;
@@ -102,19 +100,15 @@ const styles = StyleSheet.create({
   card: {
     aspectRatio: 1.586,
     borderRadius: radius.lg,
-    backgroundColor: CARD_DARK,
+    backgroundColor: colors.ink,
     padding: spacing.xl,
     overflow: "hidden",
     justifyContent: "space-between",
-    shadowColor: "#1B1230",
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
+    ...shadow.ink,
   },
   blob: { position: "absolute", borderRadius: 999 },
   blobAccent: { width: 320, height: 320, top: -170, right: -110, backgroundColor: colors.accent, opacity: 0.85 },
-  blobOrange: { width: 240, height: 240, bottom: -150, left: -70, backgroundColor: WHOP_ORANGE, opacity: 0.55 },
+  blobOrange: { width: 240, height: 240, bottom: -150, left: -70, backgroundColor: colors.partner, opacity: 0.5 },
   blobGold: { width: 140, height: 140, bottom: -60, right: -30, backgroundColor: colors.gold, opacity: 0.18 },
   sheen: {
     position: "absolute",
@@ -126,16 +120,16 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "-18deg" }],
   },
   topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  brand: { color: "#FFFFFF", fontSize: font.size.md, fontWeight: font.weight.heavy, letterSpacing: 0.4 },
-  brandX: { color: "rgba(255,255,255,0.6)", fontWeight: font.weight.medium },
+  brand: { color: colors.onInk, fontSize: font.size.md, fontWeight: font.weight.heavy, letterSpacing: 0.4 },
+  brandX: { color: colors.onInkMuted, fontWeight: font.weight.medium },
   sandbox: {
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.5)",
+    borderColor: colors.onInkMuted,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
   },
-  sandboxText: { color: "rgba(255,255,255,0.85)", fontSize: 10, fontWeight: font.weight.bold, letterSpacing: 1 },
+  sandboxText: { color: colors.onInk, fontSize: 10, fontWeight: font.weight.bold, letterSpacing: 1 },
   middle: { gap: spacing.md },
   chip: {
     width: 42,
@@ -147,21 +141,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   chipLine: { height: 1.5, backgroundColor: "rgba(0,0,0,0.25)" },
-  number: { color: "#FFFFFF", fontSize: font.size.xl, fontWeight: font.weight.bold, letterSpacing: 1.5, fontVariant: ["tabular-nums"] },
+  number: { color: colors.onInk, fontSize: font.size.xl, fontWeight: font.weight.bold, letterSpacing: 1.5, fontVariant: ["tabular-nums"] },
   fundingRow: { flexDirection: "row", alignItems: "center", gap: spacing.lg },
-  fundingLabel: { color: "rgba(255,255,255,0.7)", fontSize: font.size.sm, fontWeight: font.weight.semibold },
-  fundingAmount: { color: "#FFFFFF", fontSize: font.size.xxl, fontWeight: font.weight.heavy },
-  fundingGoal: { color: "rgba(255,255,255,0.6)", fontSize: font.size.lg, fontWeight: font.weight.semibold },
+  fundingLabel: { ...type.label, color: colors.onInkMuted },
+  fundingAmount: { ...type.title, color: colors.onInk },
+  fundingGoal: { color: colors.onInkMuted, fontSize: font.size.lg, fontWeight: font.weight.semibold },
   bottomRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.md },
-  caption: { color: "rgba(255,255,255,0.55)", fontSize: 10, fontWeight: font.weight.bold, letterSpacing: 1.2 },
-  crew: { color: "#FFFFFF", fontSize: font.size.md, fontWeight: font.weight.bold },
+  caption: { color: colors.onInkMuted, fontSize: 10, fontWeight: font.weight.bold, letterSpacing: 1.2 },
+  crew: { color: colors.onInk, fontSize: font.size.md, fontWeight: font.weight.bold },
   limitChip: {
-    backgroundColor: "rgba(255,255,255,0.16)",
+    backgroundColor: colors.inkSoft,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  limitText: { color: "#FFFFFF", fontSize: font.size.xs, fontWeight: font.weight.bold },
+  limitText: { color: colors.onInk, fontSize: font.size.xs, fontWeight: font.weight.bold },
 });
 
 const ring = StyleSheet.create({
@@ -172,7 +166,7 @@ const ring = StyleSheet.create({
     height: RING_SIZE,
     borderRadius: RING_SIZE / 2,
     borderWidth: RING_WIDTH,
-    borderColor: "rgba(255,255,255,0.18)",
+    borderColor: colors.inkSoft,
   },
   half: { position: "absolute", top: 0, width: RING_SIZE / 2, height: RING_SIZE, overflow: "hidden" },
   arc: {
@@ -186,5 +180,5 @@ const ring = StyleSheet.create({
     borderTopColor: colors.gold,
     borderRightColor: colors.gold,
   },
-  label: { color: "#FFFFFF", fontSize: font.size.md, fontWeight: font.weight.heavy },
+  label: { color: colors.onInk, fontSize: font.size.md, fontWeight: font.weight.heavy },
 });

@@ -9,7 +9,7 @@ import { Animated, Linking, StyleSheet, Text, View } from "react-native";
 import GojiChip, { GojiDetails, useGojiPreviews } from "../../components/GojiChip";
 import OptionCard from "../../components/OptionCard";
 import { Button, Card, ErrorState, LoadingState, Screen, Subtitle, Title } from "../../components/ui";
-import { colors, font, radius, spacing } from "../../constants/theme";
+import { colors, font, motion, radius, spacing, emoji as emojiSize } from "../../constants/theme";
 import { createInvite } from "../../lib/calendar";
 import { formatCountdown, formatWindow } from "../../lib/format";
 import { mockDelay, useMockQuery } from "../../lib/mock";
@@ -499,7 +499,7 @@ export default function PlanScreen() {
         </View>
       ) : null}
 
-      {showConfetti ? <ConfettiCannon testID="confetti" count={120} origin={{ x: -10, y: 0 }} fadeOut autoStart /> : null}
+      {showConfetti ? <ConfettiCannon testID="confetti" count={120} origin={{ x: -10, y: 0 }} colors={motion.confettiColors} fallSpeed={2600} fadeOut autoStart /> : null}
     </Screen>
   );
 }
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
   gap: { gap: spacing.md },
   cooking: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.accentDark, textAlign: "center" },
   banner: { alignItems: "center", gap: spacing.xs },
-  bannerEmoji: { fontSize: 40 },
+  bannerEmoji: { fontSize: emojiSize.lg },
   bannerLabel: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.success, textTransform: "uppercase" },
   rejectLine: { fontSize: font.size.md, color: colors.textMuted, textAlign: "center" },
   newIdeas: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.accentDark, textAlign: "center" },

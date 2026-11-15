@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
-import { brand, colors, font, spacing } from "../constants/theme";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Platform, StyleSheet, Text, View } from "react-native";
+import { brand, colors, font, motion, spacing, type } from "../constants/theme";
 
 export type GojiItem = { reason: string; points: number; label: string };
 export type GojiBreakdownData = { total: number; items: GojiItem[] };
@@ -21,9 +21,17 @@ function Line({ item, index }: { item: GojiItem; index: number }) {
 
 export default function GojiBreakdown({ data }: { data: GojiBreakdownData }) {
   const totalIn = useRef(new Animated.Value(0)).current;
+  const count = useRef(new Animated.Value(0)).current;
+  const [shown, setShown] = useState(0);
   useEffect(() => {
-    Animated.spring(totalIn, { toValue: 1, delay: 250 + data.items.length * 350, useNativeDriver: true }).start();
-  }, [data.items.length, totalIn]);
+    const delay = 250 + data.items.length * 350;
+    const id = count.addListener(({ value }) => setShown(Math.round(value)));
+    Animated.parallel([
+      Animated.spring(totalIn, { toValue: 1, delay, bounciness: 12, useNativeDriver: Platform.OS !== "web" }),
+      Animated.timing(count, { toValue: data.total, delay, duration: motion.countUp, useNativeDriver: false }),
+    ]).start();
+    return () => count.removeListener(id);
+  }, [data.items.length, data.total, totalIn, count]);
   const scale = totalIn.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] });
   return (
     <View testID="goji-breakdown" style={styles.wrap}>
@@ -31,7 +39,7 @@ export default function GojiBreakdown({ data }: { data: GojiBreakdownData }) {
         <Line key={item.reason} item={item} index={i} />
       ))}
       <Animated.Text testID="upload-success-points" style={[styles.total, { opacity: totalIn, transform: [{ scale }] }]}>
-        +{data.total} {brand.points}
+        {brand.pointsEmoji} +{shown} {brand.points}
       </Animated.Text>
     </View>
   );
@@ -40,7 +48,7 @@ export default function GojiBreakdown({ data }: { data: GojiBreakdownData }) {
 const styles = StyleSheet.create({
   wrap: { alignSelf: "stretch", gap: spacing.sm },
   line: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  points: { width: 52, fontSize: font.size.lg, fontWeight: font.weight.heavy, color: colors.success, textAlign: "right" },
-  label: { flex: 1, fontSize: font.size.md, color: colors.text },
-  total: { marginTop: spacing.sm, fontSize: font.size.xxl, fontWeight: font.weight.heavy, color: colors.accentDark, textAlign: "center" },
+  points: { width: 52, fontSize: font.size.lg, fontWeight: font.weight.heavy, color: colors.leaf, textAlign: "right", fontVariant: ["tabular-nums"] },
+  label: { ...type.body, flex: 1 },
+  total: { ...type.display, marginTop: spacing.sm, color: colors.accentDark, textAlign: "center", fontVariant: ["tabular-nums"] },
 });

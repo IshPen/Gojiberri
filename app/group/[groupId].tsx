@@ -8,7 +8,7 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHead
 import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatWindow } from "../../lib/format";
-import { crewStanding, formatPts, schoolFor } from "../../lib/school";
+import { crewStanding, formatPts } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 
 type Plan = FunctionReturnType<typeof api.plans.getGroupPlans>[number];
@@ -95,7 +95,6 @@ export default function GroupScreen() {
   const past = (plans ?? []).filter((p) => p.status === "done" || p.status === "cancelled");
   const potPlan = upcoming.find((p) => p.status === "locked") ?? upcoming[0] ?? past[0];
   const planTitle = (p: Plan) => (p.winningIndex !== undefined ? p.options[p.winningIndex]?.title : undefined) ?? "Outing ideas";
-  const accent = schoolFor(school).color;
   const crewRank = allCrews ? crewStanding(allCrews, (id) => id === group._id) : undefined;
   const standing =
     crewRank === undefined
@@ -131,7 +130,7 @@ export default function GroupScreen() {
       <Stack.Screen options={{ title: group.name }} />
       <Title testID="group-title">{group.name}</Title>
       {standing ? (
-        <Text testID="group-standing-text" style={[styles.standingText, { color: accent }]}>
+        <Text testID="group-standing-text" style={styles.standingText}>
           {standing}
         </Text>
       ) : null}
@@ -253,7 +252,7 @@ const styles = StyleSheet.create({
   planInfo: { flex: 1, gap: spacing.xs },
   planTitle: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
   planWindow: { fontSize: font.size.sm, color: colors.textMuted },
-  standingText: { fontSize: font.size.sm, fontWeight: font.weight.heavy },
+  standingText: { alignSelf: "flex-start", fontSize: font.size.sm, fontWeight: font.weight.heavy, color: colors.accentDark, backgroundColor: colors.accentSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, overflow: "hidden" },
   pill: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: colors.warningSoft },
   pillSuccess: { backgroundColor: colors.successSoft },
   pillDanger: { backgroundColor: colors.dangerSoft },
