@@ -35,6 +35,14 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="experiences"
+        options={{
+          title: "Experiences",
+          tabBarButtonTestID: "tab-experiences",
+          tabBarIcon: ({ focused }) => <TabIcon emoji="🎟️" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
         name="leaderboard"
         options={{
           title: "Leaderboard",
