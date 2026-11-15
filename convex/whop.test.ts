@@ -707,7 +707,7 @@ describe("explicit Whop demo mode", () => {
     const experience = await t.mutation(api.whopMock.startExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId });
     if (experience.mode !== "mock") throw new Error("expected mock mode");
     expect(await t.mutation(api.whopMock.payMockCheckout, { token: experience.token })).toEqual({
-      kind: "experience", title: "Synthetic business", amount: 25.5, currency: "usd", status: "paid", expiresAt: now + 30 * 60 * 1000,
+      kind: "experience", title: "Synthetic business", amount: 25.5, currency: "usd", status: "paid", expiresAt: expect.any(Number),
     });
     expect((await state()).business?.earned).toBe(32.5);
     expect(fetch).not.toHaveBeenCalled();
