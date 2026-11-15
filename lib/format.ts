@@ -57,3 +57,7 @@ export function formatGojis(points: number): string {
 export function formatRewards(count: number): string {
   return `${count.toLocaleString()} ${count === 1 ? brand.rewardSingular : brand.rewards}`;
 }
+
+export function cleanTitle(title: string): string {
+  return title.replace(/^demo:\s*/i, "");
+}

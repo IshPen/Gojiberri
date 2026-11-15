@@ -5,6 +5,7 @@ import { Card } from "./ui";
 import VoteBar from "./VoteBar";
 import { colors, font, spacing } from "../constants/theme";
 import { formatCostPerPerson } from "../lib/format";
+import { cleanTitle } from "../lib/format";
 
 export type PlanOption = {
   title: string;
@@ -41,12 +42,12 @@ export default function OptionCard({ index, option, count, total, selected, winn
       disabled={disabled}
       tone={winner ? "success" : selected ? "accent" : "default"}
       style={styles.card}
-      accessibilityLabel={`Vote for ${option.title}`}
+      accessibilityLabel={`Vote for ${cleanTitle(option.title)}`}
     >
       <View style={styles.header}>
         <Text testID={`option-title-${index}`} style={styles.title} numberOfLines={1}>
           {winner ? "🏆 " : ""}
-          {option.title}
+          {cleanTitle(option.title)}
         </Text>
         {extra}
       </View>

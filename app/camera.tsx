@@ -12,6 +12,7 @@ import { brand, colors, font, radius, spacing, emoji as emojiSize } from "../con
 import { formatGojis } from "../lib/format";
 import { mockDelay, useMockQuery } from "../lib/mock";
 import { useUserId } from "../lib/session";
+import { cleanTitle } from "../lib/format";
 
 const USE_MOCK = false;
 
@@ -54,7 +55,7 @@ export default function CameraScreen() {
     ? null
     : USE_MOCK
       ? mockPlan
-      : livePlan && { title: livePlan.options[livePlan.winningIndex ?? -1]?.title ?? "your crew's outing", groupId: livePlan.groupId };
+      : livePlan && { title: cleanTitle(livePlan.options[livePlan.winningIndex ?? -1]?.title ?? "your crew's outing"), groupId: livePlan.groupId };
   const planMissing = !!planId && !USE_MOCK && livePlan === null;
   const storyGroupId = groupId ?? plan?.groupId;
 

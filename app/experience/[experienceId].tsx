@@ -5,13 +5,14 @@ import { Stack, useLocalSearchParams, useRouter, type ErrorBoundaryProps } from 
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
-import DemoPaymentLabel from "../../components/DemoPaymentLabel";
 import SponsoredBadge from "../../components/SponsoredBadge";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import { colors, font, radius, spacing, emoji as emojiSize } from "../../constants/theme";
 import { friendlyError } from "../../lib/errors";
 import { experienceEmoji, groupSize } from "../../lib/experiences";
 import { useUserId } from "../../lib/session";
+import { cleanTitle } from "../../lib/format";
+import { api } from "../../convex/_generated/api";
 
 type Crew = {
   groupId: Id<"groups">;
@@ -90,6 +91,7 @@ export default function ExperienceDetailScreen() {
       : "skip",
   );
   const createCheckout = useAction(checkoutRef);
+  const startCheckout = useMutation(api.whopMock.startExperienceCheckout);
   const chargeCard = useMutation(chargeCardRef);
 
   const [crewId, setCrewId] = useState<Id<"groups"> | null>(null);
@@ -130,11 +132,13 @@ export default function ExperienceDetailScreen() {
     setBuying(true);
     setBuyError(null);
     try {
-      const url = await createCheckout({
+      const args = {
         experienceId: experience!._id,
         userId: userId as Id<"users">,
         ...(crew ? { groupId: crew.groupId } : {}),
-      });
+      };
+      const start = await startCheckout(args);
+      const url = start.mode === "mock" ? start.checkoutUrl : await createCheckout(args);
       setCheckoutOpened(true);
       await WebBrowser.openBrowserAsync(url);
     } catch (e) {
@@ -180,7 +184,7 @@ export default function ExperienceDetailScreen() {
         {experience.businessName}
         {experience.area ? ` · ${experience.area}` : ""}
       </Text>
-      <Title testID="experience-title">{experience.title}</Title>
+      <Title testID="experience-title">{cleanTitle(experience.title)}</Title>
       <Text style={styles.price} testID="experience-price">
         ${experience.pricePerPerson} per person · {groupSize(experience.minGroup, experience.maxGroup)}
       </Text>
@@ -214,7 +218,7 @@ export default function ExperienceDetailScreen() {
 
       <SectionHeader title="Buy with Whop" testID="experience-whop-header" />
       <Card testID="experience-whop-card">
-        <Text style={styles.meta}>Pay ${experience.pricePerPerson} for your spot with Whop checkout (demo, no real money).</Text>
+        <Text style={styles.meta}>Pay ${experience.pricePerPerson} for your spot with Whop checkout.</Text>
         {WHOP_EXPERIENCE_CHECKOUT_LIVE ? (
           <>
             <Button
@@ -227,8 +231,7 @@ export default function ExperienceDetailScreen() {
               onPress={buyWithWhop}
               style={styles.action}
             />
-            <DemoPaymentLabel testID="experience-buy-whop-demo" />
-            {!userId ? (
+                        {!userId ? (
               <Text style={styles.note} testID="experience-whop-signin">
                 Sign in to buy.
               </Text>

@@ -14,6 +14,7 @@ import { createInvite } from "../../lib/calendar";
 import { formatCountdown, formatWindow } from "../../lib/format";
 import { mockDelay, useMockQuery } from "../../lib/mock";
 import { useUserId } from "../../lib/session";
+import { cleanTitle } from "../../lib/format";
 
 const USE_MOCK = false;
 
@@ -386,7 +387,7 @@ export default function PlanScreen() {
           <Text style={styles.bannerEmoji}>{plan.status === "done" ? "🎉" : "🔒"}</Text>
           <Text style={styles.bannerLabel}>{plan.status === "done" ? "Outing complete" : "It's locked!"}</Text>
           <Text testID="lock-winner-title" style={styles.bannerTitle}>
-            {winner.title}
+            {cleanTitle(winner.title)}
           </Text>
           {calendarAdded ? (
             <Text testID="calendar-added" style={styles.bannerBody}>

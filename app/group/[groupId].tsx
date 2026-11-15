@@ -11,6 +11,7 @@ import { formatWindow } from "../../lib/format";
 import { avatarFor } from "../../lib/avatar";
 import { crewStanding, formatPts } from "../../lib/school";
 import { useUserId } from "../../lib/session";
+import { cleanTitle } from "../../lib/format";
 
 type Plan = FunctionReturnType<typeof api.plans.getGroupPlans>[number];
 
@@ -95,7 +96,7 @@ export default function GroupScreen() {
   const upcoming = (plans ?? []).filter((p) => p.status !== "done" && p.status !== "cancelled");
   const past = (plans ?? []).filter((p) => p.status === "done" || p.status === "cancelled");
   const potPlan = upcoming.find((p) => p.status === "locked") ?? upcoming[0] ?? past[0];
-  const planTitle = (p: Plan) => (p.winningIndex !== undefined ? p.options[p.winningIndex]?.title : undefined) ?? "Outing ideas";
+  const planTitle = (p: Plan) => cleanTitle((p.winningIndex !== undefined ? p.options[p.winningIndex]?.title : undefined) ?? "Outing ideas");
   const crewRank = allCrews ? crewStanding(allCrews, (id) => id === group._id) : undefined;
   const standing =
     crewRank === undefined
@@ -116,7 +117,7 @@ export default function GroupScreen() {
         <Text style={styles.planWindow}>{formatWindow(p.window)}</Text>
         {p.status === "voting" && p.options.length > 0 ? (
           <Text testID={`plan-suggestions-${i}`} style={styles.planWindow} numberOfLines={1}>
-            Vote: {p.options.map((o) => o.title).join(" · ")}
+            Vote: {p.options.map((o) => cleanTitle(o.title)).join(" · ")}
           </Text>
         ) : null}
       </View>
@@ -159,7 +160,7 @@ export default function GroupScreen() {
       {picked ? (
         <Card testID="group-pick-banner" tone="accent" style={styles.pickBanner}>
           <Text testID="group-pick-title" style={styles.planTitle} numberOfLines={1}>
-            {picked.title}
+            {cleanTitle(picked.title)}
           </Text>
           <Text style={styles.planWindow}>Pick a time, then your crew votes.</Text>
         </Card>

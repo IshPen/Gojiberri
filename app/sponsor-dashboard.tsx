@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { AppState, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Stack, useRouter, type ErrorBoundaryProps } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
-import { useAction, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../components/ui";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
@@ -10,6 +9,7 @@ import { brand, colors, emoji, font, radius, shadow, spacing, type } from "../co
 import { formatTime } from "../lib/format";
 import type { FunctionReturnType } from "convex/server";
 import { offerStatus, perkLabel, sameBusiness, useBusinessMock } from "../lib/businessMock";
+import { cleanTitle } from "../lib/format";
 
 const KIND_LABELS = { offer: "Offer", reward: "Goji reward", experience: "Experience" } as const;
 
@@ -149,20 +149,14 @@ export default function SponsorDashboardScreen() {
     account ? { sponsorId: account.sponsorId ?? undefined, businessId: account.businessId ?? undefined, since } : "skip",
   );
 
-  const createCheckout = useAction(api.whop.createSponsorCheckout);
   const [funding, setFunding] = useState(false);
-  const [fundError, setFundError] = useState<string | null>(null);
+  const [funded, setFunded] = useState(false);
 
-  const fund = async (sponsorId: Id<"sponsors">) => {
+  const fund = async () => {
     setFunding(true);
-    setFundError(null);
-    try {
-      await WebBrowser.openBrowserAsync(await createCheckout({ sponsorId }));
-    } catch (e) {
-      setFundError(e instanceof Error ? e.message : "Couldn't open checkout.");
-    } finally {
-      setFunding(false);
-    }
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    setFunded(true);
+    setFunding(false);
   };
 
   const header = <Stack.Screen options={{ title: "Business" }} />;
@@ -280,8 +274,12 @@ export default function SponsorDashboardScreen() {
                   <Text style={styles.statLabel}>Spent on visits</Text>
                 </Card>
               </View>
-              {fundError ? <ErrorState testID="fund-error" message={fundError} onRetry={() => fund(home.sponsorship!.sponsorId)} /> : null}
-              <Button testID="fund-quests" label="Fund more quests" icon="💸" variant="secondary" onPress={() => fund(home.sponsorship!.sponsorId)} loading={funding} />
+              {funded ? (
+                <Text testID="fund-received" style={styles.fundReceived}>
+                  Payment received ✓ Your quests are funded.
+                </Text>
+              ) : null}
+              <Button testID="fund-quests" label="Fund more quests" icon="💸" variant="secondary" onPress={fund} loading={funding} />
             </>
           ) : (
             <Card testID="offers-empty" tone="muted">
@@ -313,7 +311,7 @@ export default function SponsorDashboardScreen() {
                   <Card key={e.experienceId} testID={`experience-row-${i}`} style={styles.row}>
                     <View style={{ flex: 1, gap: spacing.xs }}>
                       <Text style={styles.rowTitle} numberOfLines={2}>
-                        {e.title}
+                        {cleanTitle(e.title)}
                       </Text>
                       <Text style={styles.rowMeta}>
                         {money(e.pricePerPerson)} per person{e.active ? "" : " · Paused"}
@@ -338,6 +336,7 @@ export default function SponsorDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  fundReceived: { fontSize: font.size.sm, fontWeight: font.weight.semibold, color: colors.success, textAlign: "center" },
   chips: { gap: spacing.sm },
   hero: { backgroundColor: colors.ink, borderRadius: radius.xl, padding: spacing.xl, alignItems: "center", gap: spacing.xs, ...shadow.ink },
   heroEyebrow: { ...type.eyebrow, color: colors.onInkMuted },

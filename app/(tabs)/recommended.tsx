@@ -10,6 +10,7 @@ import { colors, font, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatWindow } from "../../lib/format";
 import { useUserId } from "../../lib/session";
+import { cleanTitle } from "../../lib/format";
 
 const MAX_PICKS = 3;
 
@@ -109,7 +110,7 @@ export default function RecommendedScreen() {
         <Card testID="home-up-next" tone="accent" style={styles.card} onPress={() => router.push(`/plan/${nextPlan._id}`)}>
           <Text style={styles.eyebrow}>Up next · {nextPlan.groupName}</Text>
           <Text testID="home-crew-next-plan" style={styles.title} numberOfLines={1}>
-            {nextPlan.status === "voting" ? "Vote on 3 ideas" : nextPlan.winner?.title ?? "Your crew's outing"}
+            {nextPlan.status === "voting" ? "Vote on 3 ideas" : (nextPlan.winner ? cleanTitle(nextPlan.winner.title) : undefined) ?? "Your crew's outing"}
           </Text>
           <Text style={styles.muted}>{formatWindow(nextPlan.window)}</Text>
           {nextPlan.status === "voting" ? (
@@ -159,7 +160,7 @@ export default function RecommendedScreen() {
           <Card key={e._id} testID={`pick-card-${i}`} style={styles.card}>
             <View style={styles.row}>
               <Text testID={`pick-title-${i}`} style={[styles.title, { flex: 1 }]} numberOfLines={1}>
-                {e.title}
+                {cleanTitle(e.title)}
               </Text>
               <GojiChip
                 testID={`pick-gojis-${i}`}

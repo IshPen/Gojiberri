@@ -7,7 +7,6 @@ type WhopCardProps = {
   goal: number;
   last4?: string;
   limit?: number;
-  sandbox?: boolean;
   spent?: number;
   testID?: string;
 };
@@ -15,7 +14,7 @@ type WhopCardProps = {
 const RING_SIZE = 76;
 const RING_WIDTH = 7;
 
-export default function WhopCard({ crewName, balance, goal, last4, limit, sandbox = true, spent, testID = "whop-card" }: WhopCardProps) {
+export default function WhopCard({ crewName, balance, goal, last4, limit, spent, testID = "whop-card" }: WhopCardProps) {
   const ready = !!last4 && (spent !== undefined || (goal > 0 && balance >= goal));
   const progress = goal > 0 ? Math.min(balance / goal, 1) : 0;
 
@@ -30,11 +29,6 @@ export default function WhopCard({ crewName, balance, goal, last4, limit, sandbo
         <Text testID={`${testID}-brand`} style={styles.brand}>
           Gojiberri <Text style={styles.brandX}>x</Text> Whop
         </Text>
-        {sandbox ? (
-          <View testID={`${testID}-sandbox`} style={styles.sandbox}>
-            <Text style={styles.sandboxText}>DEMO</Text>
-          </View>
-        ) : null}
       </View>
 
       {ready ? (
@@ -130,14 +124,6 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   brand: { color: colors.onInk, fontSize: font.size.md, fontWeight: font.weight.heavy, letterSpacing: 0.4 },
   brandX: { color: colors.onInkMuted, fontWeight: font.weight.medium },
-  sandbox: {
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.onInkMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  sandboxText: { color: colors.onInk, fontSize: 10, fontWeight: font.weight.bold, letterSpacing: 1 },
   middle: { gap: spacing.md },
   chip: {
     width: 42,

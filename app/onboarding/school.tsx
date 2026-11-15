@@ -82,14 +82,14 @@ export default function SchoolScreen() {
               const uma = await convex.query(api.users.getUser, { userId: DEMO_UMA_ID as Id<"users"> });
               if (!uma) throw new Error("missing");
             } catch {
-              setError("Demo Uma isn't on this backend. Reseed the demo, then try again.");
+              setError("Couldn't find Uma's account. Try again in a moment.");
               return;
             }
             await setUserId(DEMO_UMA_ID);
             router.replace("/(tabs)/recommended");
           }}
         >
-          <Text style={styles.demoLink}>Demo: continue as Uma</Text>
+          <Text style={styles.demoLink}>Sign in as Uma</Text>
         </Pressable>
       </View>
 

@@ -6,7 +6,6 @@ import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import ConfettiCannon from "react-native-confetti-cannon";
-import DemoPaymentLabel from "../../components/DemoPaymentLabel";
 import SponsoredBadge from "../../components/SponsoredBadge";
 import WhopCard from "../../components/WhopCard";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
@@ -16,6 +15,7 @@ import { friendlyError } from "../../lib/errors";
 import { avatarFor } from "../../lib/avatar";
 import { useUserId } from "../../lib/session";
 import { formatDollars, type PlanSplit } from "../../lib/split";
+import { cleanTitle } from "../../lib/format";
 
 const DEFAULT_PER_MEMBER = 20;
 
@@ -81,6 +81,7 @@ export default function PotScreen() {
   const chargeCard = useMutation(api.cards.chargeCard);
   const issueCard = useMutation(api.cards.issueCard);
   const checkout = useAction(api.whop.createContributionCheckout);
+  const startCheckout = useMutation(api.whopMock.startContributionCheckout);
 
   const run = async (kind: NonNullable<typeof busy>, fn: () => Promise<void>) => {
     setActionError(null);
@@ -98,7 +99,8 @@ export default function PotScreen() {
     run(kind, async () => {
       if (!groupId) return;
       if (!me) throw new Error("Sign in to add money.");
-      const url = await checkout({ userId: me, groupId, amount });
+      const start = await startCheckout({ userId: me, groupId, amount });
+      const url = start.mode === "mock" ? start.checkoutUrl : await checkout({ userId: me, groupId, amount });
       await WebBrowser.openBrowserAsync(url);
     });
 
@@ -176,7 +178,7 @@ export default function PotScreen() {
           estimated={estimated}
           me={me}
           day={new Date(plan.window.start).toLocaleDateString(undefined, { weekday: "long" })}
-          title={winner?.title ?? "The experience"}
+          title={winner ? cleanTitle(winner.title) : "The experience"}
           busy={busy}
           receipt={receipt}
           onTopUp={(amount) => addToShare(amount, "topup")}
@@ -184,13 +186,13 @@ export default function PotScreen() {
         />
       ) : winner ? (
         <Card testID="pot-not-experience" tone="muted">
-          <Text style={styles.muted}>{winner.title} isn't a bookable experience, so the pot isn't charged. Everyone pays their own way.</Text>
+          <Text style={styles.muted}>{cleanTitle(winner.title)} isn't a bookable experience, so the pot isn't charged. Everyone pays their own way.</Text>
         </Card>
       ) : null}
 
       {actionError ? <ActionError message={actionError} /> : null}
 
-      <WhopCard crewName={crewName} balance={pot.balance} goal={split?.total || pot.balance} last4={cardView?.card.last4} limit={cardView?.limit ?? pot.balance} spent={split?.charged || receipt ? split?.total ?? 0 : undefined} sandbox />
+      <WhopCard crewName={crewName} balance={pot.balance} goal={split?.total || pot.balance} last4={cardView?.card.last4} limit={cardView?.limit ?? pot.balance} spent={split?.charged || receipt ? split?.total ?? 0 : undefined} />
       {cardView === null ? (
         <Button
           testID="pot-issue-card-button"
@@ -202,9 +204,6 @@ export default function PotScreen() {
           onPress={() => run("issue", async () => void (await issueCard({ groupId: plan.groupId })))}
         />
       ) : null}
-      <Text testID="pot-card-note" style={[styles.muted, { textAlign: "center", fontSize: font.size.sm }]}>
-        Demo card: Whop is simulated. No real money moves.
-      </Text>
 
       <Button
         testID="pot-chip-in-button"
@@ -214,8 +213,7 @@ export default function PotScreen() {
         disabled={!!busy}
         onPress={() => addToShare(chipAmount, "chip")}
       />
-      <DemoPaymentLabel testID="pot-chip-in-demo" />
-
+      
       <SectionHeader title="Everyone's share" testID="pot-shares-title" />
       <View testID="pot-shares" style={styles.list}>
         {(shares ?? []).map((s, i) => (
@@ -328,8 +326,7 @@ function SplitCard({
           {mine && mine.shortBy > 0 ? (
             <>
               <Button testID="pot-top-up" label={`Top up ${formatDollars(mine.shortBy)}`} loading={busy === "topup"} disabled={!!busy} onPress={() => onTopUp(mine.shortBy)} />
-              <DemoPaymentLabel testID="pot-top-up-demo" />
-            </>
+                          </>
           ) : null}
           <Button
             testID="pot-pay"
