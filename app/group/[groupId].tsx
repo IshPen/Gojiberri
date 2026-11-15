@@ -143,9 +143,9 @@ export default function GroupScreen() {
         ))}
       </View>
 
-      <Text testID="invite-code-chip" style={styles.inviteLabel}>
+      <Text testID="invite-code-chip" style={styles.inviteLabel} selectable>
         Invite code{" "}
-        <Text testID="group-invite-code" style={styles.inviteCode} selectable>
+        <Text testID="group-invite-code" style={styles.inviteCode}>
           {group.inviteCode}
         </Text>
       </Text>

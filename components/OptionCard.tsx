@@ -51,9 +51,13 @@ export default function OptionCard({ index, option, count, total, selected, winn
         {extra}
       </View>
       <Text testID={`option-cost-${index}`} style={styles.cost} numberOfLines={1}>
+        {option.sponsorId ? (
+          <Text testID={`sponsored-badge-${index}`} style={styles.sponsored}>
+            Sponsored ·{" "}
+          </Text>
+        ) : null}
         {formatCostPerPerson(option.costMin, option.costMax)}
         {option.travel ? <Text testID={`option-travel-${index}`}> · {option.travel}</Text> : null}
-        {option.sponsorId ? <Text testID={`sponsored-badge-${index}`}> · Sponsored</Text> : null}
       </Text>
       <Text testID={`option-why-${index}`} style={styles.why} numberOfLines={1}>
         {option.why}
@@ -85,6 +89,7 @@ const styles = StyleSheet.create({
   },
   title: { flex: 1, fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
   cost: { fontSize: font.size.md, color: colors.textMuted },
+  sponsored: { fontWeight: font.weight.bold, color: colors.text },
   why: { fontSize: font.size.md, color: colors.textMuted },
   mine: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.accentDark },
 });
