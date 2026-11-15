@@ -1,21 +1,11 @@
 "use node";
 
 import { v } from "convex/values";
-import { makeFunctionReference, type ApiFromModules, type FunctionArgs, type FunctionReturnType } from "convex/server";
 import { action, env, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import type * as purchases from "./purchases";
 
 const WHOP_API = env.WHOP_API_BASE ?? "https://sandbox-api.whop.com/api/v1";
-
-type PurchaseApi = ApiFromModules<{ purchases: typeof purchases }>["purchases"];
-const getPurchase = makeFunctionReference<
-  "query", FunctionArgs<PurchaseApi["getPurchase"]>, FunctionReturnType<PurchaseApi["getPurchase"]>
->("purchases:getPurchase");
-const markPaid = makeFunctionReference<
-  "mutation", FunctionArgs<PurchaseApi["markPaid"]>, FunctionReturnType<PurchaseApi["markPaid"]>
->("purchases:markPaid");
 
 function object(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -196,7 +186,7 @@ export const handleEvent = internalAction({
       }
       if (!checkoutId && !variantId) throw new Error("Whop experience payment is unbound");
 
-      const purchase = await ctx.runQuery(getPurchase, {
+      const purchase = await ctx.runQuery(internal.purchases.getPurchase, {
         purchaseId: metadata.purchaseId as Id<"experiencePurchases">,
       });
       if (!purchase) {
@@ -213,7 +203,7 @@ export const handleEvent = internalAction({
         console.warn("Whop experience payment rejected: invalid_items");
         return null;
       }
-      const result = await ctx.runMutation(markPaid, {
+      const result = await ctx.runMutation(internal.purchases.markPaid, {
         purchaseId: purchase._id,
         whopPaymentId: payment.id,
         amount: subtotal / 100,
