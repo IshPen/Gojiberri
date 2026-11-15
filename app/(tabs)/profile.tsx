@@ -56,7 +56,8 @@ export default function ProfileScreen() {
     }
   };
 
-  const toNext = user ? user.points % brand.pointsPerReward : 0;
+  const lifetime = user ? user.points + ((user as { gojisSpent?: number }).gojisSpent ?? 0) : 0;
+  const toNext = lifetime % brand.pointsPerReward;
   const pct = Math.round((toNext / brand.pointsPerReward) * 100);
   const school = schoolFor(user?.homeArea);
   const myIds = new Set<string>((groups ?? []).map((g) => g._id));
@@ -191,8 +192,8 @@ export default function ProfileScreen() {
         <Button testID="profile-knows-refresh" label="Refresh" variant="secondary" onPress={loadKnows} loading={knowsLoading} />
       </Card>
 
-      <Button testID="sponsor-dashboard-link" label="Sponsor dashboard (demo)" variant="secondary" onPress={() => router.push("/sponsor-dashboard")} />
       <Button testID="sign-out" label="Sign out" variant="danger" onPress={signOut} loading={signingOut} />
+      <Button testID="sponsor-dashboard-link" label="For businesses: sponsor dashboard" variant="ghost" onPress={() => router.push("/sponsor-dashboard")} />
     </Screen>
   );
 }

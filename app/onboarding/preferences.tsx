@@ -93,7 +93,7 @@ export default function PreferencesScreen() {
       });
       const token = await registerForPushToken();
       if (token) await setPushToken({ userId: userId as Id<"users">, token });
-      router.replace("/(tabs)/home");
+      router.replace("/(tabs)/recommended");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save your picks. Check your connection and try again.");
       setSaving(false);
