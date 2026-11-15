@@ -49,7 +49,7 @@ const MOCK_USER: User = {
   homeArea: "Mission",
   budgetMax: 30,
 };
-const MOCK_RANKS: MyRanks = { crewRank: 2, crewName: "Hack Crew", crewAvg: 320, leaderName: "Taco Tuesday Crew", leaderAvg: 340, school: "Berkeley" };
+const MOCK_RANKS: MyRanks = { crewRank: 2, crewName: "Hack Crew", crewAvg: 100, leaderName: "Midnight Crew", leaderAvg: 112.5, school: "Berkeley" };
 const MOCK_CREW_PLANS: CrewPlan[] = [
   { _id: "plan-locked-1" as Id<"plans">, groupId: "mock_hack_crew" as Id<"groups">, groupName: "Hack Crew", status: "locked", winner: { title: "Escape SF: The Heist Room" } },
 ];
@@ -147,7 +147,7 @@ export default function HomeScreen() {
           <Text testID="home-crew-rival" style={styles.planWindow}>
             {ranks.crewRank === 1
               ? `Your crew leads every friend group at ${ranks.school}. Hold the lead!`
-              : `Your crew vs. theirs: ${Math.max(0, Math.round((ranks.leaderAvg ?? 0) - (ranks.crewAvg ?? 0)))} ${brand.points} behind ${ranks.leaderName} for #1 at ${ranks.school}`}
+              : `Your crew vs. theirs: ${Math.max(0, Math.round(((ranks.leaderAvg ?? 0) - (ranks.crewAvg ?? 0)) * 10) / 10)} ${brand.points} behind ${ranks.leaderName} for #1 at ${ranks.school}`}
           </Text>
           {nextPlan ? (
             <>

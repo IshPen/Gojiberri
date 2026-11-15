@@ -20,13 +20,14 @@ These are three natural-language tests to run on iOS and Android. Each step name
 4. Tap `vote-option-1`. Assert that `vote-count-1` increases and `lock-banner` appears with the winner title (`lock-winner-title`).
 5. Tap `confirm-attendance`. Assert that `confirmed-badge` is visible.
 
-## 3. Take a photo, see it in the story, Gojis go up
+## 3. Check in on a crew outing, see it in the story, Gojis go up
 
 1. Note the value of `home-points-value` on the Home tab.
-2. From the group page, tap `story-link`, then `story-add-photo` (or open the camera from a plan).
+2. On Home, tap `home-crew-checkin` to open the camera for your crew's locked plan. Assert that `camera-plan-title` is visible and `camera-subtitle` reads "Check in on your crew's outing and earn 50 Gojis."
 3. Tap `take-photo` (on the simulator, use `choose-photo`) and pick any image. Assert that `photo-preview` is visible.
 4. Type "best night" into `caption-input` and tap `upload-photo`.
 5. Assert that `upload-success` shows "+50 Gojis" (`upload-success-points`). Tap `view-story` and assert that a `photo-tile-0` is visible.
 6. Go back to Home and assert that `home-points-value` is higher than in step 1.
+7. From the group page, tap `story-link`, then `story-add-photo`. Assert that `camera-subtitle` reads "Share a photo with your crew. Check in on a crew outing to earn Gojis." Upload any photo and assert that `upload-success` shows no `upload-success-points`.
 
-> Note: steps 3.5 and 3.6 need the real backend (`USE_MOCK = false`). With mocks on, the story and points are static demo data.
+> Note: steps 3.5, 3.6 and 3.7 need the real backend (`USE_MOCK = false`). With mocks on, the story and points are static demo data.

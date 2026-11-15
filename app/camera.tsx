@@ -149,10 +149,14 @@ export default function CameraScreen() {
         <Card tone="success" style={styles.center}>
           <Text style={styles.big}>🎉</Text>
           <Title testID="upload-success-title">Photo uploaded!</Title>
-          <Text testID="upload-success-points" style={styles.reward}>
-            +{formatGojis(PHOTO_POINTS)}
-          </Text>
-          <PointsPill testID="upload-success-pill" size="lg" points={PHOTO_POINTS} />
+          {planId ? (
+            <>
+              <Text testID="upload-success-points" style={styles.reward}>
+                +{formatGojis(PHOTO_POINTS)}
+              </Text>
+              <PointsPill testID="upload-success-pill" size="lg" points={PHOTO_POINTS} />
+            </>
+          ) : null}
           {plan ? (
             <Text testID="upload-success-plan" style={styles.planDone}>
               Checked in: {plan.title}
@@ -172,7 +176,9 @@ export default function CameraScreen() {
     <Screen>
       <Stack.Screen options={{ title: "Photo check-in" }} />
       <Title testID="camera-title">Snap the moment</Title>
-      <Subtitle testID="camera-subtitle">Share a photo and earn {formatGojis(PHOTO_POINTS)}.</Subtitle>
+      <Subtitle testID="camera-subtitle">
+        {planId ? `Check in on your crew's outing and earn ${formatGojis(PHOTO_POINTS)}.` : `Share a photo with your crew. Check in on a crew outing to earn ${brand.points}.`}
+      </Subtitle>
 
       {planId ? (
         planMissing ? (
