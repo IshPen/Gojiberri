@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, MutationCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { addDollars } from "./funds";
 
 const SPONSOR_CHIP_IN = 10;
 
@@ -21,7 +22,7 @@ async function chipIn(
     status: "completed",
     note: sponsor.business,
   });
-  await ctx.db.patch("pots", potId, { balance: pot.balance + amount });
+  await ctx.db.patch("pots", potId, { balance: addDollars(pot.balance, amount) });
   return transactionId;
 }
 

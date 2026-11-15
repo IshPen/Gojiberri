@@ -85,10 +85,10 @@ async function resolveItem(ctx: QueryCtx, userId: Id<"users">, kind: Kind, refId
         .order("desc")
         .take(500)
     ).filter((t) => t.type === "spend" && t.status === "completed" && t.experienceId === experience._id && t.planId);
-    for (const spend of spends) {
+    for (const planId of new Set(spends.map((t) => t.planId!))) {
       const vote = await ctx.db
         .query("votes")
-        .withIndex("by_plan_user", (q) => q.eq("planId", spend.planId!).eq("userId", userId))
+        .withIndex("by_plan_user", (q) => q.eq("planId", planId).eq("userId", userId))
         .first();
       if (!vote?.confirmed) continue;
       payingCrew ??= crew;
