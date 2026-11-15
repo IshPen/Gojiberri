@@ -60,6 +60,7 @@ export default defineSchema({
     winningIndex: v.optional(v.number()),
     confirmBy: v.number(),
     recurrenceId: v.optional(v.id("recurrences")),
+    seedExperienceId: v.optional(v.id("experiences")), // always one of the 3 options
   }).index("by_group", ["groupId"]),
 
   votes: defineTable({
@@ -195,6 +196,28 @@ export default defineSchema({
     planId: v.optional(v.id("plans")),
     groupId: v.optional(v.id("groups")),
   }).index("by_user", ["userId"]),
+
+  // [FUND] direct experience checkout via Whop, independent of pots
+  experiencePurchases: defineTable({
+    userId: v.id("users"),
+    experienceId: v.id("experiences"),
+    businessId: v.id("businesses"),          // snapshot at creation
+    groupId: v.optional(v.id("groups")),
+    quantity: v.number(),                     // people paid for, >= 1
+    amount: v.number(),                       // expected total in whole $, snapshot (pricePerPerson x quantity)
+    currency: v.string(),                     // "usd"
+    whopPlanId: v.optional(v.string()),       // snapshot of experience.whopPlanId (variant) used for checkout
+    whopCheckoutId: v.optional(v.string()),   // checkout configuration id returned by Whop
+    checkoutUrl: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("completed"), v.literal("failed")),
+    whopPaymentId: v.optional(v.string()),    // set on completion; one completed purchase per payment
+    completedAt: v.optional(v.number()),
+    failureReason: v.optional(v.string()),
+  })
+    .index("by_payment", ["whopPaymentId"])
+    .index("by_checkout", ["whopCheckoutId"])
+    .index("by_user", ["userId"])
+    .index("by_experience", ["experienceId"]),
 
   redemptions: defineTable({             // short-lived QR codes a business scans
     token: v.string(),                   // random, single use

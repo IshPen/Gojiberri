@@ -28,6 +28,7 @@ export async function insertPlan(
   groupId: Id<"groups">,
   window: { start: number; end: number },
   recurrenceId?: Id<"recurrences">,
+  seedExperienceId?: Id<"experiences">,
 ) {
   const planId = await ctx.db.insert("plans", {
     groupId,
@@ -36,19 +37,25 @@ export async function insertPlan(
     options: [],
     confirmBy: window.start,
     recurrenceId,
+    seedExperienceId,
   });
   await scheduleExternal(ctx, external.generateSuggestions, { planId });
   return planId;
 }
 
 export const createPlan = mutation({
-  args: { userId: v.id("users"), groupId: v.id("groups"), window: timeBlock },
-  handler: async (ctx, { userId, groupId, window }) => {
+  args: {
+    userId: v.id("users"),
+    groupId: v.id("groups"),
+    window: timeBlock,
+    seedExperienceId: v.optional(v.id("experiences")),
+  },
+  handler: async (ctx, { userId, groupId, window, seedExperienceId }) => {
     const group = await ctx.db.get("groups", groupId);
     if (!group) throw new ConvexError("Group not found");
     if (!group.memberIds.includes(userId)) throw new ConvexError("You're not in this group");
     if (window.end <= window.start) throw new ConvexError("Invalid time window");
-    return await insertPlan(ctx, groupId, window);
+    return await insertPlan(ctx, groupId, window, undefined, seedExperienceId);
   },
 });
 

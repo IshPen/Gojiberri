@@ -95,6 +95,17 @@ async function resolveItem(ctx: QueryCtx, userId: Id<"users">, kind: Kind, refId
       paid++;
     }
   }
+  const purchases = (
+    await ctx.db
+      .query("experiencePurchases")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(200)
+  ).filter((p) => p.experienceId === experience._id && p.status === "completed");
+  for (const purchase of purchases) {
+    paid++;
+    if (!payingCrew && purchase.groupId) payingCrew = await ctx.db.get("groups", purchase.groupId);
+  }
   if (paid === 0) throw new ConvexError("Your crew hasn't paid for this experience yet");
   if ((await usedCount(ctx, userId, refId)) >= paid) throw new ConvexError("This experience was already redeemed");
   const business = await ctx.db.get("businesses", experience.businessId);
