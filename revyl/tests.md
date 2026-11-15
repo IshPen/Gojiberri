@@ -8,7 +8,7 @@ These are three natural-language tests to run on iOS and Android. Each step name
 2. The Welcome to Gojiberri screen shows (`name-title`).
 3. Type "Uma" into `name-input`, tap `avatar-option-2`, then tap `name-continue`.
 4. On the swipe screen, tap `swipe-option-left` or `swipe-option-right` until the progress bar (`swipe-progress`) completes, or tap `swipe-skip`.
-5. On preferences, tap `area-chip-Mission`, `diet-chip-vegetarian` and `vibe-chip-cozy`, then tap `preferences-finish`.
+5. On preferences, assert that `school-joined-name` reads "Repping Berkeley". Tap `diet-chip-vegetarian` and `vibe-chip-cozy`, then tap `preferences-finish`.
 6. The Home tab is visible (`home-greeting`). Tap `tab-groups`, then `create-group-button`.
 7. Type "Hack Crew" into `group-name-input` and tap `create-group-submit`.
 8. Assert that `invite-code` shows a 6-character uppercase code. Tap `copy-invite-code` and assert that the button reads "Copied!".
