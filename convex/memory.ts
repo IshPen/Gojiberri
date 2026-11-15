@@ -73,11 +73,12 @@ export const rememberRating = internalAction({
   args: { ratingId: v.id("ratings") },
   handler: async (ctx, { ratingId }) => {
     const rating = await ctx.runQuery(internal.context.ratingContext, { ratingId });
-    if (!rating) return null;
+    if (!rating?.groupId) return null;
     const sentence = `Rated ${rating.placeName} ${rating.stars} stars, vibe: ${rating.vibe}.`;
-    const writes = [remember(userTag(rating.userId), sentence)];
-    if (rating.groupId) writes.push(remember(groupTag(rating.groupId), `${rating.userName} ${sentence[0].toLowerCase()}${sentence.slice(1)}`));
-    await Promise.all(writes);
+    await Promise.all([
+      remember(userTag(rating.userId), sentence),
+      remember(groupTag(rating.groupId), `${rating.userName} ${sentence[0].toLowerCase()}${sentence.slice(1)}`),
+    ]);
     return null;
   },
 });
