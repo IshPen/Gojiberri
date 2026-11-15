@@ -25,10 +25,10 @@ export default function CrewCardHero({
   const shares = useQuery(api.funds.getPotShares, { groupId });
   const balance = pot?.balance ?? 0;
   const myShare = shares?.find((s) => s.userId === me)?.balance ?? 0;
-  const open = () => router.push(planId ? `/pot/${planId}` : `/group/${groupId}`);
+  const open = planId ? () => router.push(`/pot/${planId}`) : undefined;
 
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${crewName} basket`} onPress={open} style={styles.wrap}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`${crewName} basket`} onPress={open} disabled={!open} style={styles.wrap}>
       <WhopCard crewName={crewName} balance={balance} goal={card?.limit ?? balance} last4={card?.card.last4} limit={card?.limit ?? balance} />
       <View style={styles.row}>
         <Text testID={`${testID}-share`} style={styles.stat}>
@@ -37,7 +37,7 @@ export default function CrewCardHero({
         <Text testID={`${testID}-balance`} style={styles.stat}>
           🧺 <Text style={styles.value}>${formatDollars(balance)}</Text>
         </Text>
-        <Text style={styles.chevron}>›</Text>
+        {open ? <Text style={styles.chevron}>›</Text> : null}
       </View>
     </Pressable>
   );
