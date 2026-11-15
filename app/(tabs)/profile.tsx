@@ -8,6 +8,7 @@ import { SchoolCrest } from "../../components/SchoolBadge";
 import { brand, colors, emoji, font, radius, shadow, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatGojis, formatRewards } from "../../lib/format";
+import { avatarFor } from "../../lib/avatar";
 import { crewStanding, formatPts, schoolFor } from "../../lib/school";
 import { clearUserId, useUserId } from "../../lib/session";
 
@@ -76,7 +77,7 @@ export default function ProfileScreen() {
         <>
           <View style={styles.hero}>
             <View testID="profile-avatar" style={styles.avatar}>
-              <Text style={styles.avatarText}>{user.name.charAt(0).toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{avatarFor(user)}</Text>
             </View>
             <Title testID="profile-name">{user.name}</Title>
             <Text testID="profile-budget" style={styles.area}>Up to ${user.budgetMax} per outing</Text>

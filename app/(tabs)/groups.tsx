@@ -7,6 +7,7 @@ import { SchoolHeader } from "../../components/SchoolBadge";
 import { brand, colors, font, radius, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { crewStanding, formatPts } from "../../lib/school";
+import { avatarFor } from "../../lib/avatar";
 import { useUserId } from "../../lib/session";
 
 export default function GroupsScreen() {
@@ -91,7 +92,7 @@ export default function GroupsScreen() {
               <View style={styles.avatars}>
                 {group.members.map((m, j) => (
                   <View key={m._id} testID={`group-${i}-avatar-${j}`} style={[styles.avatar, j > 0 && { marginLeft: -10 }]}>
-                    <Text style={styles.avatarText}>{m.name.charAt(0).toUpperCase()}</Text>
+                    <Text style={styles.avatarText}>{avatarFor(m)}</Text>
                   </View>
                 ))}
               </View>

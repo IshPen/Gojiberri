@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useQuery } from "convex/react";
 import { BerryMark, Button, ErrorState, Screen, Subtitle } from "../../components/ui";
@@ -7,6 +7,9 @@ import { SchoolCrest, SchoolPicker } from "../../components/SchoolBadge";
 import { brand, colors, font, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { schoolFor } from "../../lib/school";
+import { setUserId } from "../../lib/session";
+
+const DEMO_UMA_ID = "kd73rsq2mbtzeqr9fbejhah4nd8j9m7r";
 
 export default function SchoolScreen() {
   const router = useRouter();
@@ -67,6 +70,17 @@ export default function SchoolScreen() {
               : `Be one of the first crews at ${picked.name}. Your crew vs. theirs starts now.`
             : `${brand.name} is your campus's space. Join your school, then start or join a crew with your friends and climb your school's board.`}
         </Subtitle>
+        <Pressable
+          testID="demo-login-uma"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={async () => {
+            await setUserId(DEMO_UMA_ID);
+            router.replace("/(tabs)/recommended");
+          }}
+        >
+          <Text style={styles.demoLink}>Demo: continue as Uma</Text>
+        </Pressable>
       </View>
 
       {error ? <ErrorState testID="school-error" message={error} onRetry={() => setError(null)} /> : null}
@@ -89,6 +103,7 @@ export default function SchoolScreen() {
 }
 
 const styles = StyleSheet.create({
+  demoLink: { fontSize: font.size.sm, fontWeight: font.weight.semibold, color: colors.textMuted, textDecorationLine: "underline", textAlign: "center", paddingVertical: spacing.xs },
   hero: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.lg },
   wordmark: { ...type.eyebrow, marginTop: spacing.sm, letterSpacing: 3 },
   heroTitle: { ...type.display, textAlign: "center" },

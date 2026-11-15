@@ -166,7 +166,6 @@ export default function PlanScreen() {
   const prevRegen = useRef<number | null>(null);
   const lastOptions = useRef("");
   const [noNewIdeas, setNoNewIdeas] = useState(false);
-  const inviteCreated = useRef(false);
   const confettiFired = useRef(false);
 
   useEffect(() => {
@@ -244,14 +243,16 @@ export default function PlanScreen() {
       setShowConfetti(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }
-    const winner = winningIndex !== undefined ? plan.options[winningIndex] : undefined;
-    const place = winningIndex !== undefined ? plan.places[winningIndex] : undefined;
-    if (!winner || !place || inviteCreated.current) return;
-    inviteCreated.current = true;
-    createInvite({ title: winner.title, window: plan.window }, { name: place.name, area: place.area, bookingUrl: place.bookingUrl })
+  }, [plan, status, winningIndex]);
+
+  const addToCalendar = () => {
+    const place = plan && winningIndex !== undefined ? plan.places[winningIndex] : undefined;
+    const option = plan && winningIndex !== undefined ? plan.options[winningIndex] : undefined;
+    if (!plan || !option || !place) return;
+    createInvite({ title: option.title, window: plan.window }, { name: place.name, area: place.area, bookingUrl: place.bookingUrl })
       .then((eventId) => setCalendarAdded(!!eventId))
       .catch(() => {});
-  }, [plan, status, winningIndex]);
+  };
 
   const vote = async (optionIndex: number) => {
     setActionError(null);
@@ -388,6 +389,8 @@ export default function PlanScreen() {
             <Text testID="calendar-added" style={styles.bannerBody}>
               Added to calendar ✓
             </Text>
+          ) : plan.status === "locked" ? (
+            <Button testID="add-to-calendar" label="Add to calendar" variant="secondary" onPress={addToCalendar} />
           ) : null}
         </Card>
       ) : null}

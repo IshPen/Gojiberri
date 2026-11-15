@@ -8,10 +8,9 @@ import { brand, colors, font, minTapTarget, radius, spacing, type, emoji as emoj
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { schoolFor } from "../../lib/school";
+import { AVATARS } from "../../lib/avatar";
 import { setUserId } from "../../lib/session";
 import { TimeoutError, withTimeout } from "../../lib/timeout";
-
-const AVATARS = ["🐱", "🦊", "🐼", "🐸", "🦄", "🐙", "🦁", "🐯", "🐵", "🐧", "🦉", "🐳"];
 
 export default function NameScreen() {
   const router = useRouter();
@@ -34,7 +33,7 @@ export default function NameScreen() {
     setSaving(true);
     setError(null);
     try {
-      if (pending.current?.name !== trimmed) pending.current = { name: trimmed, promise: createUser({ name: trimmed }) };
+      if (pending.current?.name !== trimmed) pending.current = { name: trimmed, promise: createUser({ name: trimmed, avatarUrl: AVATARS[avatar] }) };
       const id = await withTimeout(pending.current.promise, "We couldn't reach Gojiberri. Check your connection and try again.");
       await setUserId(id);
       router.replace({ pathname: "/onboarding/swipe", params: { school } });

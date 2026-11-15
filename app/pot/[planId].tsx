@@ -13,6 +13,7 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHead
 import { colors, font, motion, radius, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../../lib/errors";
+import { avatarFor } from "../../lib/avatar";
 import { useUserId } from "../../lib/session";
 import { formatDollars, type PlanSplit } from "../../lib/split";
 
@@ -46,7 +47,24 @@ export default function PotScreen() {
   const experienceId = winner?.experienceId;
   const shares = useQuery(api.funds.getPotShares, groupId ? { groupId } : "skip");
   const liveSplit = useQuery(api.funds.getPlanSplit, planId && experienceId ? { planId: pid } : "skip");
-  const split: PlanSplit | null | undefined = !experienceId || pot === null ? null : liveSplit;
+  const rawSplit: PlanSplit | null | undefined = !experienceId || pot === null ? null : liveSplit;
+  const estimated = !!rawSplit && rawSplit.attendees.length === 0 && !rawSplit.charged && !!shares?.length && !!winner;
+  const split: PlanSplit | null | undefined =
+    estimated && rawSplit && shares && winner
+      ? {
+          ...rawSplit,
+          total: winner.costMin * shares.length,
+          perPerson: winner.costMin,
+          allCovered: false,
+          attendees: shares.map((s) => ({
+            userId: s.userId,
+            name: s.name,
+            balance: s.balance,
+            share: winner.costMin,
+            shortBy: Math.max(0, Math.round((winner.costMin - s.balance) * 100) / 100),
+          })),
+        }
+      : rawSplit;
 
   const createPot = useMutation(api.funds.createPot);
   const chargeCard = useMutation(api.cards.chargeCard);
@@ -144,6 +162,7 @@ export default function PotScreen() {
       {split ? (
         <SplitCard
           split={split}
+          estimated={estimated}
           me={me}
           day={new Date(plan.window.start).toLocaleDateString(undefined, { weekday: "long" })}
           title={winner?.title ?? "The experience"}
@@ -241,6 +260,7 @@ export default function PotScreen() {
 
 function SplitCard({
   split,
+  estimated,
   me,
   day,
   title,
@@ -250,6 +270,7 @@ function SplitCard({
   onPay,
 }: {
   split: PlanSplit;
+  estimated: boolean;
   me: Id<"users"> | null;
   day: string;
   title: string;
@@ -307,7 +328,11 @@ function SplitCard({
             disabled={!!busy || !split.allCovered}
             onPress={onPay}
           />
-          {!split.allCovered ? <Text style={[styles.muted, { textAlign: "center" }]}>Unlocks once everyone's covered.</Text> : null}
+          {estimated ? (
+            <Text testID="pot-split-confirm-hint" style={[styles.muted, { textAlign: "center" }]}>Ask your crew to confirm they're going. The pot pays once everyone's in.</Text>
+          ) : !split.allCovered ? (
+            <Text style={[styles.muted, { textAlign: "center" }]}>Unlocks once everyone's covered.</Text>
+          ) : null}
         </>
       )}
     </Card>
@@ -325,7 +350,7 @@ function ActionError({ message }: { message: string }) {
 function Avatar({ name, sponsor }: { name: string; sponsor?: boolean }) {
   return (
     <View style={[styles.avatar, sponsor && { backgroundColor: colors.warningSoft }]}>
-      <Text style={styles.avatarText}>{sponsor ? name : name.slice(0, 1).toUpperCase()}</Text>
+      <Text style={styles.avatarText}>{sponsor ? name : avatarFor({ name })}</Text>
     </View>
   );
 }
