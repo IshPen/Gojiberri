@@ -1,120 +1,223 @@
-import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import { useMemo, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Stack, useRouter, type ErrorBoundaryProps } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { makeFunctionReference } from "convex/server";
-import type { GenericId as Id } from "convex/values";
 import { useAction, useQuery } from "convex/react";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../components/ui";
-import { brand, colors, font, spacing } from "../constants/theme";
-import { mockDelay, useMockQuery } from "../lib/mock";
+import { api } from "../convex/_generated/api";
+import type { Id } from "../convex/_generated/dataModel";
+import { brand, colors, emoji, font, radius, shadow, spacing, type } from "../constants/theme";
+import { formatTime } from "../lib/format";
 
-const USE_MOCK = true;
+const KIND_LABELS = { offer: "Offer", reward: "Goji reward", experience: "Experience" } as const;
 
-type Sponsor = {
-  _id: Id<"sponsors">;
-  business: string;
-  offer: string;
-  placeId: Id<"places">;
-  priceLevel: number;
-  tags: string[];
-  rewardCost: number;
-  payPerVisit: number;
-  active: boolean;
-};
-type Stats = { visits: number; earned: number };
+const money = (n: number) => `$${n % 1 === 0 ? n : n.toFixed(2)}`;
 
-// TODO(convex): swap to api.sponsors.listActive once it lands
-const listActiveRef = makeFunctionReference<"query", Record<string, never>, Sponsor[]>("sponsors:listActive");
-// TODO(convex): swap to api.sponsors.stats once it lands
-const statsRef = makeFunctionReference<"query", { sponsorId: Id<"sponsors"> }, Stats>("sponsors:stats");
-// TODO(convex): swap to api.whop.createSponsorCheckout once it lands
-const checkoutRef = makeFunctionReference<"action", { sponsorId: Id<"sponsors"> }, string>("whop:createSponsorCheckout");
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
 
-const MOCK_SPONSORS: Sponsor[] = [
-  { _id: "sp1" as Id<"sponsors">, business: "Ritual Coffee Roasters", offer: "Free pastry with any drink", placeId: "pl1" as Id<"places">, priceLevel: 2, tags: ["coffee"], rewardCost: 1, payPerVisit: 2.5, active: true },
-  { _id: "sp2" as Id<"sponsors">, business: "Smitten Ice Cream", offer: "Buy one scoop, get one free", placeId: "pl2" as Id<"places">, priceLevel: 1, tags: ["dessert"], rewardCost: 1, payPerVisit: 1.5, active: true },
-  { _id: "sp3" as Id<"sponsors">, business: "Flour + Water Pizzeria", offer: "15% off your table", placeId: "pl3" as Id<"places">, priceLevel: 3, tags: ["dinner"], rewardCost: 1, payPerVisit: 6, active: true },
-];
-const MOCK_STATS: Record<string, Stats> = {
-  sp1: { visits: 42, earned: 105 },
-  sp2: { visits: 27, earned: 40.5 },
-  sp3: { visits: 18, earned: 108 },
-};
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  return (
+    <Screen testID="dashboard-screen">
+      <Stack.Screen options={{ title: "Business" }} />
+      <ErrorState testID="dashboard-error" message={error.message || "Couldn't load your business."} onRetry={retry} />
+    </Screen>
+  );
+}
 
 export default function SponsorDashboardScreen() {
   const router = useRouter();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const accounts = useQuery(api.businessDashboard.listAccounts);
+  const [selected, setSelected] = useState<number>(0);
+  const since = useMemo(startOfToday, []);
+  const account = accounts?.[selected] ?? accounts?.[0] ?? null;
+  const home = useQuery(
+    api.businessDashboard.getHome,
+    account ? { sponsorId: account.sponsorId ?? undefined, businessId: account.businessId ?? undefined, since } : "skip",
+  );
+
+  const createCheckout = useAction(api.whop.createSponsorCheckout);
   const [funding, setFunding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [fundError, setFundError] = useState<string | null>(null);
 
-  const liveSponsors = useQuery(listActiveRef, USE_MOCK ? "skip" : {});
-  const mockSponsors = useMockQuery(MOCK_SPONSORS, USE_MOCK);
-  const sponsors = USE_MOCK ? mockSponsors : liveSponsors;
-
-  const activeId = selectedId ?? sponsors?.[0]?._id ?? null;
-  const liveStats = useQuery(statsRef, USE_MOCK || !activeId ? "skip" : { sponsorId: activeId as Id<"sponsors"> });
-  const mockStats = useMockQuery(MOCK_STATS[activeId ?? ""] ?? { visits: 0, earned: 0 }, USE_MOCK && !!activeId, 400);
-  const stats = USE_MOCK ? mockStats : liveStats;
-
-  const checkoutLive = useAction(checkoutRef);
-  const createCheckout = USE_MOCK ? (_args: { sponsorId: Id<"sponsors"> }) => mockDelay("https://whop.com/checkout/gojiberri-demo", 700) : checkoutLive;
-
-  const fund = async () => {
-    if (!activeId) return;
+  const fund = async (sponsorId: Id<"sponsors">) => {
     setFunding(true);
-    setError(null);
+    setFundError(null);
     try {
-      const url = await createCheckout({ sponsorId: activeId as Id<"sponsors"> });
-      await WebBrowser.openBrowserAsync(url);
+      await WebBrowser.openBrowserAsync(await createCheckout({ sponsorId }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't open checkout.");
+      setFundError(e instanceof Error ? e.message : "Couldn't open checkout.");
     } finally {
       setFunding(false);
     }
   };
 
-  return (
-    <Screen>
-      <Stack.Screen options={{ title: "Sponsor dashboard" }} />
-      <Title testID="dashboard-title">Business dashboard</Title>
-      <Subtitle>See how your {brand.name} sponsorship is bringing people through the door.</Subtitle>
-      <Button testID="scan-qr-button" label="Scan QR · Redemptions" icon="📷" onPress={() => router.push("/business/scan")} />
+  const header = <Stack.Screen options={{ title: "Business" }} />;
 
-      {sponsors === undefined ? (
+  if (accounts === undefined) {
+    return (
+      <Screen testID="dashboard-screen">
+        {header}
         <LoadingState testID="dashboard-loading" />
-      ) : sponsors.length === 0 ? (
-        <EmptyState testID="dashboard-empty" emoji="🏪" title="No sponsors yet" body="Active sponsors will show up here." />
+      </Screen>
+    );
+  }
+  if (!account) {
+    return (
+      <Screen testID="dashboard-screen">
+        {header}
+        <EmptyState testID="dashboard-empty" emoji="🏪" title="No businesses yet" body="Sponsors and experience businesses show up here once they're seeded." />
+      </Screen>
+    );
+  }
+
+  const scanId = account.sponsorId ?? account.businessId;
+
+  return (
+    <Screen testID="dashboard-screen">
+      {header}
+      <View style={{ gap: spacing.xs }}>
+        <Text style={type.eyebrow}>Business home</Text>
+        <Title testID="dashboard-title">{account.name}</Title>
+        <Subtitle>Stanford crews redeeming, booking and chipping in with {brand.name}.</Subtitle>
+      </View>
+
+      {accounts.length > 1 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} testID="sponsor-chips">
+          {accounts.map((a, i) => (
+            <Chip key={a.name} testID={`sponsor-chip-${i}`} label={a.name} selected={a.name === account.name} onPress={() => setSelected(i)} />
+          ))}
+        </ScrollView>
+      ) : null}
+
+      <View testID="scan-hero" style={styles.hero}>
+        <Text style={styles.heroEyebrow}>Today</Text>
+        <Text testID="stat-today" style={styles.heroValue}>
+          {home ? home.today.count : "–"}
+        </Text>
+        <Text style={styles.heroLabel}>{home?.today.count === 1 ? "code redeemed" : "codes redeemed"}</Text>
+        <Button
+          testID="scan-qr-button"
+          label="Scan QR"
+          icon="📷"
+          onPress={() => router.push({ pathname: "/business/scan", params: { businessId: scanId! } })}
+          style={styles.heroButton}
+        />
+      </View>
+
+      {home === undefined ? (
+        <LoadingState testID="stats-loading" />
+      ) : home === null ? (
+        <EmptyState testID="dashboard-missing" emoji="🔍" title="Business not found" body="This business was removed. Pick another one above." />
       ) : (
         <>
-          <View style={styles.chips}>
-            {sponsors.map((s, i) => (
-              <Chip key={s._id} testID={`sponsor-chip-${i}`} label={s.business} selected={s._id === activeId} onPress={() => setSelectedId(s._id)} />
-            ))}
-          </View>
-
-          <SectionHeader title="This month" />
-          {stats === undefined ? (
-            <LoadingState testID="stats-loading" />
+          <SectionHeader title="Today's redemptions" testID="today-header" />
+          {home.today.recent.length === 0 ? (
+            <EmptyState testID="today-empty" emoji="🎟️" title="No scans yet today" body="When a student shows their QR, tap Scan QR and it lands here." />
           ) : (
-            <>
-              <Card testID="stat-visits-card" tone="accent" style={styles.stat}>
-                <Text style={styles.statLabel}>Verified visits</Text>
-                <Text testID="stat-visits" style={styles.statValue}>
-                  {stats.visits}
-                </Text>
+            home.today.recent.map((r, i) => (
+              <Card key={r.redemptionId} testID={`today-redemption-${i}`} style={styles.row}>
+                <View style={{ flex: 1, gap: spacing.xs }}>
+                  <Text style={styles.rowTitle} numberOfLines={2}>
+                    {r.itemTitle}
+                  </Text>
+                  <Text style={styles.rowMeta}>
+                    {KIND_LABELS[r.kind]} · {r.studentName}
+                  </Text>
+                </View>
+                <Text style={styles.rowMeta}>{formatTime(r.redeemedAt)}</Text>
               </Card>
-              <Card testID="stat-earned-card" tone="success" style={styles.stat}>
-                <Text style={styles.statLabel}>Spent on visits</Text>
-                <Text testID="stat-earned" style={styles.statValue}>
-                  ${stats.earned.toFixed(2)}
-                </Text>
-              </Card>
-            </>
+            ))
           )}
 
-          {error ? <ErrorState testID="fund-error" message={error} onRetry={fund} /> : null}
-          <Button testID="fund-quests" label="Fund more quests" icon="💸" onPress={fund} loading={funding} />
+          <SectionHeader title="Offers and sponsorship" testID="offers-header" />
+          {home.sponsorship ? (
+            <>
+              <Card testID="offer-card" style={{ gap: spacing.sm }}>
+                <View style={[styles.pill, home.sponsorship.active ? styles.pillLive : styles.pillPaused]}>
+                  <Text testID="offer-status" style={styles.pillText}>
+                    {home.sponsorship.active ? "Live" : "Paused"}
+                  </Text>
+                </View>
+                <Text testID="offer-text" style={styles.offerText}>
+                  {home.sponsorship.offer}
+                </Text>
+                <Text style={styles.rowMeta}>Goji reward costs {home.sponsorship.rewardCost} {home.sponsorship.rewardCost === 1 ? brand.rewardSingular : brand.rewards}</Text>
+              </Card>
+              <Card testID="stat-chipins-card" tone="accent" style={{ gap: spacing.xs }}>
+                <Text style={styles.statLabel}>Crew pot chip-ins</Text>
+                <Text testID="stat-chipins" style={styles.statLine}>
+                  Chipped into {home.sponsorship.chipIns.pots} crew {home.sponsorship.chipIns.pots === 1 ? "pot" : "pots"}: {money(home.sponsorship.chipIns.total)}
+                </Text>
+              </Card>
+              <View style={styles.statRow}>
+                <Card testID="stat-visits-card" tone="muted" style={styles.stat}>
+                  <Text testID="stat-visits" style={styles.statValue}>
+                    {home.sponsorship.visits}
+                  </Text>
+                  <Text style={styles.statLabel}>Verified visits</Text>
+                </Card>
+                <Card testID="stat-earned-card" tone="muted" style={styles.stat}>
+                  <Text testID="stat-earned" style={styles.statValue}>
+                    {money(home.sponsorship.spentOnVisits)}
+                  </Text>
+                  <Text style={styles.statLabel}>Spent on visits</Text>
+                </Card>
+              </View>
+              {fundError ? <ErrorState testID="fund-error" message={fundError} onRetry={() => fund(home.sponsorship!.sponsorId)} /> : null}
+              <Button testID="fund-quests" label="Fund more quests" icon="💸" variant="secondary" onPress={() => fund(home.sponsorship!.sponsorId)} loading={funding} />
+            </>
+          ) : (
+            <Card testID="offers-empty" tone="muted">
+              <Text style={styles.rowMeta}>No sponsor offer yet. Sponsoring puts you in crews' plans and chips into their pots.</Text>
+            </Card>
+          )}
+
+          <SectionHeader title="Experiences" testID="experiences-header" />
+          {home.sales ? (
+            <>
+              <View style={styles.statRow}>
+                <Card testID="stat-sold-card" tone="success" style={styles.stat}>
+                  <Text testID="stat-sold" style={styles.statValue}>
+                    {home.sales.sold}
+                  </Text>
+                  <Text style={styles.statLabel}>Bookings</Text>
+                </Card>
+                <Card testID="stat-sales-earned-card" tone="success" style={styles.stat}>
+                  <Text testID="stat-sales-earned" style={styles.statValue}>
+                    {money(home.sales.earned)}
+                  </Text>
+                  <Text style={styles.statLabel}>Earned</Text>
+                </Card>
+              </View>
+              {home.sales.experiences.length === 0 ? (
+                <EmptyState testID="experiences-empty" emoji="🎟️" title="No experiences listed" body="Listed experiences and their bookings show up here." />
+              ) : (
+                home.sales.experiences.map((e, i) => (
+                  <Card key={e.experienceId} testID={`experience-row-${i}`} style={styles.row}>
+                    <View style={{ flex: 1, gap: spacing.xs }}>
+                      <Text style={styles.rowTitle} numberOfLines={2}>
+                        {e.title}
+                      </Text>
+                      <Text style={styles.rowMeta}>
+                        {money(e.pricePerPerson)} per person{e.active ? "" : " · Paused"}
+                      </Text>
+                    </View>
+                    <Text testID={`experience-sold-${i}`} style={styles.rowStrong}>
+                      {e.sold} sold
+                    </Text>
+                  </Card>
+                ))
+              )}
+            </>
+          ) : (
+            <Card testID="experiences-none" tone="muted">
+              <Text style={styles.rowMeta}>No experiences listed yet. Crews can book experiences straight from their pot.</Text>
+            </Card>
+          )}
         </>
       )}
     </Screen>
@@ -122,8 +225,24 @@ export default function SponsorDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  stat: { alignItems: "center", gap: spacing.xs },
-  statLabel: { fontSize: font.size.md, fontWeight: font.weight.semibold, color: colors.textMuted },
-  statValue: { fontSize: 56, fontWeight: font.weight.heavy, color: colors.text },
+  chips: { gap: spacing.sm },
+  hero: { backgroundColor: colors.ink, borderRadius: radius.xl, padding: spacing.xl, alignItems: "center", gap: spacing.xs, ...shadow.ink },
+  heroEyebrow: { ...type.eyebrow, color: colors.onInkMuted },
+  heroValue: { fontSize: emoji.xl, lineHeight: 72, fontWeight: font.weight.black, color: colors.onInk },
+  heroLabel: { ...type.label, color: colors.onInkMuted },
+  heroButton: { alignSelf: "stretch", marginTop: spacing.lg, minHeight: 64 },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.lg },
+  rowTitle: { ...type.body, fontWeight: font.weight.bold },
+  rowMeta: type.muted,
+  rowStrong: { ...type.heading, color: colors.accentDark },
+  offerText: { ...type.heading, fontSize: font.size.xl, lineHeight: 28, color: colors.accentDark },
+  pill: { alignSelf: "flex-start", borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  pillLive: { backgroundColor: colors.leafSoft },
+  pillPaused: { backgroundColor: colors.cardMuted },
+  pillText: { ...type.label, fontSize: font.size.xs, color: colors.text },
+  statRow: { flexDirection: "row", gap: spacing.md },
+  stat: { flex: 1, alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md },
+  statValue: { ...type.title, fontSize: font.size.xxl },
+  statLabel: type.label,
+  statLine: { ...type.heading, color: colors.accentDark },
 });

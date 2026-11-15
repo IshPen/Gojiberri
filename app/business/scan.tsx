@@ -38,7 +38,13 @@ export default function ScanScreen() {
     setError(null);
     setResult(null);
     try {
-      setResult(await redeem({ code, businessId: activeId }));
+      const siblings = (redeemers ?? []).filter((r) => r.id !== activeId && r.name.trim().toLowerCase() === activeName.trim().toLowerCase());
+      let next = await redeem({ code, businessId: activeId });
+      for (const sibling of siblings) {
+        if (next.valid || !next.reason?.startsWith("wrong business")) break;
+        next = await redeem({ code, businessId: sibling.id });
+      }
+      setResult(next);
       setScanning(false);
       setManualCode("");
     } catch (e) {
