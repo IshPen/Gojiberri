@@ -50,28 +50,21 @@ const PLACES: PlaceSeed[] = [
   { name: "Balboa Theatre", area: "USF", category: "arts", priceLevel: 1, tags: ["film", "indie", "retro", "cozy"], lat: 37.7757, lng: -122.497, durationMins: 150, bookingUrl: "https://www.balboamovies.com" },
 ];
 
-// checkins = group-outing photo check-ins this week (+50 each); users.points is derived from them.
 const USERS = [
-  { name: "Uma", avatarUrl: "🦊", budgetMax: 20, homeArea: "Berkeley", diet: ["vegetarian"], vibes: ["cozy", "outdoors", "arts"], diamonds: 1, streak: 2, checkins: 2 },
-  { name: "Ishan", avatarUrl: "🐙", budgetMax: 20, homeArea: "Berkeley", diet: [], vibes: ["active", "games", "nerdy"], diamonds: 1, streak: 1, checkins: 2 },
-  { name: "Gauri", avatarUrl: "🦄", budgetMax: 25, homeArea: "Berkeley", diet: [], vibes: ["lively", "boba", "music"], diamonds: 1, streak: 3, checkins: 2 },
-  { name: "Maya", avatarUrl: "🐼", budgetMax: 20, homeArea: "Berkeley", diet: [], vibes: ["lively", "music", "late-night"], diamonds: 1, streak: 4, checkins: 4 },
-  { name: "Leo", avatarUrl: "🦁", budgetMax: 15, homeArea: "Berkeley", diet: [], vibes: ["nerdy", "cheap-eats", "games"], diamonds: 0, streak: 2, checkins: 2 },
-  { name: "Priya", avatarUrl: "🦋", budgetMax: 20, homeArea: "Berkeley", diet: ["vegetarian"], vibes: ["boba", "cozy", "arts"], diamonds: 0, streak: 2, checkins: 2 },
-  { name: "Sam", avatarUrl: "🐢", budgetMax: 15, homeArea: "Berkeley", diet: [], vibes: ["chill", "outdoors"], diamonds: 0, streak: 1, checkins: 1 },
-  { name: "Ava", avatarUrl: "🐨", budgetMax: 20, homeArea: "USF", diet: [], vibes: ["active", "climbing", "outdoors"], diamonds: 0, streak: 2, checkins: 2 },
-  { name: "Diego", avatarUrl: "🐯", budgetMax: 20, homeArea: "USF", diet: [], vibes: ["active", "thrift", "music"], diamonds: 0, streak: 1, checkins: 1 },
-  { name: "Kai", avatarUrl: "🐬", budgetMax: 15, homeArea: "USF", diet: ["vegan"], vibes: ["climbing", "chill", "beach"], diamonds: 0, streak: 1, checkins: 1 },
-  { name: "Noah", avatarUrl: "🦉", budgetMax: 25, homeArea: "Stanford", diet: [], vibes: ["late-night", "games", "nerdy"], diamonds: 1, streak: 3, checkins: 3 },
-  { name: "Chloe", avatarUrl: "🐝", budgetMax: 20, homeArea: "Stanford", diet: [], vibes: ["active", "climbing", "lively"], diamonds: 0, streak: 2, checkins: 2 },
+  { name: "Uma", avatarUrl: "🦊", budgetMax: 20, homeArea: "Berkeley", diet: ["vegetarian"], vibes: ["cozy", "outdoors", "arts"], diamonds: 1, streak: 2 },
+  { name: "Ishan", avatarUrl: "🐙", budgetMax: 20, homeArea: "Berkeley", diet: [], vibes: ["active", "games", "nerdy"], diamonds: 1, streak: 1 },
+  { name: "Gauri", avatarUrl: "🦄", budgetMax: 25, homeArea: "Berkeley", diet: [], vibes: ["lively", "boba", "music"], diamonds: 1, streak: 3 },
+  { name: "Maya", avatarUrl: "🐼", budgetMax: 20, homeArea: "Berkeley", diet: [], vibes: ["lively", "music", "late-night"], diamonds: 1, streak: 4 },
+  { name: "Leo", avatarUrl: "🦁", budgetMax: 15, homeArea: "Berkeley", diet: [], vibes: ["nerdy", "cheap-eats", "games"], diamonds: 0, streak: 2 },
+  { name: "Priya", avatarUrl: "🦋", budgetMax: 20, homeArea: "Berkeley", diet: ["vegetarian"], vibes: ["boba", "cozy", "arts"], diamonds: 0, streak: 2 },
+  { name: "Sam", avatarUrl: "🐢", budgetMax: 15, homeArea: "Berkeley", diet: [], vibes: ["chill", "outdoors"], diamonds: 0, streak: 1 },
+  { name: "Ava", avatarUrl: "🐨", budgetMax: 20, homeArea: "USF", diet: [], vibes: ["active", "climbing", "outdoors"], diamonds: 0, streak: 2 },
+  { name: "Diego", avatarUrl: "🐯", budgetMax: 20, homeArea: "USF", diet: [], vibes: ["active", "thrift", "music"], diamonds: 0, streak: 1 },
+  { name: "Kai", avatarUrl: "🐬", budgetMax: 15, homeArea: "USF", diet: ["vegan"], vibes: ["climbing", "chill", "beach"], diamonds: 0, streak: 1 },
+  { name: "Noah", avatarUrl: "🦉", budgetMax: 25, homeArea: "Stanford", diet: [], vibes: ["late-night", "games", "nerdy"], diamonds: 1, streak: 3 },
+  { name: "Chloe", avatarUrl: "🐝", budgetMax: 20, homeArea: "Stanford", diet: [], vibes: ["active", "climbing", "lively"], diamonds: 0, streak: 2 },
 ];
 
-// Weekly avg points per member at Berkeley (points.groupLeaderboard):
-//   Unit 3 Floor 2 (4 members): (200 + 100 + 100 + 50) / 4 = 112.5  -> #1
-//   Hack Crew      (3 members): (100 + 100 + 100) / 3      = 100    -> #2, 12.5 behind
-//   CS 61B Survivors, Berkeley Boba Club (2 each): 75
-// One +50 check-in by a Hack Crew member: 350 / 3 = 116.7 > 112.5, so Hack Crew takes #1.
-// With check-ins only (+50) and 3 members, one check-in adds 16.7 avg, so a 20-point gap could never flip.
 const CREWS: { name: string; inviteCode: string; members: string[] }[] = [
   { name: "Hack Crew", inviteCode: "GOJI42", members: ["Uma", "Ishan", "Gauri"] },
   { name: "Unit 3 Floor 2", inviteCode: "UNIT32", members: ["Maya", "Leo", "Priya", "Sam"] },
@@ -127,10 +120,30 @@ const PAST_PLANS: { daysAgo: number; places: string[]; why: string; ratings: [nu
   { daysAgo: 9, places: ["Berkeley Bouldering Project", "Indian Rock Park", "Cesar Chavez Park"], why: "Something active for a crew that loves a challenge.", ratings: [[4, "thrilling"], [5, "thrilling"], [5, "would-redo"]] },
 ];
 
-// This week's Hack Crew outings behind each member's two check-ins.
-const THIS_WEEK_HACK_CREW = [
-  { daysAgo: 2, place: "Asha Tea House" },
-  { daysAgo: 1, place: "Jupiter" },
+// This week's completed outings per crew. Each name in checkedIn gets one +50 "checkin" pointEvent
+// carrying the crew's groupId and the outing's planId, which is all #10's crew leaderboard counts.
+// users.points is the sum of a user's check-ins.
+//
+// Weekly avg per member at Berkeley (points.groupLeaderboard):
+//   Unit 3 Floor 2    (4 members): 9 check-ins = 450 / 4 = 112.5  -> #1
+//   Hack Crew         (3 members): 6 check-ins = 300 / 3 = 100    -> #2, 12.5 behind
+//   CS 61B Survivors  (2 members): 100 / 2 = 50
+//   Berkeley Boba Club (2 members): 50 / 2 = 25
+// One +50 check-in by a Hack Crew member on its locked plan: 350 / 3 = 116.7 > 112.5, so Hack Crew takes #1.
+// One check-in adds only 16.7 to a 3-member crew's avg, so a 20-point gap could never flip.
+const CREW_OUTINGS: { crew: string; daysAgo: number; place: string; checkedIn: string[] }[] = [
+  { crew: "Hack Crew", daysAgo: 3, place: "Asha Tea House", checkedIn: ["Uma", "Ishan", "Gauri"] },
+  { crew: "Hack Crew", daysAgo: 1, place: "Jupiter", checkedIn: ["Uma", "Ishan", "Gauri"] },
+  { crew: "Unit 3 Floor 2", daysAgo: 4, place: "Top Dog", checkedIn: ["Maya", "Leo", "Priya", "Sam"] },
+  { crew: "Unit 3 Floor 2", daysAgo: 3, place: "Indian Rock Park", checkedIn: ["Maya", "Leo", "Priya"] },
+  { crew: "Unit 3 Floor 2", daysAgo: 1, place: "Yogurt Park", checkedIn: ["Maya", "Priya"] },
+  { crew: "CS 61B Survivors", daysAgo: 2, place: "Free Speech Movement Café", checkedIn: ["Leo", "Sam"] },
+  { crew: "Berkeley Boba Club", daysAgo: 2, place: "Sharetea Berkeley", checkedIn: ["Priya"] },
+  { crew: "USF Climbing Club", daysAgo: 3, place: "Movement San Francisco", checkedIn: ["Ava", "Diego", "Kai"] },
+  { crew: "Lone Mountain Lounge", daysAgo: 2, place: "Genki Crepes", checkedIn: ["Ava"] },
+  { crew: "Branner Hall Late Nights", daysAgo: 4, place: "Pandora Karaoke", checkedIn: ["Noah", "Chloe"] },
+  { crew: "Branner Hall Late Nights", daysAgo: 1, place: "Ocean Beach", checkedIn: ["Noah"] },
+  { crew: "Bay Area Bouldering League", daysAgo: 2, place: "Berkeley Bouldering Project", checkedIn: ["Kai", "Chloe"] },
 ];
 
 const POT = {
@@ -164,16 +177,13 @@ export const seedDemo = mutation({
 
     const now = Date.now();
     const userIds = new Map<string, Id<"users">>();
-    for (const [i, { checkins, ...user }] of USERS.entries()) {
+    for (const [i, user] of USERS.entries()) {
       const busyBlocks = [1, 2, 3].map((d) => ({
         start: now + d * DAY + ((i % 4) + 1) * 2 * HOUR,
         end: now + d * DAY + ((i % 4) + 1) * 2 * HOUR + 2 * HOUR,
       }));
-      const userId = await ctx.db.insert("users", { ...user, points: checkins * CHECKIN_POINTS, onboarded: true, busyBlocks });
-      userIds.set(user.name, userId);
-      for (let c = 0; c < checkins; c++) {
-        await ctx.db.insert("pointEvents", { userId, reason: "checkin", points: CHECKIN_POINTS });
-      }
+      const checkins = CREW_OUTINGS.filter((o) => o.checkedIn.includes(user.name)).length;
+      userIds.set(user.name, await ctx.db.insert("users", { ...user, points: checkins * CHECKIN_POINTS, onboarded: true, busyBlocks }));
     }
     const idOf = (name: string) => userIds.get(name)!;
 
@@ -215,11 +225,7 @@ export const seedDemo = mutation({
     }
 
     const ratingIds: Id<"ratings">[] = [];
-    const donePlans: { daysAgo: number; places: string[]; why: string; ratings?: [number, string][] }[] = [
-      ...PAST_PLANS,
-      ...THIS_WEEK_HACK_CREW.map(({ daysAgo, place }) => ({ daysAgo, places: [place], why: "A quick crew hang this week." })),
-    ];
-    for (const past of donePlans) {
+    for (const past of PAST_PLANS) {
       const start = now - past.daysAgo * DAY;
       const planId = await ctx.db.insert("plans", {
         groupId,
@@ -231,9 +237,28 @@ export const seedDemo = mutation({
       });
       for (const [u, userId] of hackIds.entries()) {
         await ctx.db.insert("votes", { planId, userId, optionIndex: 0, confirmed: true });
-        if (!past.ratings) continue;
         const [stars, vibe] = past.ratings[u];
         ratingIds.push(await ctx.db.insert("ratings", { userId, planId, stars, vibe }));
+      }
+    }
+
+    for (const outing of CREW_OUTINGS) {
+      const crewId = groupIds.get(outing.crew)!;
+      const start = now - outing.daysAgo * DAY;
+      const planId = await ctx.db.insert("plans", {
+        groupId: crewId,
+        window: { start, end: start + 3 * HOUR },
+        status: "done",
+        options: [option(outing.place, "A quick crew hang this week.")],
+        winningIndex: 0,
+        confirmBy: start - DAY,
+      });
+      for (const name of outing.checkedIn) {
+        const userId = idOf(name);
+        await ctx.db.insert("votes", { planId, userId, optionIndex: 0, confirmed: true });
+        // groupId and planId are #10's optional pointEvents fields; a non-literal object typechecks before and after #10 lands.
+        const checkin = { userId, reason: "checkin" as const, points: CHECKIN_POINTS, groupId: crewId, planId };
+        await ctx.db.insert("pointEvents", checkin);
       }
     }
 
