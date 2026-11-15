@@ -1,57 +1,43 @@
 import { useMemo, useState } from "react";
 import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { makeFunctionReference } from "convex/server";
+import { Stack, useLocalSearchParams, useRouter, type ErrorBoundaryProps } from "expo-router";
+import type { FunctionReturnType } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useQuery } from "convex/react";
 import { Button, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import PhotoGrid, { type GridPhoto } from "../../components/PhotoGrid";
 import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
-import { formatDay, formatTime } from "../../lib/format";
-import { useMockQuery } from "../../lib/mock";
+import { cleanTitle, formatDay, formatTime } from "../../lib/format";
+import { api } from "../../convex/_generated/api";
 
-const USE_MOCK = true;
+type StoryPhoto = FunctionReturnType<typeof api.photos.getGroupStory>[number] & { url: string };
 
-type StoryPhoto = {
-  _id: Id<"photos">;
-  url: string;
-  userName: string;
-  planTitle?: string;
-  caption?: string;
-  _creationTime: number;
-};
-// TODO(convex): swap to api.photos.getGroupStory once it lands
-const getGroupStoryRef = makeFunctionReference<"query", { groupId: Id<"groups"> }, StoryPhoto[]>("photos:getGroupStory");
-
-const NOW = Date.now();
-const HOUR = 3600000;
-const MOCK_STORY: StoryPhoto[] = [
-  { _id: "p1" as Id<"photos">, url: "https://picsum.photos/seed/dolores/600/600", userName: "Gauri", planTitle: "Dolores Park picnic", caption: "Golden hour hit different", _creationTime: NOW - 1 * HOUR },
-  { _id: "p2" as Id<"photos">, url: "https://picsum.photos/seed/picnic/600/600", userName: "Ishan", planTitle: "Dolores Park picnic", caption: "Snack spread", _creationTime: NOW - 2 * HOUR },
-  { _id: "p3" as Id<"photos">, url: "https://picsum.photos/seed/hill/600/600", userName: "Uma", planTitle: "Dolores Park picnic", _creationTime: NOW - 3 * HOUR },
-  { _id: "p4" as Id<"photos">, url: "https://picsum.photos/seed/ramen/600/600", userName: "Uma", planTitle: "Ramen night in Japantown", caption: "Tonkotsu supremacy", _creationTime: NOW - 30 * HOUR },
-  { _id: "p5" as Id<"photos">, url: "https://picsum.photos/seed/noodles/600/600", userName: "Ishan", planTitle: "Ramen night in Japantown", caption: "Hack Crew dinner", _creationTime: NOW - 31 * HOUR },
-  { _id: "p6" as Id<"photos">, url: "https://picsum.photos/seed/bridge/600/600", userName: "Gauri", planTitle: "Golden Gate bike ride", caption: "Foggy but worth it", _creationTime: NOW - 80 * HOUR },
-  { _id: "p7" as Id<"photos">, url: "https://picsum.photos/seed/sfbay/600/600", userName: "Ishan", planTitle: "Golden Gate bike ride", _creationTime: NOW - 81 * HOUR },
-  { _id: "p8" as Id<"photos">, url: "https://picsum.photos/seed/coffee/600/600", userName: "Uma", caption: "Pit stop", _creationTime: NOW - 82 * HOUR },
-];
+export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
+  return (
+    <Screen testID="story-screen">
+      <Stack.Screen options={{ title: "Group story" }} />
+      <ErrorState testID="story-error" message="Couldn't load your crew's story." onRetry={retry} />
+    </Screen>
+  );
+}
 
 export default function StoryScreen() {
   const router = useRouter();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const [selected, setSelected] = useState<StoryPhoto | null>(null);
 
-  const live = useQuery(getGroupStoryRef, USE_MOCK || !groupId ? "skip" : { groupId: groupId as Id<"groups"> });
-  const mock = useMockQuery(MOCK_STORY, USE_MOCK);
-  const photos = USE_MOCK ? mock : live;
+  const args = groupId ? { groupId: groupId as Id<"groups"> } : "skip";
+  const story = useQuery(api.photos.getGroupStory, args);
+  const group = useQuery(api.groups.getGroup, args);
+  const photos = useMemo(() => story?.filter((p): p is StoryPhoto => !!p.url), [story]);
 
   const sections = useMemo(() => {
     if (!photos) return [];
     const sorted = [...photos].sort((a, b) => b._creationTime - a._creationTime);
     const map = new Map<string, StoryPhoto[]>();
     for (const p of sorted) {
-      const key = p.planTitle ?? "Extra moments";
+      const key = p.planTitle ? cleanTitle(p.planTitle) : "Extra moments";
       map.set(key, [...(map.get(key) ?? []), p]);
     }
     return [...map.entries()];
@@ -62,7 +48,7 @@ export default function StoryScreen() {
   return (
     <Screen testID="story-screen">
       <Stack.Screen options={{ title: "Group story" }} />
-      <Title testID="story-title">{brand.emoji} Hack Crew story</Title>
+      <Title testID="story-title">{brand.emoji} {group?.name ?? "Your crew"} story</Title>
       <Subtitle>Every moment from your plans, newest first.</Subtitle>
 
       {!groupId ? (
