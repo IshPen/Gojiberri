@@ -11,6 +11,7 @@ import { api } from "../../convex/_generated/api";
 import { readBusyBlocks } from "../../lib/calendar";
 import { registerForPushToken } from "../../lib/notifications";
 import { useUserId } from "../../lib/session";
+import { withTimeout } from "../../lib/timeout";
 
 const DIETS = ["vegetarian", "vegan", "gluten-free", "halal", "kosher", "no restrictions"];
 const VIBES = ["cozy", "active", "artsy", "foodie", "nightlife", "outdoors", "chill", "adventurous"];
@@ -84,16 +85,20 @@ export default function PreferencesScreen() {
     setSaving(true);
     setError(null);
     try {
-      await updatePreferences({
-        userId: userId as Id<"users">,
-        budgetMax: budget,
-        homeArea: school,
-        diet: diet.length ? diet : ["no restrictions"],
-        vibes,
-      });
-      const token = await registerForPushToken();
-      if (token) await setPushToken({ userId: userId as Id<"users">, token });
+      await withTimeout(
+        updatePreferences({
+          userId: userId as Id<"users">,
+          budgetMax: budget,
+          homeArea: school,
+          diet: diet.length ? diet : ["no restrictions"],
+          vibes,
+        }),
+        "We couldn't save your picks. Check your connection and try again.",
+      );
       router.replace("/(tabs)/recommended");
+      registerForPushToken()
+        .then((token) => (token ? setPushToken({ userId: userId as Id<"users">, token }) : null))
+        .catch(() => {});
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save your picks. Check your connection and try again.");
       setSaving(false);
@@ -108,7 +113,7 @@ export default function PreferencesScreen() {
       <Title testID="preferences-title">{school ? `What do ${school} students like?` : "Last step, then you're in"}</Title>
       <Subtitle testID="preferences-subtitle">Your budget and vibe shape the outings we suggest for your crew{school ? ` around ${school}` : ""}, so plans fit a student wallet.</Subtitle>
 
-      {error ? <ErrorState testID="preferences-error" message={error} onRetry={() => setError(null)} /> : null}
+      {error ? <ErrorState testID="preferences-error" message={error} onRetry={onFinish} /> : null}
 
       <SectionHeader title="Budget per hangout" testID="budget-header" />
       <Card testID="budget-card">

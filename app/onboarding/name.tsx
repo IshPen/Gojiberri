@@ -8,6 +8,7 @@ import { brand, colors, font, minTapTarget, radius, spacing, type, emoji as emoj
 import { api } from "../../convex/_generated/api";
 import { schoolFor } from "../../lib/school";
 import { setUserId } from "../../lib/session";
+import { withTimeout } from "../../lib/timeout";
 
 const AVATARS = ["🐱", "🦊", "🐼", "🐸", "🦄", "🐙", "🦁", "🐯", "🐵", "🐧", "🦉", "🐳"];
 
@@ -31,7 +32,7 @@ export default function NameScreen() {
     setSaving(true);
     setError(null);
     try {
-      const id = await createUser({ name: trimmed });
+      const id = await withTimeout(createUser({ name: trimmed }), "We couldn't reach Gojiberri. Check your connection and try again.");
       await setUserId(id);
       router.replace({ pathname: "/onboarding/swipe", params: { school } });
     } catch (e) {
