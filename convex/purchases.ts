@@ -1,7 +1,10 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 
-const AMOUNT_TOLERANCE = 0.005;
+function toCents(dollars: number) {
+  const cents = Math.round(dollars * 100);
+  return Number.isFinite(dollars) && dollars > 0 && Math.abs(dollars * 100 - cents) < 1e-6 ? cents : null;
+}
 
 export const getPurchase = internalQuery({
   args: { purchaseId: v.id("experiencePurchases") },
@@ -38,8 +41,9 @@ export const createPending = internalMutation({
       const group = await ctx.db.get("groups", groupId);
       if (!group?.memberIds.includes(userId)) throw new ConvexError("Only crew members can buy for this crew");
     }
-    const amount = experience.pricePerPerson * quantity;
-    if (!Number.isFinite(amount) || amount <= 0) throw new ConvexError("This experience has no valid price");
+    const unitCents = toCents(experience.pricePerPerson);
+    if (unitCents === null) throw new ConvexError("This experience has no valid price");
+    const amount = (unitCents * quantity) / 100;
     return await ctx.db.insert("experiencePurchases", {
       userId,
       experienceId,
@@ -112,7 +116,10 @@ export const markPaid = internalMutation({
     }
 
     let reason: string | null = null;
-    if (!Number.isFinite(args.amount) || Math.abs(args.amount - purchase.amount) >= AMOUNT_TOLERANCE) {
+    const expectedCents = toCents(purchase.amount);
+    if (expectedCents === null) {
+      reason = `Stored amount ${purchase.amount} isn't a valid dollar amount`;
+    } else if (toCents(args.amount) !== expectedCents) {
       reason = `Paid ${args.amount}, expected ${purchase.amount}`;
     } else if (args.currency.toLowerCase() !== purchase.currency.toLowerCase()) {
       reason = `Paid in ${args.currency}, expected ${purchase.currency}`;
