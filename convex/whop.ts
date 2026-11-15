@@ -23,6 +23,7 @@ function usdCents(value: unknown): number | null {
 }
 
 async function whopPost<T>(path: string, body: unknown): Promise<T> {
+  if (env.WHOP_MOCK === "true") throw new Error("This Whop operation is unavailable in demo mode");
   const res = await fetch(`${WHOP_API}${path}`, {
     method: "POST",
     headers: {
@@ -39,6 +40,12 @@ async function whopPost<T>(path: string, body: unknown): Promise<T> {
 export const createContributionCheckout = action({
   args: { userId: v.id("users"), groupId: v.id("groups"), amount: v.number() },
   handler: async (ctx, { userId, groupId, amount }): Promise<string> => {
+    if (env.WHOP_MOCK === "true") {
+      return await ctx.runMutation(internal.whopMock.createContribution, {
+        userId, groupId, amount,
+        token: Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, "0")).join(""),
+      });
+    }
     if (amount < 1) throw new Error("Chip in at least $1");
     const found = await ctx.runQuery(internal.context.potForGroup, { groupId });
     if (!found) throw new Error("This group doesn't have a fund yet");
@@ -87,6 +94,12 @@ export const createExperienceProduct = internalAction({
     const found = await ctx.runQuery(internal.context.experienceWithBusiness, { experienceId });
     if (!found) return null;
     const { experience, business } = found;
+    if (env.WHOP_MOCK === "true") {
+      await ctx.runMutation(internal.context.saveExperienceWhopIds, {
+        experienceId, whopProductId: `prod_mock_${experienceId}`, whopPlanId: `plan_mock_${experienceId}`,
+      });
+      return null;
+    }
     try {
       const product = await whopPost<{ id: string }>("/products", {
         account_id: env.WHOP_COMPANY_ID,
@@ -120,6 +133,10 @@ export const transferToBusiness = internalAction({
     const found = await ctx.runQuery(internal.context.transferContext, { transactionId });
     if (!found) return null;
     const { transaction, business } = found;
+    if (env.WHOP_MOCK === "true") {
+      await ctx.runMutation(internal.context.noteTransaction, { transactionId, note: "Demo transfer: Whop is simulated" });
+      return null;
+    }
     try {
       if (!business?.whopAccountId) throw new Error(`${business?.name ?? "Business"} has no Whop account`);
       const transfer = await whopPost<{ id: string }>("/transfers", {

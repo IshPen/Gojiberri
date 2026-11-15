@@ -1,14 +1,15 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { debitShares, loadPlanSplit } from "./funds";
 
 // MOCK group card. Whop card issuing isn't verified yet, so issueCard and chargeCard
 // keep the real integration's shape and only their internals will change.
 
-export const issueCard = internalMutation({
+export const issueCard = mutation({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
+    if (!(await ctx.db.get("groups", groupId))) throw new Error("Group not found");
     const existing = await ctx.db
       .query("cards")
       .withIndex("by_group", (q) => q.eq("groupId", groupId))
