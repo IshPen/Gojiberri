@@ -75,12 +75,7 @@ export const saveOptions = internalMutation({
     const regenerated = (plan.regenCount ?? 0) > 0;
     const exhausted = regenerated && options.length === 0 && (previousOptions?.length ?? 0) > 0;
     const now = Date.now();
-    const confirmBy = isDemoMode()
-      ? now + 5 * MINUTE
-      : Math.min(
-          plan.window.start,
-          Math.max(now + 15 * MINUTE, Math.min(now + 24 * HOUR, plan.window.start - 2 * HOUR)),
-        );
+    const confirmBy = Math.max(now + 30 * MINUTE, Math.min(now + 24 * HOUR, plan.window.start - 2 * HOUR));
     await ctx.db.patch("plans", planId, {
       options: exhausted ? previousOptions! : options,
       status: "voting",
