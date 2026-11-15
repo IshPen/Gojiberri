@@ -1,7 +1,7 @@
-import { v } from "convex/values";
-import { env, internalMutation, internalQuery, mutation, MutationCtx } from "./_generated/server";
+import { ConvexError, v } from "convex/values";
+import { env, internalMutation, internalQuery, mutation, MutationCtx, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 
 function checkoutUrl(token: string) {
   if (env.WHOP_MOCK !== "true") throw new Error("Whop demo mode is disabled");
@@ -72,15 +72,16 @@ export const createExperience = internalMutation({
 
 export const startContributionCheckout = mutation({
   args: { userId: v.id("users"), groupId: v.id("groups"), amount: v.number() },
-  handler: async (ctx, args): Promise<{ mode: "real" } | { mode: "mock"; checkoutUrl: string }> => {
+  handler: async (ctx, args): Promise<{ mode: "real" } | { mode: "mock"; token: string; checkoutUrl: string }> => {
     if (env.WHOP_MOCK !== "true") return { mode: "real" };
-    return { mode: "mock", checkoutUrl: await insertContribution(ctx, { ...args, token: newToken() }) };
+    const token = newToken();
+    return { mode: "mock", token, checkoutUrl: await insertContribution(ctx, { ...args, token }) };
   },
 });
 
 export const startExperienceCheckout = mutation({
   args: { experienceId: v.id("experiences"), userId: v.id("users"), groupId: v.optional(v.id("groups")) },
-  handler: async (ctx, { experienceId, userId, groupId }): Promise<{ mode: "real" } | { mode: "mock"; checkoutUrl: string }> => {
+  handler: async (ctx, { experienceId, userId, groupId }): Promise<{ mode: "real" } | { mode: "mock"; token: string; checkoutUrl: string }> => {
     if (env.WHOP_MOCK !== "true") return { mode: "real" };
     const experience = await ctx.db.get("experiences", experienceId);
     if (!experience?.active || !(await ctx.db.get("businesses", experience.businessId))) throw new Error("This experience isn't for sale");
@@ -90,7 +91,8 @@ export const startExperienceCheckout = mutation({
       });
     }
     const purchaseId = await ctx.runMutation(internal.purchases.createPending, { userId, experienceId, groupId, quantity: 1 });
-    return { mode: "mock", checkoutUrl: await insertExperience(ctx, { purchaseId, token: newToken() }) };
+    const token = newToken();
+    return { mode: "mock", token, checkoutUrl: await insertExperience(ctx, { purchaseId, token }) };
   },
 });
 
@@ -102,45 +104,70 @@ export const getCheckout = internalQuery({
   },
 });
 
+async function payCheckout(ctx: MutationCtx, token: string) {
+  if (env.WHOP_MOCK !== "true") return null;
+  const checkout = await ctx.db.query("whopMockCheckouts").withIndex("by_token", (q) => q.eq("token", token)).unique();
+  if (!checkout) return null;
+  if (checkout.status === "paid") return checkout;
+  if (checkout.expiresAt <= Date.now()) throw new ConvexError("Demo checkout expired");
+  const whopPaymentId = `mock_pay_${token}`;
+  if (checkout.kind === "contribution") {
+    if (!checkout.potId || checkout.purchaseId) throw new Error("Invalid demo contribution");
+    const pot = await ctx.db.get("pots", checkout.potId);
+    const group = pot ? await ctx.db.get("groups", pot.groupId) : null;
+    if (!pot || !group?.memberIds.includes(checkout.userId) || !(await ctx.db.get("users", checkout.userId))) {
+      throw new Error("Contribution is no longer available");
+    }
+    const balanceCents = Math.round(pot.balance * 100);
+    const amountCents = Math.round(checkout.amount * 100);
+    if (!Number.isSafeInteger(balanceCents + amountCents) || balanceCents < 0) {
+      throw new Error("Fund balance is not valid");
+    }
+    await ctx.runMutation(internal.context.recordContributionOnce, {
+      potId: pot._id, userId: checkout.userId, amount: checkout.amount, whopPaymentId,
+    });
+  } else {
+    if (!checkout.purchaseId || checkout.potId) throw new Error("Invalid demo purchase");
+    const purchase = await ctx.db.get("experiencePurchases", checkout.purchaseId);
+    if (!purchase || purchase.userId !== checkout.userId || purchase.amount !== checkout.amount ||
+      purchase.currency !== checkout.currency || purchase.whopCheckoutId !== `ch_mock_${token}` || !purchase.whopPlanId) {
+      throw new Error("Demo purchase binding does not match");
+    }
+    const result = await ctx.runMutation(internal.purchases.markPaid, {
+      purchaseId: purchase._id, whopPaymentId, amount: purchase.amount, currency: purchase.currency,
+      whopCheckoutId: purchase.whopCheckoutId, whopPlanId: purchase.whopPlanId,
+    });
+    if (result.result !== "completed" && result.result !== "duplicate") throw new Error("Demo purchase could not complete");
+  }
+  const paidAt = Date.now();
+  await ctx.db.patch("whopMockCheckouts", checkout._id, { status: "paid", paidAt });
+  return { ...checkout, status: "paid" as const, paidAt };
+}
+
 export const pay = internalMutation({
   args: { token: v.string() },
+  handler: (ctx, { token }) => payCheckout(ctx, token),
+});
+
+function snapshot({ kind, title, amount, currency, status, expiresAt }: Doc<"whopMockCheckouts">) {
+  return { kind, title, amount, currency, status, expiresAt };
+}
+
+export const getMockCheckout = query({
+  args: { token: v.string() },
   handler: async (ctx, { token }) => {
-    if (env.WHOP_MOCK !== "true") return null;
+    if (env.WHOP_MOCK !== "true" || !/^[a-f0-9]{64}$/.test(token)) return null;
     const checkout = await ctx.db.query("whopMockCheckouts").withIndex("by_token", (q) => q.eq("token", token)).unique();
-    if (!checkout) return null;
-    if (checkout.status === "paid") return checkout;
-    if (checkout.expiresAt <= Date.now()) throw new Error("Demo checkout expired");
-    const whopPaymentId = `mock_pay_${token}`;
-    if (checkout.kind === "contribution") {
-      if (!checkout.potId || checkout.purchaseId) throw new Error("Invalid demo contribution");
-      const pot = await ctx.db.get("pots", checkout.potId);
-      const group = pot ? await ctx.db.get("groups", pot.groupId) : null;
-      if (!pot || !group?.memberIds.includes(checkout.userId) || !(await ctx.db.get("users", checkout.userId))) {
-        throw new Error("Contribution is no longer available");
-      }
-      const balanceCents = Math.round(pot.balance * 100);
-      const amountCents = Math.round(checkout.amount * 100);
-      if (!Number.isSafeInteger(balanceCents + amountCents) || balanceCents < 0) {
-        throw new Error("Fund balance is not valid");
-      }
-      await ctx.runMutation(internal.context.recordContributionOnce, {
-        potId: pot._id, userId: checkout.userId, amount: checkout.amount, whopPaymentId,
-      });
-    } else {
-      if (!checkout.purchaseId || checkout.potId) throw new Error("Invalid demo purchase");
-      const purchase = await ctx.db.get("experiencePurchases", checkout.purchaseId);
-      if (!purchase || purchase.userId !== checkout.userId || purchase.amount !== checkout.amount ||
-        purchase.currency !== checkout.currency || purchase.whopCheckoutId !== `ch_mock_${token}` || !purchase.whopPlanId) {
-        throw new Error("Demo purchase binding does not match");
-      }
-      const result = await ctx.runMutation(internal.purchases.markPaid, {
-        purchaseId: purchase._id, whopPaymentId, amount: purchase.amount, currency: purchase.currency,
-        whopCheckoutId: purchase.whopCheckoutId, whopPlanId: purchase.whopPlanId,
-      });
-      if (result.result !== "completed" && result.result !== "duplicate") throw new Error("Demo purchase could not complete");
-    }
-    const paidAt = Date.now();
-    await ctx.db.patch("whopMockCheckouts", checkout._id, { status: "paid", paidAt });
-    return { ...checkout, status: "paid" as const, paidAt };
+    return checkout ? snapshot(checkout) : null;
+  },
+});
+
+export const payMockCheckout = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    if (env.WHOP_MOCK !== "true" || !/^[a-f0-9]{64}$/.test(token)) throw new ConvexError("Not found");
+    const checkout = await payCheckout(ctx, token);
+    if (!checkout) throw new ConvexError("Not found");
+    return snapshot(checkout);
   },
 });
