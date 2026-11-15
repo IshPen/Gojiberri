@@ -161,6 +161,8 @@ export default function PlanScreen() {
   const [freshRound, setFreshRound] = useState<number | null>(null);
   const prevStatus = useRef<PlanStatus | null>(null);
   const prevRegen = useRef<number | null>(null);
+  const lastOptions = useRef("");
+  const [noNewIdeas, setNoNewIdeas] = useState(false);
   const inviteCreated = useRef(false);
   const confettiFired = useRef(false);
 
@@ -287,10 +289,16 @@ export default function PlanScreen() {
     }
   };
 
+  const optionKeys = (plan?.options ?? []).map((o) => o.placeId).join(",");
   useEffect(() => {
     if (prevRegen.current !== null && regenCount > prevRegen.current) setFreshRound(regenCount);
     prevRegen.current = regenCount;
   }, [regenCount]);
+  useEffect(() => {
+    if (!optionKeys) return;
+    setNoNewIdeas(freshRound !== null && freshRound === regenCount && optionKeys === lastOptions.current);
+    if (freshRound !== regenCount) lastOptions.current = optionKeys;
+  }, [optionKeys, freshRound, regenCount]);
 
   const [confirming, setConfirming] = useState(false);
   const confirm = async () => {
@@ -323,6 +331,7 @@ export default function PlanScreen() {
   }
 
   const myVote = plan.votes.find((v) => v.userId === me);
+  const isMember = !!group?.members.some((m) => m._id === me);
   const winner = plan.winningIndex !== undefined ? plan.options[plan.winningIndex] : undefined;
   const winnerPlace = plan.winningIndex !== undefined ? plan.places[plan.winningIndex] : undefined;
   const locked = plan.status === "locked" || plan.status === "done";
@@ -345,7 +354,7 @@ export default function PlanScreen() {
 
       {plan.status === "generating" ? (
         <View testID="plan-generating" style={styles.gap}>
-          <Text style={styles.cooking}>{regenerating ? "Your crew passed. Finding 3 new ideas…" : "Cooking up 3 ideas…"}</Text>
+          <Text style={styles.cooking}>{regenerating ? "Your crew passed. Finding new ideas…" : "Cooking up 3 ideas…"}</Text>
           {[0, 1, 2].map((i) => (
             <SkeletonCard key={i} index={i} />
           ))}
@@ -382,10 +391,15 @@ export default function PlanScreen() {
         </View>
       ) : null}
 
-      {votingOpen && freshRound === regenCount && regenCount > 0 ? (
+      {votingOpen && noNewIdeas ? (
+        <Card testID="plan-no-new-ideas" tone="muted" style={styles.banner}>
+          <Text style={styles.bannerLabelAccent}>No new ideas left</Text>
+          <Text style={styles.bannerBody}>You've seen everything that fits. Pick one of these or start a new plan.</Text>
+        </Card>
+      ) : votingOpen && freshRound === regenCount && regenCount > 0 ? (
         <Card testID="plan-new-ideas" tone="accent" style={styles.banner}>
           <Text style={styles.bannerLabelAccent}>New ideas · round {regenCount + 1}</Text>
-          <Text style={styles.bannerBody}>Your crew passed on the last 3, so here are fresh picks.</Text>
+          <Text style={styles.bannerBody}>Your crew passed on the last ones, so here are fresh picks.</Text>
         </Card>
       ) : null}
 
@@ -448,9 +462,9 @@ export default function PlanScreen() {
 
       {actionError ? <ErrorState testID="plan-action-error" message={actionError} /> : null}
 
-      {plan.status === "locked" && myVote ? (
+      {plan.status === "locked" && isMember ? (
         <View style={styles.gap}>
-          {myVote.confirmed ? (
+          {myVote?.confirmed ? (
             <Card testID="confirmed-badge" tone="success" style={styles.confirmed}>
               <Text style={styles.bannerTitle}>✓ You're confirmed</Text>
             </Card>

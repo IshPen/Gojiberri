@@ -61,13 +61,16 @@ export default function RecommendedScreen() {
   const crew = groups?.[Math.min(crewIndex, groups.length - 1)];
   const nextPlan = plans?.find((p) => p.status === "voting" || p.status === "locked");
   const vibes = new Set((user?.vibes ?? []).map((v) => v.toLowerCase()));
+  const memoryText = (knows ?? []).join(" ").toLowerCase();
   const budget = user?.budgetMax ?? Infinity;
   const crewSize = crew?.members.length ?? 1;
   const picks = (experiences ?? [])
-    .filter((e) => crewSize <= e.maxGroup)
+    .filter((e) => e.minGroup <= crewSize && crewSize <= e.maxGroup)
     .map((e) => {
       const matched = e.tags.filter((t) => vibes.has(t.toLowerCase()));
-      return { e, matched, fits: e.pricePerPerson <= budget, score: matched.length * 2 + (e.pricePerPerson <= budget ? 1 : 0) };
+      const remembered = e.tags.filter((t) => memoryText.includes(t.toLowerCase().replace(/-/g, " ")) || memoryText.includes(t.toLowerCase()));
+      const fits = e.pricePerPerson <= budget;
+      return { e, matched: [...new Set([...matched, ...remembered])], fits, score: matched.length * 2 + remembered.length * 2 + (fits ? 1 : 0) };
     })
     .sort((a, b) => b.score - a.score || a.e.pricePerPerson - b.e.pricePerPerson)
     .slice(0, MAX_PICKS);
