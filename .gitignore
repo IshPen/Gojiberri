@@ -14,3 +14,9 @@ playground-temp
 temp
 TODOs.md
 .eslintcache
+
+# Expo
+.expo/
+expo-env.d.ts
+web-build/
+.env
