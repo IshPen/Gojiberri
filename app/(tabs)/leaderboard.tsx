@@ -66,6 +66,25 @@ const MOCK_MY_RANKS: MyRanks = {
   school: "Berkeley",
 };
 
+type LockedPlan = {
+  _id: Id<"plans">;
+  _creationTime: number;
+  groupId: Id<"groups">;
+  groupName: string;
+  status: "generating" | "voting" | "locked" | "done" | "cancelled";
+  winner: { title: string } | null;
+};
+const MOCK_UPCOMING_PLANS: LockedPlan[] = [
+  {
+    _id: "mock_plan_locked" as Id<"plans">,
+    _creationTime: 0,
+    groupId: MOCK_MY_GROUP,
+    groupName: "Hack Crew",
+    status: "locked",
+    winner: { title: "Boba run at Asha Tea House" },
+  },
+];
+
 const MEDALS = ["🥇", "🥈", "🥉"];
 const LIMIT = 20;
 
@@ -251,17 +270,52 @@ function SchoolsSection({ mySchool }: { mySchool: string | null }) {
   );
 }
 
-function MeSection({ userId }: { userId: string | null }) {
+function MeSection({ userId, crewId }: { userId: string | null; crewId: string | null }) {
   const router = useRouter();
   const live = useQuery(myRanksRef, USE_MOCK || !userId ? "skip" : { userId: userId as Id<"users"> });
   const mock = useMockQuery(MOCK_MY_RANKS, USE_MOCK);
   const ranks = USE_MOCK ? mock : userId ? live : null;
+  const livePlans = useQuery(api.plans.getMyUpcomingPlans, USE_MOCK || !userId ? "skip" : { userId: userId as Id<"users"> });
+  const mockPlans = useMockQuery(MOCK_UPCOMING_PLANS, USE_MOCK);
+  const plans: LockedPlan[] | undefined | null = USE_MOCK ? mockPlans : userId ? livePlans : null;
+  const lockedPlan = plans
+    ?.filter((p) => p.status === "locked")
+    .reduce<LockedPlan | null>((latest, p) => (!latest || p._creationTime > latest._creationTime ? p : latest), null);
+
   const climb = (
-    <View style={styles.climb}>
-      <Button testID="me-check-in" label="Check in to climb" icon="📸" onPress={() => router.push("/camera")} />
-      <Text testID="me-check-in-hint" style={styles.meSub}>
-        Snap a photo at your crew's next outing to earn {brand.points}.
-      </Text>
+    <View style={styles.climb} testID="me-climb">
+      <Button
+        testID="me-check-in"
+        label="Check in to climb"
+        icon="📸"
+        loading={plans === undefined}
+        disabled={!lockedPlan}
+        onPress={() => {
+          if (!lockedPlan) return;
+          router.push({ pathname: "/camera", params: { planId: lockedPlan._id, groupId: lockedPlan.groupId } });
+        }}
+      />
+      {plans === undefined ? (
+        <Text testID="me-check-in-loading" style={styles.meSub}>
+          Finding your crew's latest outing…
+        </Text>
+      ) : lockedPlan ? (
+        <Text testID="me-check-in-hint" style={styles.meSub}>
+          Snap a photo at {lockedPlan.winner?.title ?? "your crew's outing"} with {lockedPlan.groupName} to earn {brand.points}.
+        </Text>
+      ) : (
+        <>
+          <Text testID="me-check-in-no-plan" style={styles.meSub}>
+            Lock a plan with your crew to start climbing
+          </Text>
+          <Button
+            testID="me-check-in-go-crew"
+            label={crewId ? "Plan something with your crew" : "Start a crew"}
+            variant="secondary"
+            onPress={() => router.push(crewId ? `/group/${crewId}` : "/group/new")}
+          />
+        </>
+      )}
     </View>
   );
 
@@ -340,7 +394,7 @@ export default function LeaderboardScreen() {
 
       {segment === "crews" ? <CrewsSection mySchool={mySchool} myGroupIds={myGroupIds} /> : null}
       {segment === "schools" ? <SchoolsSection mySchool={mySchool} /> : null}
-      {segment === "me" ? <MeSection userId={userId} /> : null}
+      {segment === "me" ? <MeSection userId={userId} crewId={USE_MOCK ? MOCK_MY_GROUP : (liveGroups?.[0]?._id ?? null)} /> : null}
     </Screen>
   );
 }
