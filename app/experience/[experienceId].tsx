@@ -17,6 +17,7 @@ type Crew = {
   memberCount: number;
   potBalance: number | null;
   lockedPlanId: Id<"plans"> | null;
+  confirmedCount: number | null;
 };
 type ExperienceForPurchase = {
   _id: Id<"experiences">;
@@ -36,6 +37,7 @@ type ExperienceForPurchase = {
   partner: boolean;
   crews: Crew[];
 };
+type MyPurchase = { purchaseId: string; status: "pending" | "completed" | "failed"; amount: number; quantity: number } | null;
 type Receipt = { amount: number; people: number; experience: string; business: string; last4: string; balance: number };
 
 const getForPurchaseRef = makeFunctionReference<
@@ -48,11 +50,18 @@ const checkoutRef = makeFunctionReference<
   { experienceId: Id<"experiences">; userId: Id<"users">; groupId?: Id<"groups"> },
   string
 >("experienceCheckout:createExperienceCheckout");
+const myPurchaseRef = makeFunctionReference<
+  "query",
+  { userId: Id<"users">; experienceId: Id<"experiences"> },
+  MyPurchase
+>("purchases:getMyPurchase");
 const chargeCardRef = makeFunctionReference<
   "mutation",
   { userId: Id<"users">; groupId: Id<"groups">; planId: Id<"plans"> },
   Receipt
 >("cards:chargeCard");
+
+const WHOP_EXPERIENCE_CHECKOUT_LIVE = false;
 
 function errorText(e: unknown) {
   const message = e instanceof Error ? e.message : String(e);
@@ -75,6 +84,12 @@ export default function ExperienceDetailScreen() {
     sessionLoading
       ? "skip"
       : { experienceId: experienceId as Id<"experiences">, ...(userId ? { userId: userId as Id<"users"> } : {}) },
+  );
+  const myPurchase = useQuery(
+    myPurchaseRef,
+    WHOP_EXPERIENCE_CHECKOUT_LIVE && userId
+      ? { userId: userId as Id<"users">, experienceId: experienceId as Id<"experiences"> }
+      : "skip",
   );
   const createCheckout = useAction(checkoutRef);
   const chargeCard = useMutation(chargeCardRef);
@@ -107,7 +122,9 @@ export default function ExperienceDetailScreen() {
   }
 
   const crew = experience.crews.find((c) => c.groupId === crewId) ?? experience.crews[0] ?? null;
-  const people = crew ? Math.min(Math.max(crew.memberCount, experience.minGroup), experience.maxGroup) : experience.minGroup;
+  const people =
+    crew?.confirmedCount ??
+    (crew ? Math.min(Math.max(crew.memberCount, experience.minGroup), experience.maxGroup) : experience.minGroup);
   const potCost = experience.pricePerPerson * people;
 
   async function buyWithWhop() {
@@ -200,30 +217,51 @@ export default function ExperienceDetailScreen() {
       <SectionHeader title="Buy with Whop" testID="experience-whop-header" />
       <Card testID="experience-whop-card">
         <Text style={styles.meta}>Pay ${experience.pricePerPerson} for your spot with Whop checkout (sandbox, no real money).</Text>
-        <Button
-          testID="experience-buy-whop"
-          label="Buy with Whop"
-          icon="🛒"
-          loading={buying}
-          disabled={!userId || !experience.active}
-          onPress={buyWithWhop}
-          style={styles.action}
-        />
-        {!userId ? (
-          <Text style={styles.note} testID="experience-whop-signin">
-            Sign in to buy.
-          </Text>
-        ) : null}
-        {checkoutOpened && !buyError ? (
-          <Text style={styles.note} testID="experience-whop-pending">
-            Your spot is confirmed once Whop confirms the payment.
-          </Text>
-        ) : null}
-        {buyError ? (
-          <Text style={styles.error} testID="experience-whop-error">
-            {buyError}
-          </Text>
-        ) : null}
+        {WHOP_EXPERIENCE_CHECKOUT_LIVE ? (
+          <>
+            <Button
+              testID="experience-buy-whop"
+              label="Buy with Whop"
+              icon="🛒"
+              loading={buying}
+              disabled={!userId || !experience.active}
+              onPress={buyWithWhop}
+              style={styles.action}
+            />
+            {!userId ? (
+              <Text style={styles.note} testID="experience-whop-signin">
+                Sign in to buy.
+              </Text>
+            ) : null}
+            {myPurchase?.status === "completed" ? (
+              <Text style={styles.success} testID="experience-whop-completed">
+                Paid ${myPurchase.amount}. Your spot is booked.
+              </Text>
+            ) : myPurchase?.status === "pending" || (checkoutOpened && !buyError) ? (
+              <Text style={styles.note} testID="experience-whop-pending">
+                Payment pending, we&apos;ll confirm once Whop does.
+              </Text>
+            ) : myPurchase?.status === "failed" ? (
+              <Text style={styles.error} testID="experience-whop-failed">
+                Your last payment couldn&apos;t be confirmed. Try again.
+              </Text>
+            ) : null}
+            {buyError ? (
+              <Text style={styles.error} testID="experience-whop-error">
+                {buyError}
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          <Button
+            testID="experience-buy-whop"
+            label="Whop checkout coming soon"
+            icon="🛒"
+            disabled
+            onPress={() => {}}
+            style={styles.action}
+          />
+        )}
       </Card>
 
       <SectionHeader title="Pay from crew pot" testID="experience-pot-header" />
@@ -239,7 +277,7 @@ export default function ExperienceDetailScreen() {
           <>
             {crew ? (
               <Text style={styles.meta} testID="experience-pot-summary">
-                {crew.name}: about ${potCost} for {people}
+                {crew.name}: {crew.confirmedCount !== null ? "" : "about "}${potCost} for {people}
                 {crew.potBalance !== null ? ` · $${crew.potBalance} in the pot` : ""}
               </Text>
             ) : null}
@@ -280,6 +318,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   action: { marginTop: spacing.md },
   note: { fontSize: font.size.sm, color: colors.textMuted, marginTop: spacing.sm },
+  success: { fontSize: font.size.sm, color: colors.success, fontWeight: font.weight.semibold, marginTop: spacing.sm },
   error: { fontSize: font.size.sm, color: colors.danger, marginTop: spacing.sm },
   receiptTitle: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.success, marginBottom: spacing.xs },
 });

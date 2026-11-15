@@ -83,12 +83,21 @@ export const getForPurchase = query({
             p.options[p.winningIndex]?.experienceId === experienceId &&
             !paidPlans.has(p._id),
         );
+        const confirmedCount = lockedPlan
+          ? (
+              await ctx.db
+                .query("votes")
+                .withIndex("by_plan", (q) => q.eq("planId", lockedPlan._id))
+                .collect()
+            ).filter((vote) => vote.confirmed).length
+          : null;
         return {
           groupId: group._id,
           name: group.name,
           memberCount: group.memberIds.length,
           potBalance: pot ? pot.balance : null,
           lockedPlanId: lockedPlan?._id ?? null,
+          confirmedCount,
         };
       }),
     );
