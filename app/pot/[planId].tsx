@@ -1,4 +1,3 @@
-import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useAction, useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
@@ -15,12 +14,7 @@ import { colors, font, motion, radius, spacing, type } from "../../constants/the
 import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../../lib/errors";
 import { useUserId } from "../../lib/session";
-import { formatDollars, mockPlanSplit, mockPotShares, type PlanSplit, type PotShare } from "../../lib/split";
-
-// HOME-38: funds.getPotShares and funds.getPlanSplit, referenced by name until they deploy. Flip SPLIT_MOCK once they do.
-const SPLIT_MOCK = true;
-const getPotSharesRef = makeFunctionReference<"query", { groupId: Id<"groups"> }, PotShare[]>("funds:getPotShares");
-const getPlanSplitRef = makeFunctionReference<"query", { planId: Id<"plans"> }, PlanSplit | null>("funds:getPlanSplit");
+import { formatDollars, type PlanSplit } from "../../lib/split";
 
 const DEFAULT_PER_MEMBER = 20;
 
@@ -50,29 +44,9 @@ export default function PotScreen() {
 
   const winner = plan && plan.status === "locked" && plan.winningIndex !== undefined ? plan.options[plan.winningIndex] : undefined;
   const experienceId = winner?.experienceId;
-  const experience = useQuery(api.experiences.getExperience, SPLIT_MOCK && experienceId ? { experienceId } : "skip");
-
-  const liveShares = useQuery(getPotSharesRef, !SPLIT_MOCK && groupId ? { groupId } : "skip");
-  const liveSplit = useQuery(getPlanSplitRef, !SPLIT_MOCK && planId && experienceId ? { planId: pid } : "skip");
-
-  const members = plan?.group.members ?? [];
-  const shares = SPLIT_MOCK ? (pot ? mockPotShares(members, pot.transactions) : pot) : liveShares;
-  const split: PlanSplit | null | undefined = !experienceId || pot === null
-    ? null
-    : !SPLIT_MOCK
-      ? liveSplit
-      : experience === undefined || !shares || !pot
-        ? undefined
-        : experience === null
-          ? null
-          : mockPlanSplit({
-              planId: pid,
-              experienceId,
-              pricePerPerson: experience.pricePerPerson,
-              attendees: members.filter((m) => plan?.votes.some((v) => v.userId === m._id && v.confirmed)),
-              shares,
-              transactions: pot.transactions,
-            });
+  const shares = useQuery(api.funds.getPotShares, groupId ? { groupId } : "skip");
+  const liveSplit = useQuery(api.funds.getPlanSplit, planId && experienceId ? { planId: pid } : "skip");
+  const split: PlanSplit | null | undefined = !experienceId || pot === null ? null : liveSplit;
 
   const createPot = useMutation(api.funds.createPot);
   const chargeCard = useMutation(api.cards.chargeCard);
