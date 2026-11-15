@@ -1,8 +1,82 @@
 import { httpRouter } from "convex/server";
 import { env, httpAction } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
 import { external } from "./refs";
 
 const http = httpRouter();
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character]!);
+}
+
+function mockCheckoutPage(checkout: Doc<"whopMockCheckouts">) {
+  const paid = checkout.status === "paid";
+  const amount = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(checkout.amount);
+  const title = paid ? "Demo payment complete" : "A little goes a long way.";
+  return new Response(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title} · Goji</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f8f5ed;color:#203b2d;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;padding:36px 20px}
+main{max-width:440px;margin:0 auto}.brand{font-size:28px;font-weight:850;letter-spacing:-1px;margin-bottom:44px}.dot{color:#e77850}
+.badge{display:inline-block;background:#f9dfb1;color:#65451b;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:700}
+h1{font-size:36px;line-height:1.12;letter-spacing:-1.3px;margin:23px 0 14px}p{color:#657065;font-size:15px;line-height:1.6}
+.card{background:#fff;border:1px solid #e3e5da;border-radius:20px;padding:24px;margin:30px 0 20px}.label{font-size:11px;font-weight:750;letter-spacing:1.5px;text-transform:uppercase;color:#798174}
+h2{font-size:19px;line-height:1.4;margin:8px 0 24px;overflow-wrap:anywhere}.amount{font-size:44px;line-height:1;font-weight:750;letter-spacing:-1.5px}.currency{font-size:12px;color:#798174;margin-top:8px}
+button{font:inherit;font-weight:750;width:100%;border:0;border-radius:13px;padding:18px 12px;background:#285c3e;color:white;cursor:pointer;min-height:56px}button:focus-visible{outline:3px solid #e77850;outline-offset:3px}
+.fine{font-size:12px;text-align:center;margin-top:18px}.success{padding:16px;background:#e7efdf;border-radius:13px;font-weight:650;line-height:1.5}.foot{margin-top:44px;font-size:12px;color:#798174}
+</style></head><body><main><div class="brand">goji<span class="dot">.</span></div>
+<div class="badge">Demo payment: Whop is simulated</div><h1>${title}</h1>
+<p>${paid ? "Your simulated payment is recorded. No real money was charged." : "Try the full checkout flow. This is a simulation, so no card or real payment is needed."}</p>
+<section class="card"><div class="label">${checkout.kind === "contribution" ? "Chip in to" : "Experience from"}</div>
+<h2>${escapeHtml(checkout.title)}</h2><div class="amount">${amount}</div><div class="currency">USD · simulated payment</div></section>
+${paid ? '<div class="success">Return to the app to see your updated ' + (checkout.kind === "contribution" ? "fund balance." : "purchase status.") + '</div>' : `<form action="/whop/mock-pay" method="post"><input type="hidden" name="token" value="${escapeHtml(checkout.token)}"><button type="submit">Pay ${amount} · Demo</button></form><p class="fine">Only this demo balance or purchase will be updated.</p>`}
+<div class="foot">Goji demo checkout · Powered by a simulation, not Whop</div></main></body></html>`, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "same-origin",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    },
+  });
+}
+
+http.route({
+  path: "/whop/mock-checkout", method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    if (env.WHOP_MOCK !== "true") return new Response("Not found", { status: 404 });
+    const token = new URL(req.url).searchParams.get("token");
+    if (!token || !/^[a-f0-9]{64}$/.test(token)) return new Response("Not found", { status: 404 });
+    const checkout = await ctx.runQuery(internal.whopMock.getCheckout, { token });
+    if (!checkout) return new Response("Not found", { status: 404 });
+    if (checkout.status !== "paid" && checkout.expiresAt <= Date.now()) return new Response("Demo checkout expired", { status: 410 });
+    return mockCheckoutPage(checkout);
+  }),
+});
+
+http.route({
+  path: "/whop/mock-pay", method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    if (env.WHOP_MOCK !== "true") return new Response("Not found", { status: 404 });
+    const origin = req.headers.get("origin");
+    if (origin && origin !== new URL(req.url).origin) return new Response("Forbidden", { status: 403 });
+    if (req.headers.get("content-type")?.split(";")[0] !== "application/x-www-form-urlencoded") {
+      return new Response("Expected checkout form", { status: 415 });
+    }
+    const body = await req.text();
+    if (body.length > 1024) return new Response("Form is too large", { status: 413 });
+    const token = new URLSearchParams(body).get("token");
+    if (!token || !/^[a-f0-9]{64}$/.test(token)) return new Response("Not found", { status: 404 });
+    try {
+      const checkout = await ctx.runMutation(internal.whopMock.pay, { token });
+      if (!checkout) return new Response("Not found", { status: 404 });
+      return mockCheckoutPage(checkout);
+    } catch {
+      return new Response("Demo payment could not complete. Return to the app and start a new checkout.", { status: 409 });
+    }
+  }),
+});
 
 function base64ToBytes(b64: string) {
   const bin = atob(b64);
