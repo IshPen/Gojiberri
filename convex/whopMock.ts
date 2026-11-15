@@ -70,6 +70,28 @@ export const createExperience = internalMutation({
   handler: insertExperience,
 });
 
+async function insertSponsor(ctx: MutationCtx, { token, sponsorId }: { token: string; sponsorId: Id<"sponsors"> }) {
+  const url = checkoutUrl(token);
+  const sponsor = await ctx.db.get("sponsors", sponsorId);
+  if (!sponsor) throw new Error("Sponsor not found");
+  const cents = Math.round(sponsor.payPerVisit * 25 * 100);
+  if (!Number.isSafeInteger(cents) || cents < 1 || Math.abs(sponsor.payPerVisit * 25 * 100 - cents) > 1e-6) {
+    throw new Error("This sponsor pack has no valid price");
+  }
+  if (await ctx.db.query("whopMockCheckouts").withIndex("by_token", (q) => q.eq("token", token)).unique()) {
+    throw new Error("Demo checkout token already exists");
+  }
+  await ctx.db.insert("whopMockCheckouts", {
+    token, kind: "sponsor", sponsorId, amount: cents / 100, currency: "usd", title: sponsor.business,
+    status: "pending", expiresAt: Date.now() + 30 * 60 * 1000,
+  });
+  return url;
+}
+
+function creditSponsorPack(_ctx: MutationCtx, _pack: { sponsorId: Id<"sponsors">; amount: number }): Promise<void> {
+  return Promise.resolve();
+}
+
 export const startContributionCheckout = mutation({
   args: { userId: v.id("users"), groupId: v.id("groups"), amount: v.number() },
   handler: async (ctx, args): Promise<{ mode: "real" } | { mode: "mock"; token: string; checkoutUrl: string }> => {
@@ -96,6 +118,15 @@ export const startExperienceCheckout = mutation({
   },
 });
 
+export const startSponsorCheckout = mutation({
+  args: { sponsorId: v.id("sponsors") },
+  handler: async (ctx, { sponsorId }): Promise<{ mode: "real" } | { mode: "mock"; token: string; checkoutUrl: string }> => {
+    if (env.WHOP_MOCK !== "true") return { mode: "real" };
+    const token = newToken();
+    return { mode: "mock", token, checkoutUrl: await insertSponsor(ctx, { sponsorId, token }) };
+  },
+});
+
 export const getCheckout = internalQuery({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
@@ -111,11 +142,16 @@ async function payCheckout(ctx: MutationCtx, token: string) {
   if (checkout.status === "paid") return checkout;
   if (checkout.expiresAt <= Date.now()) throw new ConvexError("Demo checkout expired");
   const whopPaymentId = `mock_pay_${token}`;
-  if (checkout.kind === "contribution") {
-    if (!checkout.potId || checkout.purchaseId) throw new Error("Invalid demo contribution");
+  if (checkout.kind === "sponsor") {
+    if (!checkout.sponsorId || checkout.userId || checkout.potId || checkout.purchaseId) throw new Error("Invalid demo sponsor pack");
+    if (!(await ctx.db.get("sponsors", checkout.sponsorId))) throw new Error("Sponsor is no longer available");
+    await creditSponsorPack(ctx, { sponsorId: checkout.sponsorId, amount: checkout.amount });
+  } else if (checkout.kind === "contribution") {
+    const userId = checkout.userId;
+    if (!userId || !checkout.potId || checkout.purchaseId || checkout.sponsorId) throw new Error("Invalid demo contribution");
     const pot = await ctx.db.get("pots", checkout.potId);
     const group = pot ? await ctx.db.get("groups", pot.groupId) : null;
-    if (!pot || !group?.memberIds.includes(checkout.userId) || !(await ctx.db.get("users", checkout.userId))) {
+    if (!pot || !group?.memberIds.includes(userId) || !(await ctx.db.get("users", userId))) {
       throw new Error("Contribution is no longer available");
     }
     const balanceCents = Math.round(pot.balance * 100);
@@ -124,10 +160,10 @@ async function payCheckout(ctx: MutationCtx, token: string) {
       throw new Error("Fund balance is not valid");
     }
     await ctx.runMutation(internal.context.recordContributionOnce, {
-      potId: pot._id, userId: checkout.userId, amount: checkout.amount, whopPaymentId,
+      potId: pot._id, userId, amount: checkout.amount, whopPaymentId,
     });
   } else {
-    if (!checkout.purchaseId || checkout.potId) throw new Error("Invalid demo purchase");
+    if (!checkout.userId || !checkout.purchaseId || checkout.potId || checkout.sponsorId) throw new Error("Invalid demo purchase");
     const purchase = await ctx.db.get("experiencePurchases", checkout.purchaseId);
     if (!purchase || purchase.userId !== checkout.userId || purchase.amount !== checkout.amount ||
       purchase.currency !== checkout.currency || purchase.whopCheckoutId !== `ch_mock_${token}` || !purchase.whopPlanId) {

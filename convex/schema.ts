@@ -277,8 +277,9 @@ export default defineSchema({
 
   whopMockCheckouts: defineTable({
     token: v.string(),
-    kind: v.union(v.literal("contribution"), v.literal("experience")),
-    userId: v.id("users"),
+    kind: v.union(v.literal("contribution"), v.literal("experience"), v.literal("sponsor")),
+    userId: v.optional(v.id("users")),
+    sponsorId: v.optional(v.id("sponsors")),
     potId: v.optional(v.id("pots")),
     purchaseId: v.optional(v.id("experiencePurchases")),
     amount: v.number(),

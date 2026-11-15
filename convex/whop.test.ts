@@ -750,6 +750,68 @@ describe("explicit Whop demo mode", () => {
     expect(receipt).toContain("Return to the app");
   });
 
+  it("starts a sponsor quest pack mock and records a paid marker exactly once", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, state } = await fixture();
+    const sponsorId = await t.run(async (ctx) => {
+      const placeId = await ctx.db.insert("places", { name: "Fixture", area: "Fixture", category: "activity",
+        priceLevel: 1, tags: [], lat: 0, lng: 0, durationMins: 30 });
+      return await ctx.db.insert("sponsors", { business: "Fixture Cafe", offer: "Fixture", placeId, priceLevel: 1,
+        tags: [], rewardCost: 0, payPerVisit: 1.5, active: true });
+    });
+    const before = await state();
+    const started = await t.mutation(api.whopMock.startSponsorCheckout, { sponsorId });
+    if (started.mode !== "mock") throw new Error("expected mock mode");
+    expect(tokenFrom(started.checkoutUrl)).toBe(started.token);
+    const row = await t.query(internal.whopMock.getCheckout, { token: started.token });
+    expect(row).toMatchObject({ kind: "sponsor", sponsorId, amount: 37.5, currency: "usd", title: "Fixture Cafe", status: "pending" });
+    expect(row?.userId).toBeUndefined();
+    expect(await t.query(api.whopMock.getMockCheckout, { token: started.token })).toEqual({
+      kind: "sponsor", title: "Fixture Cafe", amount: 37.5, currency: "usd", status: "pending", expiresAt: expect.any(Number),
+    });
+    const page = await (await t.fetch("/whop/mock-checkout?token=" + started.token)).text();
+    expect(page).toContain("Fund more quests");
+    expect(page).toContain("Pay $37.50");
+    expect(page).toContain("Simulated checkout · no real payment is made");
+    const results = await Promise.all([
+      t.mutation(api.whopMock.payMockCheckout, { token: started.token }),
+      pay(t, started.token).then((response) => response.status),
+    ]);
+    expect(results[0]).toEqual({ kind: "sponsor", title: "Fixture Cafe", amount: 37.5, currency: "usd", status: "paid", expiresAt: expect.any(Number) });
+    expect(results[1]).toBe(200);
+    const paid = await t.query(internal.whopMock.getCheckout, { token: started.token });
+    expect(paid).toMatchObject({ status: "paid", paidAt: expect.any(Number) });
+    expect(await t.mutation(api.whopMock.payMockCheckout, { token: started.token })).toMatchObject({ status: "paid" });
+    expect(await state()).toEqual(before);
+    expect(await t.run((ctx) => ctx.db.get("sponsors", sponsorId))).toMatchObject({ payPerVisit: 1.5, active: true });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("returns real mode for sponsor packs unless the flag is on, and rejects unknown sponsors or unbound rows", async () => {
+    const { t, ids, state } = await fixture();
+    const sponsorId = await t.run(async (ctx) => {
+      const placeId = await ctx.db.insert("places", { name: "Fixture", area: "Fixture", category: "activity",
+        priceLevel: 1, tags: [], lat: 0, lng: 0, durationMins: 30 });
+      return await ctx.db.insert("sponsors", { business: "Fixture Cafe", offer: "Fixture", placeId, priceLevel: 1,
+        tags: [], rewardCost: 0, payPerVisit: 1, active: true });
+    });
+    expect(await t.mutation(api.whopMock.startSponsorCheckout, { sponsorId })).toEqual({ mode: "real" });
+    expect(await t.run((ctx) => ctx.db.query("whopMockCheckouts").collect())).toEqual([]);
+    vi.stubEnv("WHOP_MOCK", "true");
+    await t.run((ctx) => ctx.db.delete("sponsors", sponsorId));
+    await expect(t.mutation(api.whopMock.startSponsorCheckout, { sponsorId })).rejects.toThrow("Sponsor not found");
+    const unbound = await t.run(async (ctx) => {
+      const token = "c".repeat(64);
+      await ctx.db.insert("whopMockCheckouts", { token, kind: "contribution", potId: ids.potId, amount: 10, currency: "usd",
+        title: "Unbound", status: "pending", expiresAt: now + 60_000 });
+      return token;
+    });
+    await expect(t.mutation(api.whopMock.payMockCheckout, { token: unbound })).rejects.toThrow("Invalid demo contribution");
+    expect((await pay(t, unbound)).status).toBe(409);
+    expect((await state()).pot?.balance).toBe(40);
+    expect((await state()).transactions).toEqual([]);
+  });
+
   it("never calls Whop for demo transfers or unsupported sponsor checkout", async () => {
     vi.stubEnv("WHOP_MOCK", "true");
     const { t, ids } = await fixture();
