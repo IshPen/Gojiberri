@@ -110,7 +110,7 @@ export default function PotScreen() {
     run(kind, async () => {
       if (!groupId) return;
       if (!me) throw new Error("Sign in to add money.");
-      const url = await checkout({ userId: me, groupId, amount: Math.max(1, Math.ceil(amount * 100) / 100) });
+      const url = await checkout({ userId: me, groupId, amount: Math.max(1, amount) });
       await WebBrowser.openBrowserAsync(url);
     });
 
@@ -291,7 +291,7 @@ function SplitCard({
     <Card testID="pot-split-card" tone="accent" style={styles.split}>
       <Text style={type.eyebrow}>{title}</Text>
       <Text testID="pot-split-cost" style={styles.splitCost}>
-        {mine ? `${day} costs you ${formatDollars(split.perPerson)}` : `${day} costs ${formatDollars(split.perPerson)} each`}
+        {mine ? `${day} costs you ${formatDollars(mine.share)}` : `${day} costs about ${formatDollars(split.perPerson)} each`}
       </Text>
       {split.sponsorCredit > 0 ? (
         <Text testID="pot-split-sponsor" style={styles.muted}>
@@ -304,6 +304,9 @@ function SplitCard({
             <Text style={[styles.name, { flex: 1 }]} numberOfLines={1}>
               {a.name}
               {a.userId === me ? " (you)" : ""}
+            </Text>
+            <Text testID={`pot-attendee-${i}-share`} style={styles.attendeeShare}>
+              {formatDollars(a.share)}
             </Text>
             <Text testID={`pot-attendee-${i}-status`} style={a.shortBy > 0 ? styles.short : styles.covered}>
               {a.shortBy > 0 ? `needs ${formatDollars(a.shortBy)}` : "✓ covered"}
@@ -319,8 +322,19 @@ function SplitCard({
         <>
           {mine && mine.shortBy > 0 ? (
             <>
-              <Button testID="pot-top-up" label={`Top up ${formatDollars(mine.shortBy)}`} loading={busy === "topup"} disabled={!!busy} onPress={() => onTopUp(mine.shortBy)} />
+              <Button
+                testID="pot-top-up"
+                label={mine.shortBy < 1 ? "Top up $1 (min)" : `Top up ${formatDollars(mine.shortBy)}`}
+                loading={busy === "topup"}
+                disabled={!!busy}
+                onPress={() => onTopUp(mine.shortBy)}
+              />
               <DemoPaymentLabel testID="pot-top-up-demo" />
+              {mine.shortBy < 1 ? (
+                <Text testID="pot-top-up-min" style={[styles.muted, { textAlign: "center" }]}>
+                  Top-ups start at $1. The extra stays in your share.
+                </Text>
+              ) : null}
             </>
           ) : null}
           <Button
@@ -361,6 +375,7 @@ const styles = StyleSheet.create({
   split: { gap: spacing.md },
   splitCost: type.title,
   attendee: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.xs },
+  attendeeShare: { fontSize: font.size.sm, fontWeight: font.weight.semibold, color: colors.textMuted, fontVariant: ["tabular-nums"] },
   covered: { fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.leaf },
   short: { fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.accentDark },
   error: { color: colors.danger, fontSize: font.size.sm, fontWeight: font.weight.semibold, textAlign: "center" },

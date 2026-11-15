@@ -1,7 +1,7 @@
 import type { GenericId as Id } from "convex/values";
 
 export type PotShare = { userId: Id<"users">; name: string; contributed: number; spent: number; balance: number };
-export type SplitAttendee = { userId: Id<"users">; name: string; balance: number; shortBy: number };
+export type SplitAttendee = { userId: Id<"users">; name: string; share: number; balance: number; shortBy: number };
 export type PlanSplit = {
   experienceId: Id<"experiences">;
   total: number;
@@ -15,7 +15,7 @@ export type PlanSplit = {
 type Member = { _id: Id<"users">; name: string };
 type Txn = { type: "contribution" | "spend" | "refund"; amount: number; status: string; userId?: Id<"users">; planId?: Id<"plans"> };
 
-const roundUpCents = (n: number) => Math.ceil(n * 100 - 1e-9) / 100;
+const cents = (n: number) => Math.round(n * 100);
 
 export function mockPotShares(members: Member[], transactions: Txn[]): PotShare[] {
   return members.map((m) => {
@@ -35,25 +35,28 @@ export function mockPlanSplit(args: {
   transactions: Txn[];
 }): PlanSplit {
   const { planId, experienceId, pricePerPerson, attendees, shares, transactions } = args;
-  const count = Math.max(attendees.length, 1);
-  const total = pricePerPerson * attendees.length;
-  const sponsorCredit = Math.min(
-    total,
-    transactions.filter((t) => t.type === "contribution" && t.status === "completed" && !t.userId && t.planId === planId).reduce((s, t) => s + t.amount, 0),
+  const n = attendees.length;
+  const totalCents = cents(pricePerPerson) * n;
+  const sponsorCents = Math.min(
+    totalCents,
+    transactions.filter((t) => t.type === "contribution" && t.status === "completed" && !t.userId && t.planId === planId).reduce((s, t) => s + cents(t.amount), 0),
   );
-  const perPerson = roundUpCents((total - sponsorCredit) / count);
-  const rows = attendees.map((a) => {
+  const baseCents = n > 0 ? Math.floor((totalCents - sponsorCents) / n) : 0;
+  const extraCents = n > 0 ? (totalCents - sponsorCents) % n : 0;
+  const charged = transactions.some((t) => t.type === "spend" && t.planId === planId && t.status !== "failed");
+  const rows = attendees.map((a, i) => {
+    const shareCents = baseCents + (i < extraCents ? 1 : 0);
     const balance = shares.find((s) => s.userId === a._id)?.balance ?? 0;
-    return { userId: a._id, name: a.name, balance, shortBy: roundUpCents(Math.max(0, perPerson - balance)) };
+    return { userId: a._id, name: a.name, share: shareCents / 100, balance, shortBy: charged ? 0 : Math.max(0, shareCents - cents(balance)) / 100 };
   });
   return {
     experienceId,
-    total,
-    sponsorCredit,
-    perPerson,
+    total: totalCents / 100,
+    sponsorCredit: sponsorCents / 100,
+    perPerson: (baseCents + (extraCents ? 1 : 0)) / 100,
     attendees: rows,
-    allCovered: rows.every((r) => r.shortBy === 0),
-    charged: transactions.some((t) => t.type === "spend" && t.planId === planId && t.status !== "failed"),
+    allCovered: n > 0 && rows.every((r) => r.shortBy === 0),
+    charged,
   };
 }
 
