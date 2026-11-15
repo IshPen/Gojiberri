@@ -113,7 +113,7 @@ export default function PreferencesScreen() {
       <Title testID="preferences-title">{school ? `What do ${school} students like?` : "Last step, then you're in"}</Title>
       <Subtitle testID="preferences-subtitle">Your budget and vibe shape the outings we suggest for your crew{school ? ` around ${school}` : ""}, so plans fit a student wallet.</Subtitle>
 
-      {error ? <ErrorState testID="preferences-error" message={error} onRetry={onFinish} /> : null}
+      {error ? <ErrorState testID="preferences-error" message={error} onRetry={() => setError(null)} /> : null}
 
       <SectionHeader title="Budget per hangout" testID="budget-header" />
       <Card testID="budget-card">

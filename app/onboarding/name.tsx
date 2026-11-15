@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useMutation } from "convex/react";
@@ -6,9 +6,10 @@ import { Button, Card, ErrorState, Screen, SectionHeader, Subtitle } from "../..
 import { SchoolCrest } from "../../components/SchoolBadge";
 import { brand, colors, font, minTapTarget, radius, spacing, type, emoji as emojiSize } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { schoolFor } from "../../lib/school";
 import { setUserId } from "../../lib/session";
-import { withTimeout } from "../../lib/timeout";
+import { TimeoutError, withTimeout } from "../../lib/timeout";
 
 const AVATARS = ["🐱", "🦊", "🐼", "🐸", "🦄", "🐙", "🦁", "🐯", "🐵", "🐧", "🦉", "🐳"];
 
@@ -21,6 +22,7 @@ export default function NameScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const createUser = useMutation(api.users.createUser);
+  const pending = useRef<{ name: string; promise: Promise<Id<"users">> } | null>(null);
 
   const trimmed = name.trim();
 
@@ -32,10 +34,12 @@ export default function NameScreen() {
     setSaving(true);
     setError(null);
     try {
-      const id = await withTimeout(createUser({ name: trimmed }), "We couldn't reach Gojiberri. Check your connection and try again.");
+      if (pending.current?.name !== trimmed) pending.current = { name: trimmed, promise: createUser({ name: trimmed }) };
+      const id = await withTimeout(pending.current.promise, "We couldn't reach Gojiberri. Check your connection and try again.");
       await setUserId(id);
       router.replace({ pathname: "/onboarding/swipe", params: { school } });
     } catch (e) {
+      if (!(e instanceof TimeoutError)) pending.current = null;
       setError(e instanceof Error ? e.message : "Could not create your profile. Campus Wi-Fi, probably. Try again.");
       setSaving(false);
     }
