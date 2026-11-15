@@ -219,10 +219,11 @@ export default function ExperienceDetailScreen() {
           <>
             <Button
               testID="experience-buy-whop"
-              label={myPurchase?.status === "completed" ? "Purchased ✓" : "Buy with Whop"}
+              label={myPurchase?.status === "completed" ? "Purchased ✓ Buy another spot" : "Buy with Whop"}
               icon="🛒"
+              variant={myPurchase?.status === "completed" ? "secondary" : "primary"}
               loading={buying}
-              disabled={!userId || !experience.active || myPurchase?.status === "completed"}
+              disabled={!userId || !experience.active}
               onPress={buyWithWhop}
               style={styles.action}
             />
