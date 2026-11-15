@@ -8,6 +8,8 @@ import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import { brand, colors, emoji, font, radius, shadow, spacing, type } from "../constants/theme";
 import { formatTime } from "../lib/format";
+import type { FunctionReturnType } from "convex/server";
+import { offerStatus, perkLabel, sameBusiness, useBusinessMock } from "../lib/businessMock";
 
 const KIND_LABELS = { offer: "Offer", reward: "Goji reward", experience: "Experience" } as const;
 
@@ -32,6 +34,99 @@ function useStartOfToday() {
     };
   }, [since]);
   return since;
+}
+
+type Home = NonNullable<FunctionReturnType<typeof api.businessDashboard.getHome>>;
+
+function BusinessTools({ name, home }: { name: string; home: Home }) {
+  const router = useRouter();
+  const allOffers = useBusinessMock((s) => s.offers);
+  const rules = useBusinessMock((s) => s.rules);
+  const allReviews = useBusinessMock((s) => s.reviews);
+  const followers = useBusinessMock((s) => s.followers);
+  const offers = allOffers.filter((o) => sameBusiness(o.businessName, name));
+  const rule = Object.values(rules).find((r) => sameBusiness(r.businessName, name)) ?? null;
+  const reviews = allReviews.filter((r) => sameBusiness(r.businessName, name));
+  const avg = reviews.length ? reviews.reduce((sum, r) => sum + r.stars, 0) / reviews.length : 0;
+  const unreplied = reviews.filter((r) => !r.reply).length;
+  const go = (pathname: "/business/offer" | "/business/rules" | "/business/reviews", params: Record<string, string> = {}) =>
+    router.push({ pathname, params: { business: name, ...params } });
+
+  const stats = [
+    { id: "claimed", label: "Offers claimed / redeemed", value: `${offers.reduce((s, o) => s + o.claimed, 0)} / ${offers.reduce((s, o) => s + o.redeemed, 0)}` },
+    { id: "sold", label: "Experiences sold", value: String(home.sales?.sold ?? 0) },
+    { id: "earnings", label: "Earnings", value: money(home.sales?.earned ?? 0) },
+    { id: "chipins", label: "Pot chip-ins", value: money((home.sponsorship?.chipIns.total ?? 0) + (rule?.spentThisMonth ?? 0)) },
+    { id: "followers", label: "Followers", value: String(Object.entries(followers).find(([b]) => sameBusiness(b, name))?.[1] ?? 0) },
+  ];
+
+  return (
+    <>
+      <SectionHeader title="Stats" testID="stats-header" />
+      <View style={styles.statGrid} testID="stats-grid">
+        {stats.map((s) => (
+          <Card key={s.id} testID={`stats-${s.id}`} tone="muted" style={styles.statTile}>
+            <Text testID={`stats-${s.id}-value`} style={styles.tileValue}>
+              {s.value}
+            </Text>
+            <Text style={styles.statLabel}>{s.label}</Text>
+          </Card>
+        ))}
+      </View>
+
+      <SectionHeader title="Your offers" testID="my-offers-header" />
+      {offers.length === 0 ? (
+        <Card testID="my-offers-empty" tone="muted">
+          <Text style={styles.rowMeta}>No offers yet. Create one and Stanford crews see it on Explore.</Text>
+        </Card>
+      ) : (
+        offers.map((o, i) => (
+          <Card key={o.id} testID={`my-offer-${i}`} style={styles.row} onPress={() => go("/business/offer", { offerId: o.id })}>
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <Text style={styles.rowTitle} numberOfLines={1}>
+                {o.title}
+              </Text>
+              <Text style={styles.rowMeta}>
+                {perkLabel(o)} · {offerStatus(o)} · {o.claimed} claimed · {o.redeemed} redeemed
+              </Text>
+            </View>
+            <Text style={styles.rowStrong}>›</Text>
+          </Card>
+        ))
+      )}
+      <Button testID="create-offer" label="Create offer" icon="✨" variant="secondary" onPress={() => go("/business/offer")} />
+
+      <SectionHeader title="Sponsorship rules" testID="rules-header" />
+      <Card testID="rules-card" onPress={() => go("/business/rules")} style={{ gap: spacing.sm }}>
+        {rule ? (
+          <>
+            <Text style={styles.rowTitle}>
+              Chip {money(rule.amount)} into a crew's pot when they pick you{rule.active ? "" : " (paused)"}
+            </Text>
+            <View style={styles.meter}>
+              <View style={[styles.meterFill, { width: `${Math.min(100, (rule.spentThisMonth / rule.monthlyBudget) * 100)}%` }]} />
+            </View>
+            <Text testID="rules-budget" style={styles.rowMeta}>
+              {money(rule.spentThisMonth)} of {money(rule.monthlyBudget)} this month
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.rowMeta}>Set up auto-sponsorship: chip into a crew's pot whenever they lock a plan with you.</Text>
+        )}
+      </Card>
+
+      <SectionHeader title="Reviews" testID="reviews-header" />
+      <Card testID="reviews-card" onPress={() => go("/business/reviews")} style={styles.row}>
+        <View style={{ flex: 1, gap: spacing.xs }}>
+          <Text testID="reviews-average" style={styles.rowTitle}>
+            {reviews.length ? `★ ${avg.toFixed(1)} from ${reviews.length} ${reviews.length === 1 ? "review" : "reviews"}` : "No reviews yet"}
+          </Text>
+          <Text style={styles.rowMeta}>{unreplied ? `${unreplied} waiting on your reply` : "All caught up"}</Text>
+        </View>
+        <Text style={styles.rowStrong}>›</Text>
+      </Card>
+    </>
+  );
 }
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
@@ -130,6 +225,8 @@ export default function SponsorDashboardScreen() {
         <EmptyState testID="dashboard-missing" emoji="🔍" title="Business not found" body="This business was removed. Pick another one above." />
       ) : (
         <>
+          <BusinessTools name={account.name} home={home} />
+
           <SectionHeader title="Today's redemptions" testID="today-header" />
           {home.today.recent.length === 0 ? (
             <EmptyState testID="today-empty" emoji="🎟️" title="No scans yet today" body="When a student shows their QR, tap Scan QR and it lands here." />
@@ -261,4 +358,9 @@ const styles = StyleSheet.create({
   statValue: { ...type.title, fontSize: font.size.xxl },
   statLabel: type.label,
   statLine: { ...type.heading, color: colors.accentDark },
+  statGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+  statTile: { flexBasis: "47%", flexGrow: 1, gap: spacing.xs, padding: spacing.lg },
+  tileValue: { ...type.heading, fontSize: font.size.xl },
+  meter: { height: 10, borderRadius: radius.pill, backgroundColor: colors.cardMuted, overflow: "hidden" },
+  meterFill: { height: 10, borderRadius: radius.pill, backgroundColor: colors.accent },
 });

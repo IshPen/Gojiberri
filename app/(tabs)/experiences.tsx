@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { router, type ErrorBoundaryProps } from "expo-router";
 import { useMemo, useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import FollowedDeals from "../../components/FollowedDeals";
 import SponsoredBadge from "../../components/SponsoredBadge";
 import { Card, Chip, EmptyState, ErrorState, LoadingState, Screen, Subtitle, Title } from "../../components/ui";
 import { colors, font, radius, spacing, emoji as emojiSize } from "../../constants/theme";
@@ -60,6 +61,8 @@ export default function ExperiencesScreen() {
       <Subtitle testID="experiences-subtitle">
         {nearOnly ? `Packages from local businesses near ${school}` : "Packages from every local business"}
       </Subtitle>
+
+      <FollowedDeals />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} testID="experiences-filters">
         <Chip
