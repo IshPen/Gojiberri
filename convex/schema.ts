@@ -12,7 +12,8 @@ export default defineSchema({
     diet: v.array(v.string()),           // e.g. ["vegetarian"]
     vibes: v.array(v.string()),          // e.g. ["cozy", "active"]
     onboarded: v.boolean(),
-    points: v.number(),
+    points: v.number(),                  // Goji balance
+    gojisSpent: v.optional(v.number()),  // lifetime spend; points + gojisSpent = lifetime earned
     diamonds: v.number(),
     streak: v.number(),
     lastSoloDate: v.optional(v.string()), // "YYYY-MM-DD"
@@ -61,6 +62,11 @@ export default defineSchema({
     confirmBy: v.number(),
     recurrenceId: v.optional(v.id("recurrences")),
     seedExperienceId: v.optional(v.id("experiences")), // always one of the 3 options
+    rejectedBy: v.optional(v.array(v.id("users"))),    // members passing on the current options
+    rejectChargedBy: v.optional(v.array(v.id("users"))), // members charged for a pass this round
+    regenCount: v.optional(v.number()),                 // regenerations so far, max 3
+    rejectedOptionKeys: v.optional(v.array(v.string())), // experienceId or placeId of every rejected option
+    generation: v.optional(v.number()),                 // options round; saveOptions ignores stale rounds
   }).index("by_group", ["groupId"]),
 
   votes: defineTable({
@@ -87,6 +93,24 @@ export default defineSchema({
     stars: v.number(),                   // 1-5
     vibe: v.string(),                    // one word
   }).index("by_plan", ["planId"]).index("by_user", ["userId"]),
+
+  noveltyScores: defineTable({           // cached AI novelty score per user and idea ("exp:<id>" | "place:<id>")
+    userId: v.id("users"),
+    ideaKey: v.string(),
+    score: v.number(),                   // 0-1
+    reason: v.string(),
+    computedAt: v.number(),
+  }).index("by_user_idea", ["userId", "ideaKey"]),
+
+  gojiQuotes: defineTable({              // novelty frozen per member and plan; savePhoto awards from it
+    userId: v.id("users"),
+    planId: v.id("plans"),
+    ideaKey: v.string(),
+    score: v.number(),
+    points: v.number(),
+    reason: v.union(v.string(), v.null()),
+    source: v.union(v.literal("ai"), v.literal("fallback")),
+  }).index("by_user_plan", ["userId", "planId"]),
 
   photos: defineTable({
     userId: v.id("users"),
@@ -191,7 +215,10 @@ export default defineSchema({
 
   pointEvents: defineTable({             // audit log for points
     userId: v.id("users"),
-    reason: v.union(v.literal("checkin"), v.literal("solo"), v.literal("confirm"), v.literal("rate")),
+    reason: v.union(
+      v.literal("checkin"), v.literal("solo"), v.literal("confirm"), v.literal("rate"), v.literal("reject_spend"),
+      v.literal("novel_bonus"), v.literal("regular_bonus"), v.literal("fullcrew_bonus")
+    ),
     points: v.number(),
     planId: v.optional(v.id("plans")),
     groupId: v.optional(v.id("groups")),
