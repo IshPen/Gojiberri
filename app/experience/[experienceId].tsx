@@ -171,7 +171,7 @@ export default function ExperienceDetailScreen() {
         <Image source={{ uri: experience.imageUrl }} style={styles.hero} testID="experience-photo" />
       ) : (
         <View style={[styles.hero, styles.emojiHero]} testID="experience-emoji">
-          <Text style={styles.heroEmoji}>{experienceEmoji(experience.category)}</Text>
+          <Text style={styles.heroEmoji}>{experienceEmoji(experience.category, [experience.title, experience.businessName, ...experience.tags])}</Text>
         </View>
       )}
 
@@ -219,8 +219,9 @@ export default function ExperienceDetailScreen() {
           <>
             <Button
               testID="experience-buy-whop"
-              label="Buy with Whop"
+              label={myPurchase?.status === "completed" ? "Purchased ✓ Buy another spot" : "Buy with Whop"}
               icon="🛒"
+              variant={myPurchase?.status === "completed" ? "secondary" : "primary"}
               loading={buying}
               disabled={!userId || !experience.active}
               onPress={buyWithWhop}

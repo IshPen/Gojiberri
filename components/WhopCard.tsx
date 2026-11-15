@@ -8,14 +8,15 @@ type WhopCardProps = {
   last4?: string;
   limit?: number;
   sandbox?: boolean;
+  spent?: number;
   testID?: string;
 };
 
 const RING_SIZE = 76;
 const RING_WIDTH = 7;
 
-export default function WhopCard({ crewName, balance, goal, last4, limit, sandbox = true, testID = "whop-card" }: WhopCardProps) {
-  const ready = !!last4 && goal > 0 && balance >= goal;
+export default function WhopCard({ crewName, balance, goal, last4, limit, sandbox = true, spent, testID = "whop-card" }: WhopCardProps) {
+  const ready = !!last4 && (spent !== undefined || (goal > 0 && balance >= goal));
   const progress = goal > 0 ? Math.min(balance / goal, 1) : 0;
 
   return (
@@ -42,9 +43,16 @@ export default function WhopCard({ crewName, balance, goal, last4, limit, sandbo
             <View style={styles.chipLine} />
             <View style={styles.chipLine} />
           </View>
-          <Text testID={`${testID}-number`} style={styles.number}>
-            ••••  ••••  ••••  {last4}
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text testID={`${testID}-number`} style={styles.number}>
+              ••••  ••••  ••••  {last4}
+            </Text>
+            {spent !== undefined ? (
+              <Text testID={`${testID}-paid`} style={styles.fundingLabel}>
+                Paid ✓ ${formatDollars(spent)} spent
+              </Text>
+            ) : null}
+          </View>
         </View>
       ) : (
         <View testID={`${testID}-funding`} style={styles.fundingRow}>

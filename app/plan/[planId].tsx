@@ -401,7 +401,7 @@ export default function PlanScreen() {
       {votingOpen ? (
         <View style={styles.countdownRow}>
           <Text testID="confirm-countdown" style={styles.countdown}>
-            ⏳ Voting closes in {formatCountdown(plan.confirmBy, now)}
+            {plan.confirmBy > now ? `⏳ Voting closes in ${formatCountdown(plan.confirmBy, now)}` : "⏳ Voting wraps up soon"}
           </Text>
         </View>
       ) : null}

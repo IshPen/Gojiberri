@@ -190,7 +190,7 @@ export default function PotScreen() {
 
       {actionError ? <ActionError message={actionError} /> : null}
 
-      <WhopCard crewName={crewName} balance={pot.balance} goal={split?.total || pot.balance} last4={cardView?.card.last4} limit={cardView?.limit ?? pot.balance} sandbox />
+      <WhopCard crewName={crewName} balance={pot.balance} goal={split?.total || pot.balance} last4={cardView?.card.last4} limit={cardView?.limit ?? pot.balance} spent={split?.charged || receipt ? split?.total ?? 0 : undefined} sandbox />
       {cardView === null ? (
         <Button
           testID="pot-issue-card-button"

@@ -207,7 +207,7 @@ export default function ProfileScreen() {
         ) : knows && knows.length > 0 ? (
           knows.map((k, i) => (
             <Text key={i} testID={`profile-knows-item-${i}`} style={styles.knowsText}>
-              • {k}
+              • {k.replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/, "")}
             </Text>
           ))
         ) : (
