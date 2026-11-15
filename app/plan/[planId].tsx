@@ -6,6 +6,7 @@ import * as Haptics from "expo-haptics";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Linking, StyleSheet, Text, View } from "react-native";
+import GojiChip, { useGojiPreviews } from "../../components/GojiChip";
 import OptionCard from "../../components/OptionCard";
 import { Button, Card, ErrorState, LoadingState, Screen, Subtitle, Title } from "../../components/ui";
 import { brand, colors, font, radius, spacing } from "../../constants/theme";
@@ -18,7 +19,7 @@ const USE_MOCK = false;
 
 type TimeBlock = { start: number; end: number };
 type PlanStatus = "generating" | "voting" | "locked" | "done" | "cancelled";
-type PlanOption = { placeId: Id<"places">; title: string; costMin: number; costMax: number; why: string; travel?: string; sponsorId?: Id<"sponsors"> };
+type PlanOption = { placeId: Id<"places">; experienceId?: Id<"experiences">; title: string; costMin: number; costMax: number; why: string; travel?: string; sponsorId?: Id<"sponsors"> };
 type Vote = { _id: Id<"votes">; userId: Id<"users">; planId: Id<"plans">; optionIndex: number; confirmed: boolean };
 type Place = {
   _id: Id<"places">;
@@ -300,6 +301,11 @@ export default function PlanScreen() {
     if (freshRound !== regenCount) lastOptions.current = optionKeys;
   }, [optionKeys, freshRound, regenCount]);
 
+  const previews = useGojiPreviews(
+    plan?.status === "voting" ? userId : null,
+    (plan?.options ?? []).map((o) => ({ ideaKey: ideaKeyOf(o), novel: false })),
+  );
+
   const [confirming, setConfirming] = useState(false);
   const confirm = async () => {
     setActionError(null);
@@ -416,6 +422,7 @@ export default function PlanScreen() {
               disabled={!votingOpen}
               onPress={() => vote(i)}
             />
+            {votingOpen ? <GojiChip testID={`option-gojis-${i}`} preview={previews.get(ideaKeyOf(option))} /> : null}
             </FadeIn>
           ))
         : null}
@@ -493,6 +500,10 @@ export default function PlanScreen() {
       {showConfetti ? <ConfettiCannon testID="confetti" count={120} origin={{ x: -10, y: 0 }} fadeOut autoStart /> : null}
     </Screen>
   );
+}
+
+function ideaKeyOf(option: PlanOption) {
+  return option.experienceId ? `exp:${option.experienceId}` : `place:${option.placeId}`;
 }
 
 function FadeIn({ index, animate, children }: { index: number; animate: boolean; children: ReactNode }) {

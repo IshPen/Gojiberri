@@ -134,7 +134,7 @@ export default function ProfileScreen() {
             <Card testID="profile-gojis" style={styles.stat}>
               <Text style={styles.statEmoji}>{brand.pointsEmoji}</Text>
               <Text style={styles.statValue}>{user.points.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>{brand.points}</Text>
+              <Text style={styles.statLabel}>Your {brand.points}</Text>
             </Card>
             <Card testID="profile-rewards-ready" style={styles.stat}>
               <Text style={styles.statEmoji}>{brand.rewardEmoji}</Text>
@@ -151,6 +151,20 @@ export default function ProfileScreen() {
               <View testID="reward-progress-fill" style={[styles.fill, { width: `${pct}%` }]} />
             </View>
             <Text style={styles.progressHint}>{user.diamonds > 0 ? `You have ${formatRewards(user.diamonds)} ready. Redeem at any sponsor.` : `Earn ${brand.points} by checking in on group outings with your crew. Every ${brand.pointsPerReward} unlocks a free treat.`}</Text>
+          </Card>
+
+          <Card testID="goji-explainer" tone="muted" style={styles.earn}>
+            <Text style={styles.progressTitle}>How you earn {brand.points}</Text>
+            {EARN_WAYS.map((way) => (
+              <View key={way.title} style={styles.earnRow}>
+                <Text style={styles.earnEmoji}>{way.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.earnTitle}>{way.title}</Text>
+                  <Text style={styles.progressHint}>{way.body}</Text>
+                </View>
+              </View>
+            ))}
+            <Text style={styles.progressHint}>Your crew's leaderboard rank counts check-ins only. Bonuses go toward your rewards.</Text>
           </Card>
         </>
       )}
@@ -198,7 +212,18 @@ export default function ProfileScreen() {
   );
 }
 
+const EARN_WAYS = [
+  { emoji: "📸", title: "Show up together", body: "Check in with a photo on your crew's outing." },
+  { emoji: "🧭", title: "Try something new", body: "Bonus when the outing is outside your usual vibes." },
+  { emoji: "🔁", title: "Meet regularly", body: "Bonus when your crew also went out in the last 2 weeks." },
+  { emoji: "👯", title: "Bring the whole crew", body: "Bonus for everyone when every member checks in." },
+];
+
 const styles = StyleSheet.create({
+  earn: { gap: spacing.md },
+  earnRow: { flexDirection: "row", gap: spacing.md, alignItems: "flex-start" },
+  earnEmoji: { fontSize: font.size.xl },
+  earnTitle: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text },
   hero: { alignItems: "center", gap: spacing.sm },
   schoolCard: { flexDirection: "row", alignItems: "center", gap: spacing.lg, borderWidth: 1 },
   schoolBody: { flex: 1, gap: spacing.xs },

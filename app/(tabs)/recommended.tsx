@@ -3,6 +3,7 @@ import { useAction, useQuery } from "convex/react";
 import { useRouter, type ErrorBoundaryProps } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import GojiChip, { useGojiPreviews } from "../../components/GojiChip";
 import PointsPill from "../../components/PointsPill";
 import { SchoolHeader } from "../../components/SchoolBadge";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
@@ -42,21 +43,6 @@ export default function RecommendedScreen() {
 
   useEffect(loadKnows, [loadKnows]);
 
-  if (loading) {
-    return (
-      <Screen>
-        <LoadingState testID="home-loading" />
-      </Screen>
-    );
-  }
-  if (!userId) {
-    return (
-      <Screen>
-        <ErrorState testID="home-error" message="Join your school first to get picks." onRetry={() => router.replace("/onboarding/school")} />
-      </Screen>
-    );
-  }
-
   const crew = groups?.[Math.min(crewIndex, groups.length - 1)];
   const nextPlan = plans?.find((p) => p.status === "voting" || p.status === "locked");
   const vibes = new Set((user?.vibes ?? []).map((v) => v.toLowerCase()));
@@ -74,8 +60,28 @@ export default function RecommendedScreen() {
     .sort((a, b) => b.score - a.score || a.e.pricePerPerson - b.e.pricePerPerson)
     .slice(0, MAX_PICKS);
 
+  const previews = useGojiPreviews(
+    userId,
+    picks.map(({ e, matched }) => ({ ideaKey: `exp:${e._id}`, novel: matched.length === 0 })),
+  );
+
+  if (loading) {
+    return (
+      <Screen>
+        <LoadingState testID="home-loading" />
+      </Screen>
+    );
+  }
+  if (!userId) {
+    return (
+      <Screen>
+        <ErrorState testID="home-error" message="Join your school first to get picks." onRetry={() => router.replace("/onboarding/school")} />
+      </Screen>
+    );
+  }
+
   const why = (matched: string[], fits: boolean) => {
-    const vibe = matched.length > 0 ? `You swiped for ${matched.slice(0, 2).join(" + ")}` : "Popular with crews near you";
+    const vibe = matched.length > 0 ? `You swiped for ${matched.slice(0, 2).join(" + ")}` : "Something outside your usual vibes";
     return fits ? `${vibe}, and it fits your $${budget} budget.` : `${vibe}.`;
   };
 
@@ -175,6 +181,7 @@ export default function RecommendedScreen() {
             <Text testID={`pick-why-${i}`} style={styles.muted}>
               ✨ {why(matched, fits)}
             </Text>
+            <GojiChip testID={`pick-gojis-${i}`} preview={previews.get(`exp:${e._id}`)} />
             <Button
               testID={`pick-plan-${i}`}
               label={crew ? `Plan this with ${crew.name}` : "Start a crew to plan this"}

@@ -27,7 +27,7 @@ These are three natural-language tests to run on iOS and Android. Each step name
 2. From the group page, tap `story-link`, then `story-add-photo` (or tap `home-crew-checkin` on For You, or `plan-checkin` on a locked plan).
 3. Tap `take-photo` (on the simulator, use `choose-photo`) and pick any image. Assert that `photo-preview` is visible.
 4. Type "best night" into `caption-input` and tap `upload-photo`.
-5. Assert that `upload-success` shows "+50 Gojis" (`upload-success-points`). Tap `view-story` and assert that a `photo-tile-0` is visible.
+5. Assert that `upload-success` shows the Goji breakdown (`goji-breakdown`) with a `goji-item-checkin` line, and that `upload-success-points` shows the total (at least "+50 Gojis"). Tap `view-story` and assert that a `photo-tile-0` is visible.
 6. Go back to For You and assert that `home-points-value` is higher than in step 1.
 
 > Note: steps 3.5 and 3.6 need the real backend (`USE_MOCK = false`). With mocks on, the story and points are static demo data.
