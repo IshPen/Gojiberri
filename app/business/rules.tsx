@@ -1,24 +1,27 @@
 import { useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Button, Card, Chip, EmptyState, ErrorState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
+import { Redirect, Stack, useRouter } from "expo-router";
+import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import { colors, font, radius, spacing, type } from "../../constants/theme";
 import { formatDay } from "../../lib/format";
+import { useBusinessAccount } from "../../lib/businessSession";
 import { sameBusiness, saveRule, useBusinessMock, type MockRule } from "../../lib/businessMock";
 
 const money = (n: number) => `$${n % 1 === 0 ? n : n.toFixed(2)}`;
 
 export default function SponsorshipRulesScreen() {
-  const { business } = useLocalSearchParams<{ business?: string }>();
+  const { account, loading } = useBusinessAccount();
+  const business = account?.name ?? null;
   const rules = useBusinessMock((s) => s.rules);
-  if (!business) {
+  if (loading) {
     return (
       <Screen testID="rules-screen">
         <Stack.Screen options={{ title: "Sponsorship rules" }} />
-        <EmptyState testID="rules-empty" emoji="🏪" title="Pick a business first" body="Open this from your business dashboard." />
+        <LoadingState testID="rules-loading" />
       </Screen>
     );
   }
+  if (!business) return <Redirect href="/business/signin" />;
   const rule = Object.values(rules).find((r) => sameBusiness(r.businessName, business)) ?? null;
   return <RuleForm business={business} rule={rule} />;
 }

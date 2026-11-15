@@ -6,6 +6,7 @@ import { ActivityIndicator, View } from "react-native";
 import { ErrorState, Screen } from "../components/ui";
 import { colors } from "../constants/theme";
 import { api } from "../convex/_generated/api";
+import { useBusinessAccount } from "../lib/businessSession";
 import { clearUserId, useUserId } from "../lib/session";
 import { TimeoutError, withTimeout } from "../lib/timeout";
 
@@ -13,12 +14,14 @@ type Check = { userId: string; valid: boolean } | { userId: string; error: strin
 
 export default function Index() {
   const convex = useConvex();
-  const { userId, loading } = useUserId();
+  const { userId, loading: userLoading } = useUserId();
+  const { account, loading: businessLoading } = useBusinessAccount();
+  const loading = userLoading || businessLoading;
   const [check, setCheck] = useState<Check | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || account) return;
     let cancelled = false;
     withTimeout(convex.query(api.users.getUser, { userId: userId as Id<"users"> }), "We couldn't reach Gojiberri. Check your connection and try again.")
       .then((user) => user !== null, (e) => (e instanceof TimeoutError ? e : false))
@@ -33,7 +36,9 @@ export default function Index() {
     return () => {
       cancelled = true;
     };
-  }, [convex, userId, attempt]);
+  }, [convex, userId, account, attempt]);
+
+  if (!loading && account) return <Redirect href="/sponsor-dashboard" />;
 
   if (userId && check?.userId === userId && "error" in check) {
     return (
@@ -61,5 +66,5 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={userId && check && "valid" in check && check.valid ? "/(tabs)/recommended" : "/onboarding/school"} />;
+  return <Redirect href={userId && check && "valid" in check && check.valid ? "/(tabs)/recommended" : "/welcome"} />;
 }

@@ -1,26 +1,27 @@
 import { useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Redirect, Stack } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useMutation, useQuery } from "convex/react";
-import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
+import { ConvexError } from "convex/values";
+import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { colors, font, radius, spacing, emoji as emojiSize } from "../../constants/theme";
+import { useBusinessAccount } from "../../lib/businessSession";
 
-type RedeemerId = Id<"sponsors"> | Id<"businesses">;
 type Result = { valid: boolean; reason: string | null; studentName: string | null; crewName: string | null; itemTitle: string | null };
 
 const KIND_LABELS = { offer: "Sponsor offer", reward: "Goji reward", experience: "Experience" } as const;
 
-export default function ScanScreen() {
-  const params = useLocalSearchParams<{ businessId?: string; alsoId?: string }>();
-  const redeemers = useQuery(api.redemptions.listRedeemers);
-  const [selectedId, setSelectedId] = useState<string | null>(params.businessId ?? null);
-  const activeId = (selectedId ?? redeemers?.[0]?.id ?? null) as RedeemerId | null;
-  const activeName = redeemers?.find((r) => r.id === activeId)?.name ?? "";
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-  const redeem = useMutation(api.redemptions.redeemCode);
+export default function ScanScreen() {
+  const { account, loading } = useBusinessAccount();
+  const sponsorId = (account?.sponsorId ?? undefined) as Id<"sponsors"> | undefined;
+  const businessId = (account?.businessId ?? undefined) as Id<"businesses"> | undefined;
+
+  const redeem = useMutation(api.redemptions.redeemForBusiness);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
   const [manualCode, setManualCode] = useState("");
@@ -29,27 +30,34 @@ export default function ScanScreen() {
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
 
-  const list = useQuery(api.redemptions.listRedemptions, activeId ? { businessId: activeId } : "skip");
+  const sponsorList = useQuery(api.redemptions.listRedemptions, sponsorId ? { businessId: sponsorId } : "skip");
+  const businessList = useQuery(api.redemptions.listRedemptions, businessId ? { businessId } : "skip");
+  const lists = [sponsorId ? sponsorList : null, businessId ? businessList : null].filter((l) => l !== null);
+  const list = lists.some((l) => l === undefined)
+    ? undefined
+    : (lists as NonNullable<typeof sponsorList>[]).reduce(
+        (acc, l) => ({
+          total: acc.total + l.total,
+          offers: acc.offers + l.offers,
+          rewards: acc.rewards + l.rewards,
+          experiences: acc.experiences + l.experiences,
+          recent: [...acc.recent, ...l.recent].sort((a, b) => b.redeemedAt - a.redeemedAt).slice(0, 20),
+        }),
+        { total: 0, offers: 0, rewards: 0, experiences: 0, recent: [] as NonNullable<typeof sponsorList>["recent"] },
+      );
 
   const check = async (code: string) => {
-    if (!activeId || busy.current || !code.trim()) return;
+    if (!account || busy.current || !code.trim()) return;
     busy.current = true;
     setChecking(true);
     setError(null);
     setResult(null);
     try {
-      const siblingIds = new Set<string>((redeemers ?? []).filter((r) => r.id !== activeId && r.name.trim().toLowerCase() === activeName.trim().toLowerCase()).map((r) => r.id));
-      if (activeId === params.businessId && params.alsoId && params.alsoId !== activeId) siblingIds.add(params.alsoId);
-      let next = await redeem({ code, businessId: activeId });
-      for (const siblingId of siblingIds) {
-        if (next.valid || !next.reason?.startsWith("wrong business")) break;
-        next = await redeem({ code, businessId: siblingId as RedeemerId });
-      }
-      setResult(next);
+      setResult(await redeem({ code, sponsorId, businessId }));
       setScanning(false);
       setManualCode("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't check that code.");
+      setError(e instanceof ConvexError ? String(e.data) : e instanceof Error ? e.message : "Couldn't check that code.");
     } finally {
       busy.current = false;
       setChecking(false);
@@ -68,7 +76,7 @@ export default function ScanScreen() {
     setScanning(true);
   };
 
-  if (redeemers === undefined) {
+  if (loading) {
     return (
       <Screen testID="scan-screen">
         <Stack.Screen options={{ title: "Scan QR" }} />
@@ -76,25 +84,13 @@ export default function ScanScreen() {
       </Screen>
     );
   }
-  if (redeemers.length === 0 || !activeId) {
-    return (
-      <Screen testID="scan-screen">
-        <Stack.Screen options={{ title: "Scan QR" }} />
-        <EmptyState testID="scan-empty" emoji="🏪" title="No businesses yet" body="Sponsors and experience businesses show up here once they're seeded." />
-      </Screen>
-    );
-  }
+  if (!account) return <Redirect href="/business/signin" />;
 
   return (
     <Screen testID="scan-screen">
       <Stack.Screen options={{ title: "Scan QR" }} />
       <Title testID="scan-title">Redeem a code</Title>
-      <Subtitle>Scanning as {activeName}</Subtitle>
-      <View style={styles.chips}>
-        {redeemers.map((r, i) => (
-          <Chip key={r.id} testID={`scan-business-${i}`} label={r.type === "business" ? `${r.name} (experiences)` : r.name} selected={r.id === activeId} onPress={() => { setSelectedId(r.id); setResult(null); }} />
-        ))}
-      </View>
+      <Subtitle testID="scan-business-name">Scanning for {account.name}. Only its codes are accepted.</Subtitle>
 
       {result ? (
         <Card testID={result.valid ? "scan-result-valid" : "scan-result-invalid"} style={[styles.result, result.valid ? styles.valid : styles.invalid]}>
@@ -102,7 +98,7 @@ export default function ScanScreen() {
           <Text testID="scan-result-text" style={styles.resultText}>
             {result.valid
               ? `Valid: ${result.itemTitle} for ${result.studentName}${result.crewName ? `, ${result.crewName}` : ""}`
-              : `Invalid: ${result.reason ?? "expired, already used, or wrong business"}`}
+              : capitalize(result.reason ?? "this code isn't valid")}
           </Text>
           <Button testID="scan-next" label="Scan next" variant="secondary" onPress={openScanner} style={{ alignSelf: "stretch" }} />
         </Card>
@@ -181,7 +177,6 @@ export default function ScanScreen() {
 }
 
 const styles = StyleSheet.create({
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   result: { alignItems: "center", gap: spacing.md },
   valid: { backgroundColor: colors.successSoft, borderColor: colors.success },
   invalid: { backgroundColor: colors.dangerSoft, borderColor: colors.danger },

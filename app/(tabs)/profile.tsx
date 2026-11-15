@@ -52,7 +52,7 @@ export default function ProfileScreen() {
     setSigningOut(true);
     try {
       await clearUserId();
-      router.replace("/onboarding/school");
+      router.replace("/welcome");
     } finally {
       setSigningOut(false);
     }
@@ -218,8 +218,7 @@ export default function ProfileScreen() {
         <Button testID="profile-knows-refresh" label="Refresh" variant="secondary" onPress={loadKnows} loading={knowsLoading} />
       </Card>
 
-      <Button testID="sign-out" label="Sign out" variant="danger" onPress={signOut} loading={signingOut} />
-      <Button testID="sponsor-dashboard-link" label="For businesses: sponsor dashboard" variant="ghost" onPress={() => router.push("/sponsor-dashboard")} />
+      <Button testID="sign-out" label="Sign out · switch account" variant="danger" onPress={signOut} loading={signingOut} />
     </Screen>
   );
 }
