@@ -1,11 +1,14 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 
-function toCents(dollars: number) {
+function toCents(dollars: number, allowZero = false) {
   const cents = Math.round(dollars * 100);
-  return Number.isFinite(dollars) && dollars > 0 && Number.isSafeInteger(cents) && Math.abs(dollars * 100 - cents) < 1e-6
-    ? cents
-    : null;
+  const valid =
+    Number.isFinite(dollars) &&
+    Number.isSafeInteger(cents) &&
+    Math.abs(dollars * 100 - cents) < 1e-6 &&
+    (allowZero ? cents >= 0 : cents > 0);
+  return valid ? cents : null;
 }
 
 export const getPurchase = internalQuery({
@@ -136,7 +139,9 @@ export const markPaid = internalMutation({
     }
     const business = await ctx.db.get("businesses", purchase.businessId);
     if (!business) reason ??= `Business ${purchase.businessId} not found`;
-    const earnedCents = business && expectedCents !== null ? Math.round(business.earned * 100) + expectedCents : null;
+    const startCents = business ? toCents(business.earned, true) : null;
+    if (business && startCents === null) reason ??= `Business earnings ${business.earned} aren't a valid dollar amount`;
+    const earnedCents = startCents !== null && expectedCents !== null ? startCents + expectedCents : null;
     if (!reason && !Number.isSafeInteger(earnedCents)) reason = "Business earnings would overflow";
     if (reason || !business) {
       reason ??= "Business not found";
