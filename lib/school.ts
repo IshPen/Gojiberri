@@ -44,3 +44,13 @@ export function withAlpha(color: string, alpha: number): string {
 export function formatPts(points: number): string {
   return (Math.round(points * 10) / 10).toLocaleString();
 }
+
+type RankedCrew = { groupId: string; name: string; school: string; avgPoints: number };
+
+export function crewStanding<T extends RankedCrew>(crews: T[], isMine: (groupId: string) => boolean) {
+  const crew = crews.find((c) => isMine(c.groupId));
+  if (!crew) return null;
+  const rivals = crews.filter((c) => c.school === crew.school);
+  const i = rivals.indexOf(crew);
+  return { crew, school: crew.school, rank: i + 1, rivals, leader: rivals[0], ahead: rivals[i - 1], behind: rivals[i + 1] };
+}

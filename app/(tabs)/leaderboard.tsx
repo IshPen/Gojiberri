@@ -8,7 +8,7 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHead
 import { SchoolHeader } from "../../components/SchoolBadge";
 import { api } from "../../convex/_generated/api";
 import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
-import { formatPts, schoolFor, withAlpha } from "../../lib/school";
+import { crewStanding, formatPts, schoolFor, withAlpha } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 
 type CrewRow = { groupId: Id<"groups">; name: string; school: string; avgPoints: number; memberCount: number };
@@ -75,9 +75,10 @@ function RankBadge({ index, delta, testID }: { index: number; delta?: number; te
 }
 
 function RivalryCard({ rows, myGroupIds, school }: { rows: CrewRow[]; myGroupIds: Set<string>; school: string }) {
-  const i = rows.findIndex((r) => myGroupIds.has(r.groupId));
+  const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
+  const standing = allCrews ? crewStanding(allCrews.filter((c) => c.school === school), (id) => myGroupIds.has(id)) : null;
   const accent = schoolFor(school).color;
-  if (i < 0) {
+  if (!standing) {
     const top = rows[0];
     return (
       <Card testID="crews-rivalry" style={[styles.rivalry, { backgroundColor: withAlpha(accent, 0.08), borderColor: withAlpha(accent, 0.3) }]}>
@@ -91,8 +92,8 @@ function RivalryCard({ rows, myGroupIds, school }: { rows: CrewRow[]; myGroupIds
       </Card>
     );
   }
-  const mine = rows[i];
-  const rival = i > 0 ? rows[i - 1] : rows[i + 1];
+  const { crew: mine, ahead, behind, rank } = standing;
+  const rival = ahead ?? behind;
   if (!rival) {
     return (
       <Card testID="crews-rivalry" style={[styles.rivalry, { backgroundColor: withAlpha(accent, 0.08), borderColor: withAlpha(accent, 0.3) }]}>
@@ -114,7 +115,7 @@ function RivalryCard({ rows, myGroupIds, school }: { rows: CrewRow[]; myGroupIds
         {rival.name}
       </Text>
       <Text testID="crews-rivalry-gap" style={styles.rivalryGap}>
-        {i > 0 ? `${rival.name} is ${gap} pts ahead. One group outing could close it.` : `You're #1 at ${school}, ${gap} pts ahead of ${rival.name}. Hold the lead!`}
+        {rank > 1 ? `#${rank} at ${school}: ${rival.name} is ${gap} pts ahead. One group outing could close it.` : `You're #1 at ${school}, ${gap} pts ahead of ${rival.name}. Hold the lead!`}
       </Text>
     </Card>
   );
@@ -226,10 +227,12 @@ function SchoolsSection({ mySchool }: { mySchool: string | null }) {
   );
 }
 
-function MeSection({ userId, crewId }: { userId: string | null; crewId: string | null }) {
+function MeSection({ userId, crewId, myGroupIds }: { userId: string | null; crewId: string | null; myGroupIds: Set<string> }) {
   const router = useRouter();
   const live = useQuery(api.points.myRanks, userId ? { userId: userId as Id<"users"> } : "skip");
   const ranks = userId ? live : null;
+  const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
+  const standing = allCrews ? crewStanding(allCrews, (id) => myGroupIds.has(id)) : undefined;
   const livePlans = useQuery(api.plans.getMyUpcomingPlans, userId ? { userId: userId as Id<"users"> } : "skip");
   const plans: LockedPlan[] | undefined | null = userId ? livePlans : null;
   const lockedPlan = plans
@@ -274,8 +277,8 @@ function MeSection({ userId, crewId }: { userId: string | null; crewId: string |
   );
 
   if (!userId) return <ErrorState testID="me-error" message="Sign in to see your ranks." />;
-  if (ranks === undefined) return <LoadingState testID="me-loading" label="Finding your rank…" />;
-  if (ranks === null || ranks.crewRank === null) {
+  if (ranks === undefined || standing === undefined) return <LoadingState testID="me-loading" label="Finding your rank…" />;
+  if (ranks === null || standing === null) {
     return (
       <View style={styles.section}>
         <EmptyState testID="me-empty" emoji="🧭" title="No crew yet" body="Join or start a crew, then check in on a group outing to get on the board." />
@@ -284,18 +287,18 @@ function MeSection({ userId, crewId }: { userId: string | null; crewId: string |
     );
   }
 
-  const gap = formatPts(Math.max(0, (ranks.leaderAvg ?? 0) - (ranks.crewAvg ?? 0)));
+  const gap = formatPts(Math.max(0, standing.leader.avgPoints - standing.crew.avgPoints));
   return (
     <View style={styles.section} testID="me-section">
       <Card testID="me-crew-card" tone="accent" style={styles.meCard}>
-        <Text style={styles.meBig}>{ranks.crewRank <= 3 ? MEDALS[ranks.crewRank - 1] : "🏁"}</Text>
+        <Text style={styles.meBig}>{standing.rank <= 3 ? MEDALS[standing.rank - 1] : "🏁"}</Text>
         <Text testID="me-crew-rank" style={styles.meHeadline}>
-          {ranks.crewRank === 1
-            ? "Your crew is #1 at " + ranks.school + ". Hold the lead!"
-            : "Your crew is #" + ranks.crewRank + " at " + ranks.school + ", " + gap + " pts behind " + ranks.leaderName}
+          {standing.rank === 1
+            ? "Your crew is #1 at " + standing.school + ". Hold the lead!"
+            : "Your crew is #" + standing.rank + " at " + standing.school + ", " + gap + " pts behind " + standing.leader.name}
         </Text>
         <Text testID="me-crew-name" style={styles.meSub}>
-          {ranks.crewName} · {formatPts(ranks.crewAvg ?? 0)} avg {brand.points} this week
+          {standing.crew.name} · {formatPts(standing.crew.avgPoints)} avg {brand.points} this week
         </Text>
       </Card>
       <Card testID="me-school-card" style={styles.meCard}>
@@ -364,7 +367,7 @@ export default function LeaderboardScreen() {
           <CrewsSection myGroupIds={myGroupIds} testID="all-crews-section" />
         </>
       ) : null}
-      {segment === "me" ? <MeSection userId={userId} crewId={liveGroups?.[0]?._id ?? null} /> : null}
+      {segment === "me" ? <MeSection userId={userId} crewId={liveGroups?.[0]?._id ?? null} myGroupIds={myGroupIds} /> : null}
     </Screen>
   );
 }

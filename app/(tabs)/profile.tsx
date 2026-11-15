@@ -8,7 +8,7 @@ import { SchoolCrest } from "../../components/SchoolBadge";
 import { brand, colors, font, radius, spacing } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatGojis, formatRewards } from "../../lib/format";
-import { formatPts, schoolFor, withAlpha } from "../../lib/school";
+import { crewStanding, formatPts, schoolFor, withAlpha } from "../../lib/school";
 import { clearUserId, useUserId } from "../../lib/session";
 
 export default function ProfileScreen() {
@@ -20,6 +20,7 @@ export default function ProfileScreen() {
   const rewards = useQuery(api.sponsors.getMyRewards, args);
   const groups = useQuery(api.groups.getMyGroups, args);
   const ranks = useQuery(api.points.myRanks, args);
+  const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
   const getProfile = useAction(api.memory.getMyProfile);
 
   const [knows, setKnows] = useState<string[] | undefined>(undefined);
@@ -58,6 +59,8 @@ export default function ProfileScreen() {
   const toNext = user ? user.points % brand.pointsPerReward : 0;
   const pct = Math.round((toNext / brand.pointsPerReward) * 100);
   const school = schoolFor(user?.homeArea);
+  const myIds = new Set<string>((groups ?? []).map((g) => g._id));
+  const standing = allCrews && groups ? crewStanding(allCrews, (id) => myIds.has(id)) : undefined;
 
   return (
     <Screen testID="profile-screen">
@@ -84,11 +87,11 @@ export default function ProfileScreen() {
                 {school.name} space
               </Text>
               <Text testID="profile-school-rank" style={styles.schoolMeta}>
-                {ranks === undefined
+                {standing === undefined
                   ? "Finding your rank…"
-                  : !ranks || ranks.crewRank === null
-                    ? "Check in on a group outing to get your crew ranked."
-                    : `${ranks.crewName} is #${ranks.crewRank} at ${school.name}${ranks.crewRank > 1 && ranks.leaderName ? `, ${formatPts(Math.max(0, (ranks.leaderAvg ?? 0) - (ranks.crewAvg ?? 0)))} pts behind ${ranks.leaderName}` : ". Hold the lead!"}`}
+                  : !standing
+                    ? "Join or start a crew to get ranked."
+                    : `${standing.crew.name} is #${standing.rank} at ${standing.school}${standing.rank > 1 ? `, ${formatPts(Math.max(0, standing.leader.avgPoints - standing.crew.avgPoints))} pts behind ${standing.leader.name}` : ". Hold the lead!"}`}
               </Text>
               {ranks?.schoolRank ? (
                 <Text testID="profile-school-among" style={styles.schoolMeta}>

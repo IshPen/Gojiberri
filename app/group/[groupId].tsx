@@ -9,7 +9,7 @@ import { SchoolHeader } from "../../components/SchoolBadge";
 import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatWindow } from "../../lib/format";
-import { formatPts, schoolFor, withAlpha } from "../../lib/school";
+import { crewStanding, formatPts, schoolFor, withAlpha } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 
 type Plan = FunctionReturnType<typeof api.plans.getGroupPlans>[number];
@@ -48,7 +48,7 @@ export default function GroupScreen() {
   const plans = useQuery(api.plans.getGroupPlans, liveArgs);
   const user = useQuery(api.users.getUser, userId ? { userId: userId as Id<"users"> } : "skip");
   const school = user?.homeArea ?? null;
-  const board = useQuery(api.points.groupLeaderboard, school ? { school, limit: 50 } : "skip");
+  const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
   const createPlan = useMutation(api.plans.createPlan);
 
   const planOuting = async () => {
@@ -90,20 +90,17 @@ export default function GroupScreen() {
   const past = (plans ?? []).filter((p) => p.status === "done" || p.status === "cancelled");
   const planTitle = (p: Plan) => (p.winningIndex !== undefined ? p.options[p.winningIndex]?.title : undefined) ?? "Outing ideas";
   const accent = schoolFor(school).color;
-  const rankIndex = (board ?? []).findIndex((c) => c.groupId === group._id);
-  const mine = rankIndex >= 0 ? board![rankIndex] : undefined;
-  const ahead = rankIndex > 0 ? board![rankIndex - 1] : undefined;
-  const behind = rankIndex >= 0 ? board![rankIndex + 1] : undefined;
+  const crewRank = allCrews ? crewStanding(allCrews, (id) => id === group._id) : undefined;
   const standing =
-    !school || board === undefined
+    crewRank === undefined
       ? null
-      : !mine
-        ? `Check in on a group outing to put ${group.name} on the ${school} board.`
-        : ahead
-          ? `#${rankIndex + 1} at ${school} · ${ahead.name} is ${formatPts(Math.max(0, ahead.avgPoints - mine.avgPoints))} pts ahead`
-          : behind
-            ? `#1 at ${school} · ${formatPts(mine.avgPoints - behind.avgPoints)} pts ahead of ${behind.name}`
-            : `#1 at ${school}. Hold the lead!`;
+      : !crewRank
+        ? `Check in on a group outing to put ${group.name} on the board.`
+        : crewRank.ahead
+          ? `#${crewRank.rank} at ${crewRank.school} · ${crewRank.ahead.name} is ${formatPts(Math.max(0, crewRank.ahead.avgPoints - crewRank.crew.avgPoints))} pts ahead`
+          : crewRank.behind
+            ? `#1 at ${crewRank.school} · ${formatPts(crewRank.crew.avgPoints - crewRank.behind.avgPoints)} pts ahead of ${crewRank.behind.name}`
+            : `#1 at ${crewRank.school}. Hold the lead!`;
   const renderPlan = (p: Plan, i: number) => (
     <Card key={p._id} testID={`plan-card-${i}`} onPress={() => router.push(`/plan/${p._id}`)} style={styles.planCard}>
       <View style={styles.planInfo}>

@@ -6,7 +6,7 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHead
 import { SchoolHeader } from "../../components/SchoolBadge";
 import { brand, colors, font, radius, spacing } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
-import { formatPts, schoolFor, withAlpha } from "../../lib/school";
+import { crewStanding, formatPts, schoolFor, withAlpha } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 
 export default function GroupsScreen() {
@@ -16,14 +16,17 @@ export default function GroupsScreen() {
   const user = useQuery(api.users.getUser, args);
   const groups = useQuery(api.groups.getMyGroups, args);
   const school = user?.homeArea ?? null;
-  const board = useQuery(api.points.groupLeaderboard, school ? { school, limit: 50 } : "skip");
+  const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
+  const board = allCrews?.filter((c) => c.school === school);
   const accent = schoolFor(school).color;
 
   const myIds = new Set<string>((groups ?? []).map((g) => g._id));
-  const myRows = (board ?? []).filter((c) => myIds.has(c.groupId));
-  const myBest = myRows[0];
+  const myBest = (board ?? []).find((c) => myIds.has(c.groupId));
   const rivals = (board ?? []).filter((c) => !myIds.has(c.groupId));
-  const rankOf = (groupId: string) => (board ?? []).findIndex((c) => c.groupId === groupId) + 1;
+  const rankOf = (groupId: string) => {
+    const s = allCrews ? crewStanding(allCrews, (id) => id === groupId) : null;
+    return s ? { rank: s.rank, school: s.school } : null;
+  };
 
   const rivalLine = (avg: number) => {
     if (!myBest) return `${formatPts(avg)} avg ${brand.points} this week`;
@@ -80,9 +83,9 @@ export default function GroupsScreen() {
                 <Text testID={`group-name-${i}`} style={styles.groupName} numberOfLines={1}>
                   {group.name}
                 </Text>
-                {rank > 0 ? (
+                {rank ? (
                   <View testID={`group-rank-${i}`} style={[styles.rankPill, { backgroundColor: withAlpha(accent, 0.12) }]}>
-                    <Text style={[styles.rankText, { color: accent }]}>#{rank} at {school}</Text>
+                    <Text style={[styles.rankText, { color: accent }]}>#{rank.rank} at {rank.school}</Text>
                   </View>
                 ) : null}
               </View>
@@ -112,7 +115,7 @@ export default function GroupsScreen() {
             rivals.slice(0, 5).map((c, i) => (
               <Card key={c.groupId} testID={`rival-row-${i}`} style={styles.rivalRow}>
                 <Text testID={`rival-rank-${i}`} style={[styles.rivalRank, { color: accent }]}>
-                  #{rankOf(c.groupId)}
+                  #{rankOf(c.groupId)?.rank}
                 </Text>
                 <View style={styles.rivalBody}>
                   <Text testID={`rival-name-${i}`} style={styles.rivalName} numberOfLines={1}>
