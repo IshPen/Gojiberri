@@ -4,12 +4,13 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Button, Card, ErrorState, LoadingState, Screen, Subtitle, Title } from "../components/ui";
+import { api } from "../convex/_generated/api";
 import PointsPill from "../components/PointsPill";
 import { brand, colors, font, radius, spacing } from "../constants/theme";
 import { formatGojis } from "../lib/format";
-import { mockDelay } from "../lib/mock";
+import { mockDelay, useMockQuery } from "../lib/mock";
 import { useUserId } from "../lib/session";
 
 const USE_MOCK = true;
@@ -28,6 +29,8 @@ const completeQuestRef = makeFunctionReference<
   { userId: Id<"users">; questId: Id<"soloQuests">; storageId: Id<"_storage"> },
   null
 >("solo:complete");
+
+const MOCK_PLAN = { title: "Boba run at Asha Tea House", groupId: "mock_hack_crew" as Id<"groups"> };
 
 const PHOTO_POINTS = 50;
 const QUEST_POINTS = 25;
@@ -51,6 +54,16 @@ export default function CameraScreen() {
   const generateUploadUrl = USE_MOCK ? () => mockDelay("mock://upload", 300) : generateLive;
   const savePhoto = USE_MOCK ? (_args: Parameters<typeof saveLive>[0]) => mockDelay("photo_mock_1" as Id<"photos">, 700) : saveLive;
   const completeQuest = USE_MOCK ? (_args: Parameters<typeof completeLive>[0]) => mockDelay(null, 700) : completeLive;
+
+  const livePlan = useQuery(api.plans.getPlan, USE_MOCK || !planId ? "skip" : { planId: planId as Id<"plans"> });
+  const mockPlan = useMockQuery(MOCK_PLAN, USE_MOCK && !!planId);
+  const plan = !planId
+    ? null
+    : USE_MOCK
+      ? mockPlan
+      : livePlan && { title: livePlan.options[livePlan.winningIndex ?? -1]?.title ?? "your crew's outing", groupId: livePlan.groupId };
+  const planMissing = !!planId && !USE_MOCK && livePlan === null;
+  const storyGroupId = groupId ?? plan?.groupId;
 
   const isQuest = !!questId;
   const reward = isQuest ? QUEST_POINTS : PHOTO_POINTS;
@@ -156,9 +169,16 @@ export default function CameraScreen() {
             +{formatGojis(reward)}
           </Text>
           <PointsPill testID="upload-success-pill" size="lg" points={reward} />
+          {plan ? (
+            <Text testID="upload-success-plan" style={styles.planDone}>
+              Checked in: {plan.title}
+            </Text>
+          ) : null}
           <Subtitle style={{ textAlign: "center" }}>Nice one. Your {brand.name} crew will see it in the story.</Subtitle>
         </Card>
-        {groupId ? <Button testID="view-story" label="See group story" variant="secondary" onPress={() => router.replace(`/story/${groupId}`)} /> : null}
+        {storyGroupId ? (
+          <Button testID="view-story" label="See group story" variant="secondary" onPress={() => router.replace(`/story/${storyGroupId}`)} />
+        ) : null}
         <Button testID="upload-done" label="Done" onPress={() => router.back()} />
       </Screen>
     );
@@ -171,6 +191,22 @@ export default function CameraScreen() {
       <Subtitle testID="camera-subtitle">
         {isQuest ? `Upload a photo to finish your solo quest and earn ${formatGojis(QUEST_POINTS)}.` : `Share a photo and earn ${formatGojis(PHOTO_POINTS)}.`}
       </Subtitle>
+
+      {planId ? (
+        planMissing ? (
+          <ErrorState testID="camera-plan-error" message="We couldn't find that outing. Head back and pick it from your crew's plans." />
+        ) : plan ? (
+          <Card testID="camera-plan" tone="accent" style={styles.planCard}>
+            <Text testID="camera-plan-title" style={styles.planTitle} numberOfLines={2}>
+              Checking in: {plan.title}
+            </Text>
+          </Card>
+        ) : (
+          <Text testID="camera-plan-loading" style={styles.planLoading}>
+            Loading your outing…
+          </Text>
+        )
+      ) : null}
 
       {permissionDenied ? (
         <ErrorState
@@ -198,7 +234,7 @@ export default function CameraScreen() {
               style={styles.input}
             />
           )}
-          <Button testID="upload-photo" label="Upload" onPress={upload} loading={uploading} disabled={!userId} />
+          <Button testID="upload-photo" label="Upload" onPress={upload} loading={uploading} disabled={!userId || planMissing || (!!planId && !plan)} />
         </>
       ) : (
         <Card testID="camera-empty" tone="muted" style={styles.center}>
@@ -216,6 +252,10 @@ const styles = StyleSheet.create({
   big: { fontSize: 56 },
   reward: { fontSize: font.size.hero, fontWeight: font.weight.heavy, color: colors.success },
   fullWidth: { alignSelf: "stretch" },
+  planCard: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
+  planTitle: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.accentDark },
+  planLoading: { fontSize: font.size.sm, color: colors.textMuted },
+  planDone: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text, textAlign: "center" },
   previewCard: { padding: spacing.md, gap: spacing.sm },
   preview: { width: "100%", aspectRatio: 1, borderRadius: radius.md, backgroundColor: colors.cardMuted },
   input: {
