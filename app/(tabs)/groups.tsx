@@ -49,7 +49,7 @@ export default function GroupsScreen() {
     <Screen testID="groups-screen">
       <SchoolHeader school={school} testID="groups-school-header" />
       <Title testID="groups-title">{school ? `Your crews at ${school}` : "Your crews"}</Title>
-      <Subtitle testID="groups-subtitle">Your friend group vs. the other crews on campus. Check in on group outings to climb.</Subtitle>
+      <Subtitle testID="groups-subtitle">Check in on outings to climb.</Subtitle>
       <View style={styles.actions}>
         <Button
           testID="create-group-button"

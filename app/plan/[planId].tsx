@@ -6,10 +6,10 @@ import * as Haptics from "expo-haptics";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Linking, StyleSheet, Text, View } from "react-native";
-import GojiChip, { useGojiPreviews } from "../../components/GojiChip";
+import GojiChip, { GojiDetails, useGojiPreviews } from "../../components/GojiChip";
 import OptionCard from "../../components/OptionCard";
 import { Button, Card, ErrorState, LoadingState, Screen, Subtitle, Title } from "../../components/ui";
-import { brand, colors, font, radius, spacing } from "../../constants/theme";
+import { colors, font, radius, spacing } from "../../constants/theme";
 import { createInvite } from "../../lib/calendar";
 import { formatCountdown, formatWindow } from "../../lib/format";
 import { mockDelay, useMockQuery } from "../../lib/mock";
@@ -156,6 +156,7 @@ export default function PlanScreen() {
   const [calendarAdded, setCalendarAdded] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [openGoji, setOpenGoji] = useState<number | null>(null);
   const [confirmingReject, setConfirmingReject] = useState(false);
   const [spentRound, setSpentRound] = useState<number | null>(null);
   const [mockRejected, setMockRejected] = useState<{ round: number; spent: number } | null>(null);
@@ -398,15 +399,13 @@ export default function PlanScreen() {
       ) : null}
 
       {votingOpen && noNewIdeas ? (
-        <Card testID="plan-no-new-ideas" tone="muted" style={styles.banner}>
-          <Text style={styles.bannerLabelAccent}>No new ideas left</Text>
-          <Text style={styles.bannerBody}>You've seen everything that fits. Pick one of these or start a new plan.</Text>
-        </Card>
+        <Text testID="plan-no-new-ideas" style={styles.rejectLine}>
+          No new ideas left. Pick one of these.
+        </Text>
       ) : votingOpen && freshRound === regenCount && regenCount > 0 ? (
-        <Card testID="plan-new-ideas" tone="accent" style={styles.banner}>
-          <Text style={styles.bannerLabelAccent}>New ideas · round {regenCount + 1}</Text>
-          <Text style={styles.bannerBody}>Your crew passed on the last ones, so here are fresh picks.</Text>
-        </Card>
+        <Text testID="plan-new-ideas" style={styles.newIdeas}>
+          ✨ New ideas · round {regenCount + 1}
+        </Text>
       ) : null}
 
       {plan.status !== "generating"
@@ -421,50 +420,50 @@ export default function PlanScreen() {
               winner={locked && plan.winningIndex === i}
               disabled={!votingOpen}
               onPress={() => vote(i)}
+              extra={
+                votingOpen ? (
+                  <GojiChip
+                    testID={`option-gojis-${i}`}
+                    preview={previews.get(ideaKeyOf(option))}
+                    open={openGoji === i}
+                    onPress={() => setOpenGoji(openGoji === i ? null : i)}
+                  />
+                ) : null
+              }
+              footer={votingOpen && openGoji === i ? <GojiDetails testID={`option-gojis-${i}-breakdown`} preview={previews.get(ideaKeyOf(option))} /> : null}
             />
-            {votingOpen ? <GojiChip testID={`option-gojis-${i}`} preview={previews.get(ideaKeyOf(option))} /> : null}
             </FadeIn>
           ))
         : null}
 
       {votingOpen ? (
-        <Card testID="plan-reject-card" tone="muted" style={styles.gap}>
-          <Text testID="plan-reject-count" style={styles.rejectCount}>
-            {rejectedBy.length} of {members} passed
-          </Text>
-          <Text testID="plan-reject-hint" style={styles.bannerBody}>
-            {maxed
-              ? "Your crew's passed 3 times. Pick one of these or start a new plan."
-              : rejectedBy.length === 0
-                ? "None of these? If more than half the crew passes, we'll find 3 new ideas."
-                : `${needed} more and we'll find 3 new ideas.`}
-          </Text>
-          {spentRound === regenCount && iPassed ? (
-            <Text testID="plan-reject-spent" style={styles.spent}>
-              -{REJECT_COST} Gojis · you passed on these
+        <View testID="plan-reject-card" style={styles.gap}>
+          <Text testID="plan-reject-count" style={styles.rejectLine}>
+            <Text testID="plan-reject-hint">
+              {maxed
+                ? "No more new ideas for this plan"
+                : `${rejectedBy.length} of ${members} passed · ${Math.max(needed, 0)} more for new ideas`}
             </Text>
-          ) : null}
+            {spentRound === regenCount && iPassed ? <Text testID="plan-reject-spent"> · -{REJECT_COST} Gojis</Text> : null}
+          </Text>
           {confirmingReject ? (
             <View testID="plan-reject-confirm-row" style={styles.gap}>
-              <Text style={styles.rejectCount}>Spend {REJECT_COST} Gojis to pass on these ideas?</Text>
-              <Button testID="plan-reject-confirm" label={`Yes, pass (-${REJECT_COST} Gojis)`} loading={rejecting} onPress={reject} />
+              <Text testID="plan-goji-balance" style={styles.rejectLine}>
+                Spend {REJECT_COST} of your {balance ?? 0} Gojis to pass?
+              </Text>
+              <Button testID="plan-reject-confirm" label={`Pass (-${REJECT_COST} Gojis)`} loading={rejecting} onPress={reject} />
               <Button testID="plan-reject-cancel" label="Keep voting" variant="ghost" onPress={() => setConfirmingReject(false)} />
             </View>
-          ) : iPassed ? null : (
+          ) : iPassed || maxed ? null : (
             <Button
               testID="plan-reject"
-              label={maxed ? "No more passes on this plan" : !canAfford && balance !== undefined ? `Need ${REJECT_COST} Gojis to pass` : `Not feeling these · ${REJECT_COST} Gojis`}
-              variant="secondary"
-              disabled={maxed || !canAfford}
+              label={!canAfford && balance !== undefined ? `Need ${REJECT_COST} Gojis to pass` : `Not feeling these · ${REJECT_COST} Gojis`}
+              variant="ghost"
+              disabled={!canAfford}
               onPress={() => setConfirmingReject(true)}
             />
           )}
-          {balance !== undefined ? (
-            <Text testID="plan-goji-balance" style={styles.bonus}>
-              You have {balance} Gojis
-            </Text>
-          ) : null}
-        </Card>
+        </View>
       ) : null}
 
       {actionError ? <ErrorState testID="plan-action-error" message={actionError} /> : null}
@@ -479,21 +478,22 @@ export default function PlanScreen() {
             <>
               <Button testID="confirm-attendance" label="Confirm I'm going" loading={confirming} onPress={confirm} />
               <Text testID="confirm-bonus" style={styles.bonus}>
-                Let your crew know you're in · {Math.max(0, Math.round((plan.confirmBy - now) / 60000))}m left to confirm
+                {Math.max(0, Math.round((plan.confirmBy - now) / 60000))}m left to confirm
               </Text>
             </>
           )}
           <Button
             testID="plan-checkin"
-            label={`Check in together to earn ${brand.points}`}
-            icon="📸"
-            variant="secondary"
+            label="Check in"
+            variant={myVote?.confirmed ? "primary" : "secondary"}
             onPress={() => router.push({ pathname: "/camera", params: { planId: pid, groupId: plan.groupId } })}
           />
-          <Button testID="plan-pot-link" label="Open the crew pot" icon="💳" variant="secondary" onPress={() => router.push(`/pot/${pid}`)} />
-          {winnerPlace?.bookingUrl ? (
-            <Button testID="booking-link" label="Book it" variant="secondary" onPress={() => Linking.openURL(winnerPlace.bookingUrl as string).catch(() => {})} />
-          ) : null}
+          <View style={styles.links}>
+            <Button testID="plan-pot-link" label="Crew pot" variant="ghost" onPress={() => router.push(`/pot/${pid}`)} />
+            {winnerPlace?.bookingUrl ? (
+              <Button testID="booking-link" label="Book it" variant="ghost" onPress={() => Linking.openURL(winnerPlace.bookingUrl as string).catch(() => {})} />
+            ) : null}
+          </View>
         </View>
       ) : null}
 
@@ -539,9 +539,9 @@ const styles = StyleSheet.create({
   banner: { alignItems: "center", gap: spacing.xs },
   bannerEmoji: { fontSize: 40 },
   bannerLabel: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.success, textTransform: "uppercase" },
-  bannerLabelAccent: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.accentDark, textTransform: "uppercase" },
-  spent: { fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.danger, textAlign: "center" },
-  rejectCount: { fontSize: font.size.lg, fontWeight: font.weight.heavy, color: colors.text, textAlign: "center" },
+  rejectLine: { fontSize: font.size.md, color: colors.textMuted, textAlign: "center" },
+  newIdeas: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.accentDark, textAlign: "center" },
+  links: { flexDirection: "row", justifyContent: "center", gap: spacing.lg },
   bannerTitle: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.text, textAlign: "center" },
   bannerBody: { fontSize: font.size.md, color: colors.textMuted, textAlign: "center" },
   countdownRow: { alignItems: "center" },
