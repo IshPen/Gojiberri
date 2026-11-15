@@ -7,6 +7,7 @@ import StarRating from "../../components/StarRating";
 import { Button, Card, Chip, EmptyState, ErrorState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import { api } from "../../convex/_generated/api";
 import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
+import { mockDelay } from "../../lib/mock";
 import { useUserId } from "../../lib/session";
 
 const VIBES = ["chill", "chaotic", "cozy", "thrilling", "fancy", "would-redo"];
@@ -30,7 +31,9 @@ export default function RateScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const submitRating = useMutation(api.ratings.submitRating);
+  const submitLive = useMutation(api.ratings.submitRating);
+  const useMock = !!userId?.startsWith("mock_");
+  const submitRating = useMock ? () => mockDelay(null, 700) : submitLive;
 
   useEffect(() => {
     if (!done) return;

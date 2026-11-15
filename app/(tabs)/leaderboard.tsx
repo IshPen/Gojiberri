@@ -79,15 +79,20 @@ const SEGMENTS: { key: Segment; label: string }[] = [
 const crewKey = (row: CrewRow) => row.groupId;
 const schoolKey = (row: SchoolRow) => row.school;
 
-function useRankedRows<T>(rows: T[] | undefined | null, keyOf: (row: T) => string) {
+function useRankedRows<T>(rows: T[] | undefined | null, keyOf: (row: T) => string, scope = "") {
   const [shown, setShown] = useState(rows);
   const previous = useRef(new Map<string, number>());
+  const previousScope = useRef(scope);
   const [deltas, setDeltas] = useState(new Map<string, number>());
 
   useEffect(() => {
     if (!rows) {
       setShown(rows);
       return;
+    }
+    if (previousScope.current !== scope) {
+      previousScope.current = scope;
+      previous.current = new Map();
     }
     const next = new Map(rows.map((row, i) => [keyOf(row), i]));
     const moved = new Map<string, number>();
@@ -99,7 +104,7 @@ function useRankedRows<T>(rows: T[] | undefined | null, keyOf: (row: T) => strin
     previous.current = next;
     setDeltas(moved);
     setShown(rows);
-  }, [rows, keyOf]);
+  }, [rows, keyOf, scope]);
 
   return { rows: shown, deltas };
 }
@@ -126,7 +131,7 @@ function CrewsSection({ mySchool, myGroupIds }: { mySchool: string | null; myGro
   const live = useQuery(groupLeaderboardRef, USE_MOCK ? "skip" : { school, limit: LIMIT });
   const mockRows = useMemo(() => MOCK_CREWS.filter((c) => !school || c.school === school).slice(0, LIMIT), [school]);
   const mock = useMockQuery(mockRows, USE_MOCK);
-  const { rows, deltas } = useRankedRows(USE_MOCK ? mock : live, crewKey);
+  const { rows, deltas } = useRankedRows(USE_MOCK ? mock : live, crewKey, school ?? "all");
 
   return (
     <View style={styles.section} testID="crews-section">
