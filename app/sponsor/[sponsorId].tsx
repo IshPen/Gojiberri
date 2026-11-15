@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
@@ -43,6 +43,7 @@ const MOCK_SPONSORS: Sponsor[] = [
 const MOCK_USER: User = { _id: "u1" as Id<"users">, name: "Uma", points: 1240, diamonds: 4 };
 
 export default function SponsorScreen() {
+  const router = useRouter();
   const { sponsorId } = useLocalSearchParams<{ sponsorId: string }>();
   const { userId, loading: sessionLoading } = useUserId();
   const [promo, setPromo] = useState<string | null>(null);
@@ -131,6 +132,7 @@ export default function SponsorScreen() {
           {formatPriceLevel(sponsor.priceLevel)} · {sponsor.tags.join(" · ")}
         </Text>
       </Card>
+      <Button testID="show-qr-offer" label="Show QR for this offer" icon="📱" variant="secondary" onPress={() => router.push(`/redeem/offer/${sponsor._id}`)} />
 
       <SectionHeader title="Your rewards" />
       <Card testID="sponsor-balance" tone="muted" style={styles.row}>

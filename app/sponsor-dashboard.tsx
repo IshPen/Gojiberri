@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
@@ -43,6 +43,7 @@ const MOCK_STATS: Record<string, Stats> = {
 };
 
 export default function SponsorDashboardScreen() {
+  const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [funding, setFunding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +79,7 @@ export default function SponsorDashboardScreen() {
       <Stack.Screen options={{ title: "Sponsor dashboard" }} />
       <Title testID="dashboard-title">Business dashboard</Title>
       <Subtitle>See how your {brand.name} sponsorship is bringing people through the door.</Subtitle>
+      <Button testID="scan-qr-button" label="Scan QR · Redemptions" icon="📷" onPress={() => router.push("/business/scan")} />
 
       {sponsors === undefined ? (
         <LoadingState testID="dashboard-loading" />

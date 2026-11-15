@@ -195,4 +195,20 @@ export default defineSchema({
     planId: v.optional(v.id("plans")),
     groupId: v.optional(v.id("groups")),
   }).index("by_user", ["userId"]),
+
+  redemptions: defineTable({             // short-lived QR codes a business scans
+    token: v.string(),                   // random, single use
+    kind: v.union(v.literal("offer"), v.literal("reward"), v.literal("experience")),
+    refId: v.string(),                   // sponsors / rewards / experiences id
+    userId: v.id("users"),
+    businessId: v.optional(v.id("businesses")),
+    sponsorId: v.optional(v.id("sponsors")),
+    status: v.union(v.literal("issued"), v.literal("redeemed"), v.literal("expired")),
+    expiresAt: v.number(),
+    redeemedAt: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_business", ["businessId"])
+    .index("by_sponsor", ["sponsorId"])
+    .index("by_user_and_ref", ["userId", "refId"]),
 });
