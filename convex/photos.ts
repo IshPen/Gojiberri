@@ -36,7 +36,9 @@ export const savePhoto = mutation({
     const plan = args.planId ? await ctx.db.get("plans", args.planId) : null;
     if (args.planId && !plan) throw new ConvexError("Plan not found");
     if (plan) {
-      if (plan.status !== "locked") throw new ConvexError("You can only check in to a locked plan");
+      if (plan.status !== "locked" && plan.status !== "done") {
+        throw new ConvexError("You can only check in to a locked or done plan");
+      }
       if (args.groupId && args.groupId !== plan.groupId) {
         throw new ConvexError("This plan belongs to a different crew");
       }
@@ -46,14 +48,17 @@ export const savePhoto = mutation({
       }
     }
     const groupId = plan?.groupId ?? args.groupId;
-    const alreadyCheckedIn = plan
-      ? (
-          await ctx.db
-            .query("photos")
-            .withIndex("by_plan", (q) => q.eq("planId", plan._id))
-            .take(200)
-        ).some((p) => p.userId === args.userId)
-      : false;
+    let alreadyCheckedIn = false;
+    if (plan) {
+      for await (const event of ctx.db
+        .query("pointEvents")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))) {
+        if (event.reason === "checkin" && event.planId === plan._id) {
+          alreadyCheckedIn = true;
+          break;
+        }
+      }
+    }
     const photoId = await ctx.db.insert("photos", {
       userId: args.userId,
       groupId,
