@@ -21,6 +21,7 @@ export default function ProfileScreen() {
   const groups = useQuery(api.groups.getMyGroups, args);
   const ranks = useQuery(api.points.myRanks, args);
   const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
+  const awards = useQuery(api.points.myRecentAwards, userId ? { userId: userId as Id<"users">, limit: 5 } : "skip");
   const getProfile = useAction(api.memory.getMyProfile);
 
   const [knows, setKnows] = useState<string[] | undefined>(undefined);
@@ -180,6 +181,19 @@ export default function ProfileScreen() {
         ))
       )}
 
+      {awards && awards.length > 0 ? (
+        <>
+          <SectionHeader title={`Recent ${brand.points}`} testID="awards-header" />
+          <Card testID="recent-awards" style={styles.awards}>
+            {awards.map((a, i) => (
+              <Text key={i} testID={`award-${a.reason}-${i}`} style={a.reason === "fullcrew_bonus" ? styles.awardHighlight : styles.awardText}>
+                +{a.points} {a.label}
+              </Text>
+            ))}
+          </Card>
+        </>
+      ) : null}
+
       <SectionHeader title={`What ${brand.name} knows about you`} testID="knows-header" />
       <Card testID="profile-knows" tone="muted" style={{ gap: spacing.sm }}>
         {knowsLoading ? (
@@ -241,6 +255,9 @@ const styles = StyleSheet.create({
   track: { height: 14, borderRadius: radius.pill, backgroundColor: colors.cardMuted, marginVertical: spacing.md, overflow: "hidden" },
   fill: { height: 14, borderRadius: radius.pill, backgroundColor: colors.gold },
   progressHint: { fontSize: font.size.sm, color: colors.textMuted },
+  awards: { gap: spacing.xs },
+  awardText: { fontSize: font.size.md, color: colors.text },
+  awardHighlight: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.success },
   rewardBiz: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text },
   rewardCode: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.accentDark, marginTop: spacing.xs, letterSpacing: 1 },
   knowsState: { flexDirection: "row", alignItems: "center", gap: spacing.md },

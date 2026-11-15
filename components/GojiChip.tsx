@@ -10,7 +10,7 @@ export type GojiPreview = { ideaKey: string; total: number; items: GojiPreviewIt
 export type IdeaFallback = { ideaKey: string; novel: boolean };
 
 // HOME-35: points.gojiPreview and novelty.requestScores, referenced by name until they deploy. Flip PREVIEW_MOCK once they do.
-const PREVIEW_MOCK = true;
+const PREVIEW_MOCK = false;
 const previewRef = makeFunctionReference<"query", { userId: Id<"users">; ideaKeys: string[] }, GojiPreview[]>("points:gojiPreview");
 const requestScoresRef = makeFunctionReference<"mutation", { userId: Id<"users">; ideaKeys: string[] }, null>("novelty:requestScores");
 

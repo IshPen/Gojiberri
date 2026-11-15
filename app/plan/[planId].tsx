@@ -45,6 +45,7 @@ type PlanDetail = {
   counts: number[];
   places: Place[];
   rejectedBy?: Id<"users">[];
+  rejectChargedBy?: Id<"users">[];
   regenCount?: number;
 };
 
@@ -67,7 +68,7 @@ const REFUSAL: Record<"maxed" | "not_voting" | "not_member", string> = {
 };
 const rejectRef = makeFunctionReference<"mutation", { userId: Id<"users">; planId: Id<"plans"> }, RejectResult>("votes:rejectOptions");
 const getUserRef = makeFunctionReference<"query", { userId: Id<"users"> }, { points: number } | null>("users:getUser");
-const REJECT_MOCK = true;
+const REJECT_MOCK = false;
 const MAX_REGENS = 3;
 const REJECT_COST = 10;
 
@@ -347,7 +348,8 @@ export default function PlanScreen() {
   const rejectedBy = mockPassed ? [...(plan.rejectedBy ?? []), me] : plan.rejectedBy ?? [];
   const iPassed = rejectedBy.includes(me);
   const balance = myUser ? myUser.points - (REJECT_MOCK ? mockRejected?.spent ?? 0 : 0) : undefined;
-  const canAfford = balance !== undefined && balance >= REJECT_COST;
+  const alreadyPaid = (plan.rejectChargedBy ?? []).includes(me);
+  const canAfford = alreadyPaid || (balance !== undefined && balance >= REJECT_COST);
   const members = Math.max(total, 1);
   const needed = Math.floor(members / 2) + 1 - rejectedBy.length;
   const maxed = regenCount >= MAX_REGENS;
@@ -457,10 +459,10 @@ export default function PlanScreen() {
           ) : iPassed || maxed ? null : (
             <Button
               testID="plan-reject"
-              label={!canAfford && balance !== undefined ? `Need ${REJECT_COST} Gojis to pass` : `Not feeling these · ${REJECT_COST} Gojis`}
+              label={alreadyPaid ? "Not feeling these · already paid" : !canAfford && balance !== undefined ? `Need ${REJECT_COST} Gojis to pass` : `Not feeling these · ${REJECT_COST} Gojis`}
               variant="ghost"
               disabled={!canAfford}
-              onPress={() => setConfirmingReject(true)}
+              onPress={() => (alreadyPaid ? reject() : setConfirmingReject(true))}
             />
           )}
         </View>
