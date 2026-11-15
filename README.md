@@ -1,5 +1,7 @@
 # Convex + TypeScript + ESLint
 
+The app connects to the shared demo deployment (`https://flippant-marten-689.convex.cloud`) when no `.env` is present. To use a different deployment, copy `.env.example` to `.env` and set `EXPO_PUBLIC_CONVEX_URL`.
+
 This template provides a minimal setup to get Convex working, with TypeScript
 and ESLint.
 

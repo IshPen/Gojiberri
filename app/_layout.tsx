@@ -5,7 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { colors, type } from "../constants/theme";
 
 const convex = new ConvexReactClient(
-  process.env.EXPO_PUBLIC_CONVEX_URL ?? "https://placeholder-gojiberri.convex.cloud",
+  process.env.EXPO_PUBLIC_CONVEX_URL ?? "https://flippant-marten-689.convex.cloud",
   { unsavedChangesWarning: false },
 );
 
