@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
 import { addDays, localDate, localTime, weekday } from "./time";
 
 export const POINTS = { checkin: 50, confirm: 15, rate: 10 } as const;
@@ -49,11 +48,6 @@ export async function spendGojis(
   return balance;
 }
 
-async function topByLifetime(ctx: QueryCtx, limit: number) {
-  const users = await ctx.db.query("users").take(1000);
-  return users.sort((a, b) => lifetimeGojis(b) - lifetimeGojis(a)).slice(0, limit);
-}
-
 export const award = internalMutation({
   args: {
     userId: v.id("users"),
@@ -63,40 +57,6 @@ export const award = internalMutation({
   },
   handler: async (ctx, { userId, reason, planId, groupId }) => {
     return await awardPoints(ctx, userId, reason, { planId, groupId });
-  },
-});
-
-export const leaderboard = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit }) => {
-    const users = await topByLifetime(ctx, Math.min(limit ?? 20, 100));
-    return users.map((u) => ({
-      _id: u._id,
-      name: u.name,
-      avatarUrl: u.avatarUrl,
-      points: lifetimeGojis(u),
-      diamonds: u.diamonds,
-      streak: u.streak,
-    }));
-  },
-});
-
-export const weeklyPrizes = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const top = await topByLifetime(ctx, 3);
-    for (const user of top) {
-      await ctx.db.patch("users", user._id, { diamonds: user.diamonds + 1 });
-    }
-    if (top.length > 0) {
-      await ctx.scheduler.runAfter(0, internal.notifications.send, {
-        userIds: top.map((u) => u._id),
-        title: "Weekly leaderboard prize",
-        body: "You finished top 3 this week. +1 free reward!",
-        data: { screen: "leaderboard" },
-      });
-    }
-    return null;
   },
 });
 
