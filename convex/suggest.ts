@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
+import { optionValidator } from "./plans";
 import { chatJSON } from "./llm";
 import { priceRange } from "./pricing";
 import { travelEstimate } from "./places";
@@ -55,8 +56,14 @@ function validPicks(raw: unknown, allowed: Map<string, Candidate>): Pick[] | nul
 }
 
 export const generateSuggestions = internalAction({
-  args: { planId: v.id("plans") },
-  handler: async (ctx, { planId }): Promise<null> => {
+  args: {
+    planId: v.id("plans"),
+    generation: v.optional(v.number()),
+    excludePlaceIds: v.optional(v.array(v.id("places"))),
+    excludeExperienceIds: v.optional(v.array(v.id("experiences"))),
+    previousOptions: v.optional(v.array(optionValidator)),
+  },
+  handler: async (ctx, { planId, generation, excludePlaceIds, excludeExperienceIds, previousOptions }): Promise<null> => {
     const { plan, group, members, lowRatedPlaceIds, pot, experiences } = await ctx.runQuery(
       internal.context.planContext,
       { planId },
@@ -69,6 +76,8 @@ export const generateSuggestions = internalAction({
     const vibes = new Set(members.flatMap((m) => m.vibes.map((t) => t.toLowerCase())));
     const homeArea = mostCommon(members.map((m) => m.homeArea));
     const excluded = new Set<string>(lowRatedPlaceIds);
+    const rejectedPlaces = new Set<string>(excludePlaceIds);
+    const rejectedExperiences = new Set<string>(excludeExperienceIds);
 
     const places = await ctx.runQuery(internal.places.listCandidates, {
       budgetMax: budgetCap,
@@ -82,7 +91,9 @@ export const generateSuggestions = internalAction({
       }
     }
 
-    const seedExperience = experiences.find((e) => e._id === plan.seedExperienceId);
+    const seedExperience = experiences.find(
+      (e) => e._id === plan.seedExperienceId && !rejectedExperiences.has(e._id),
+    );
     const seedPlace = seedExperience?.placeId ? placeById.get(seedExperience.placeId) : undefined;
     const seed: Candidate | null =
       seedExperience && seedPlace
@@ -111,6 +122,7 @@ export const generateSuggestions = internalAction({
       .filter(
         (e) =>
           e._id !== seed?.id &&
+          !rejectedExperiences.has(e._id) &&
           e.placeId &&
           placeById.has(e.placeId) &&
           !excluded.has(e.placeId) &&
@@ -122,7 +134,7 @@ export const generateSuggestions = internalAction({
       .map((e) => ({ kind: "experience", id: e._id, experience: e, place: placeById.get(e.placeId!)! }));
     const placeSlots = Math.max(MAX_PLACES, otherSlots - experienceCandidates.length);
     const placeCandidates: Candidate[] = places
-      .filter((p) => p.priceLevel === 1 && !excluded.has(p._id))
+      .filter((p) => p.priceLevel === 1 && !excluded.has(p._id) && !rejectedPlaces.has(p._id))
       .sort((a, b) => overlap(b.tags, vibes) - overlap(a.tags, vibes))
       .slice(0, placeSlots + 2)
       .map((p) => ({ kind: "place", id: p._id, place: p }));
@@ -196,7 +208,7 @@ export const generateSuggestions = internalAction({
       return { ...base, costMin: min, costMax: max };
     });
 
-    await ctx.runMutation(internal.plans.saveOptions, { planId, options });
+    await ctx.runMutation(internal.plans.saveOptions, { planId, options, generation, previousOptions });
     return null;
   },
 });

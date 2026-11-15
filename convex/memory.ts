@@ -2,7 +2,7 @@
 
 import { v } from "convex/values";
 import { Supermemory } from "supermemory";
-import { action, internalAction } from "./_generated/server";
+import { action, env, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 
@@ -10,7 +10,7 @@ const userTag = (userId: Id<"users">) => `user_${userId}`;
 const groupTag = (groupId: Id<"groups">) => `group_${groupId}`;
 
 function client() {
-  return new Supermemory({ apiKey: process.env.SUPERMEMORY_API_KEY, timeoutInSeconds: 20 });
+  return new Supermemory({ apiKey: env.SUPERMEMORY_API_KEY, timeoutInSeconds: 20 });
 }
 
 async function remember(tag: string, content: string) {
@@ -78,6 +78,20 @@ export const rememberRating = internalAction({
     await Promise.all([
       remember(userTag(rating.userId), sentence),
       remember(groupTag(rating.groupId), `${rating.userName} ${sentence[0].toLowerCase()}${sentence.slice(1)}`),
+    ]);
+    return null;
+  },
+});
+
+export const rememberRejection = internalAction({
+  args: { groupId: v.id("groups"), userIds: v.array(v.id("users")), titles: v.array(v.string()) },
+  handler: async (ctx, { groupId, userIds, titles }) => {
+    const users = await ctx.runQuery(internal.users.getMany, { userIds });
+    if (users.length === 0 || titles.length === 0) return null;
+    const sentence = `Passed on ${titles.join(", ")}: not interested in these.`;
+    await Promise.all([
+      ...users.map((u) => remember(userTag(u._id), sentence)),
+      remember(groupTag(groupId), `${users.map((u) => u.name).join(", ")} passed on ${titles.join(", ")}.`),
     ]);
     return null;
   },

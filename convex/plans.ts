@@ -19,6 +19,8 @@ export const optionValidator = v.object({
   sponsorId: v.optional(v.id("sponsors")),
 });
 
+export const MAX_REGENS = 3;
+
 export function isDemoMode() {
   return env.DEMO_MODE !== "false";
 }
@@ -60,10 +62,18 @@ export const createPlan = mutation({
 });
 
 export const saveOptions = internalMutation({
-  args: { planId: v.id("plans"), options: v.array(optionValidator) },
-  handler: async (ctx, { planId, options }) => {
+  args: {
+    planId: v.id("plans"),
+    options: v.array(optionValidator),
+    generation: v.optional(v.number()),
+    previousOptions: v.optional(v.array(optionValidator)),
+  },
+  handler: async (ctx, { planId, options, generation, previousOptions }) => {
     const plan = await ctx.db.get("plans", planId);
     if (!plan || plan.status !== "generating") return null;
+    if ((generation ?? 0) !== (plan.generation ?? 0)) return null;
+    const regenerated = (plan.regenCount ?? 0) > 0;
+    const exhausted = regenerated && options.length === 0 && (previousOptions?.length ?? 0) > 0;
     const now = Date.now();
     const confirmBy = isDemoMode()
       ? now + 5 * MINUTE
@@ -71,12 +81,24 @@ export const saveOptions = internalMutation({
           plan.window.start,
           Math.max(now + 15 * MINUTE, Math.min(now + 24 * HOUR, plan.window.start - 2 * HOUR)),
         );
-    await ctx.db.patch("plans", planId, { options, status: "voting", confirmBy });
+    await ctx.db.patch("plans", planId, {
+      options: exhausted ? previousOptions! : options,
+      status: "voting",
+      confirmBy,
+      ...(exhausted ? { regenCount: MAX_REGENS } : {}),
+    });
     const group = await ctx.db.get("groups", plan.groupId);
+    const body = `Vote now for ${group?.name ?? "your group"}'s next outing.`;
     await ctx.scheduler.runAfter(0, internal.notifications.send, {
       userIds: group?.memberIds ?? [],
-      title: "3 ideas are ready",
-      body: `Vote now for ${group?.name ?? "your group"}'s next outing.`,
+      ...(exhausted
+        ? { title: "No new ideas left", body: "Your crew passed, but nothing new fits. Pick from the last ideas." }
+        : regenerated
+          ? {
+              title: `Your crew passed, here ${options.length === 1 ? "is 1 new idea" : `are ${options.length} new ideas`}`,
+              body,
+            }
+          : { title: "3 ideas are ready", body }),
       data: { planId },
     });
     return null;
