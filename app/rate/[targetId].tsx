@@ -1,52 +1,59 @@
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { makeFunctionReference } from "convex/server";
+import { Stack, useLocalSearchParams, useRouter, type ErrorBoundaryProps } from "expo-router";
 import type { GenericId as Id } from "convex/values";
 import { useMutation } from "convex/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import StarRating from "../../components/StarRating";
-import { Button, Card, Chip, ErrorState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
+import { Button, Card, Chip, EmptyState, ErrorState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
+import { api } from "../../convex/_generated/api";
 import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
-import { formatGojis } from "../../lib/format";
 import { mockDelay } from "../../lib/mock";
 import { useUserId } from "../../lib/session";
 
-const USE_MOCK = true;
+const VIBES = ["chill", "chaotic", "cozy", "thrilling", "fancy", "would-redo"];
+const HOME_DELAY_MS = 1800;
 
-type SubmitArgs = { userId: Id<"users">; planId?: Id<"plans">; questId?: Id<"soloQuests">; stars: number; vibe: string };
-// TODO(convex): swap to api.ratings.submitRating once it lands
-const submitRatingRef = makeFunctionReference<"mutation", SubmitArgs, Id<"ratings">>("ratings:submitRating");
-
-const VIBES = ["fun", "cozy", "thrilling", "chill", "meh", "magical", "loud", "delicious"];
+export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
+  return (
+    <Screen testID="rate-screen">
+      <ErrorState testID="rate-error" message="Couldn't open the rating screen." onRetry={retry} />
+    </Screen>
+  );
+}
 
 export default function RateScreen() {
   const router = useRouter();
-  const { userId } = useUserId();
-  const { targetId, type } = useLocalSearchParams<{ targetId: string; type?: string }>();
-  const isQuest = type === "quest";
+  const { userId, loading } = useUserId();
+  const { targetId } = useLocalSearchParams<{ targetId: string }>();
   const [stars, setStars] = useState(0);
   const [vibe, setVibe] = useState("");
   const [custom, setCustom] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const submitLive = useMutation(api.ratings.submitRating);
+  const useMock = !!userId?.startsWith("mock_");
+  const submitRating = useMock ? () => mockDelay(null, 700) : submitLive;
 
-  const submitLive = useMutation(submitRatingRef);
-  const submitRating = USE_MOCK ? (_args: SubmitArgs) => mockDelay("mock_rating" as Id<"ratings">, 700) : submitLive;
+  useEffect(() => {
+    if (!done) return;
+    const timer = setTimeout(() => router.replace("/home"), HOME_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [done, router]);
 
-  const chosenVibe = custom || vibe;
-  const canSubmit = stars > 0 && chosenVibe.length > 0;
+  const chosenVibe = (custom || vibe).trim().toLowerCase();
+  const canSubmit = stars > 0 && chosenVibe.length > 0 && !!userId;
 
   const submit = async () => {
-    if (!canSubmit || submitting) return;
+    if (!canSubmit || submitting || !userId) return;
     setSubmitting(true);
     setError(null);
     try {
       await submitRating({
-        userId: (userId ?? "mock_uma") as Id<"users">,
-        ...(isQuest ? { questId: targetId as Id<"soloQuests"> } : { planId: targetId as Id<"plans"> }),
+        userId: userId as Id<"users">,
+        planId: targetId as Id<"plans">,
         stars,
-        vibe: chosenVibe.toLowerCase(),
+        vibe: chosenVibe,
       });
       setDone(true);
     } catch (e) {
@@ -56,6 +63,21 @@ export default function RateScreen() {
     }
   };
 
+  if (!targetId) {
+    return (
+      <Screen testID="rate-screen">
+        <EmptyState
+          testID="rate-empty"
+          emoji="🤷"
+          title="Nothing to rate"
+          body="Open this from a finished plan."
+          actionLabel="Back home"
+          onAction={() => router.replace("/home")}
+        />
+      </Screen>
+    );
+  }
+
   if (done) {
     return (
       <Screen testID="rate-screen">
@@ -63,11 +85,10 @@ export default function RateScreen() {
         <Card testID="rate-success" tone="success" style={styles.success}>
           <Text style={styles.bigEmoji}>🎉</Text>
           <Title style={{ textAlign: "center" }}>Thanks for rating!</Title>
-          <Text testID="rate-reward" style={styles.reward}>
-            +10 {brand.points} {brand.pointsEmoji}
-          </Text>
-          <Subtitle style={{ textAlign: "center" }}>You earned {formatGojis(10)} and made your next plans smarter.</Subtitle>
-          <Button testID="rate-done" label="Done" onPress={() => router.replace("/home")} style={{ alignSelf: "stretch", marginTop: spacing.lg }} />
+          <Subtitle testID="rate-confirmation" style={{ textAlign: "center" }}>
+            Saved. Your crew's next plans just got smarter. Heading home…
+          </Subtitle>
+          <Button testID="rate-done" label="Back home" onPress={() => router.replace("/home")} style={{ alignSelf: "stretch", marginTop: spacing.lg }} />
         </Card>
       </Screen>
     );
@@ -76,13 +97,15 @@ export default function RateScreen() {
   return (
     <Screen testID="rate-screen">
       <Stack.Screen options={{ title: "Rate it" }} />
-      <Title testID="rate-title">{isQuest ? "How was your quest?" : "How was the plan?"}</Title>
-      <Subtitle testID="rate-subtitle">Rating earns +10 {brand.points} and teaches {brand.name} what you love.</Subtitle>
+      <Title testID="rate-title">How was the hang?</Title>
+      <Subtitle testID="rate-subtitle">
+        Your rating teaches {brand.name} what your crew loves.
+      </Subtitle>
 
-      <Card style={{ alignItems: "center", paddingVertical: spacing.xl }}>
+      <Card testID="rate-stars-card" style={{ alignItems: "center", paddingVertical: spacing.xl }}>
         <StarRating value={stars} onChange={setStars} />
         <Text testID="rate-stars-label" style={styles.starsLabel}>
-          {stars > 0 ? `${stars} / 5` : "Tap a star"}
+          {stars > 0 ? stars + " / 5" : "Tap a star"}
         </Text>
       </Card>
 
@@ -91,7 +114,7 @@ export default function RateScreen() {
         {VIBES.map((v) => (
           <Chip
             key={v}
-            testID={`vibe-${v}`}
+            testID={"vibe-" + v}
             label={v}
             selected={!custom && vibe === v}
             onPress={() => {
@@ -113,6 +136,7 @@ export default function RateScreen() {
         style={styles.input}
       />
 
+      {!loading && !userId ? <ErrorState testID="rate-no-user" message="Sign in to rate this." /> : null}
       {error ? <ErrorState testID="rate-error" message={error} onRetry={submit} /> : null}
       <Button testID="rate-submit" label="Submit" onPress={submit} loading={submitting} disabled={!canSubmit} />
     </Screen>
@@ -134,5 +158,4 @@ const styles = StyleSheet.create({
   starsLabel: { marginTop: spacing.sm, fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.textMuted },
   success: { alignItems: "center", gap: spacing.md, paddingVertical: spacing.xxl },
   bigEmoji: { fontSize: 64 },
-  reward: { fontSize: font.size.hero, fontWeight: font.weight.heavy, color: colors.success },
 });
