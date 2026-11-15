@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from "react-native";
 import GojiChip, { GojiDetails, useGojiPreviews } from "../../components/GojiChip";
 import PointsPill from "../../components/PointsPill";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
-import { colors, font, spacing } from "../../constants/theme";
+import { colors, font, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatWindow } from "../../lib/format";
 import { useUserId } from "../../lib/session";
@@ -194,8 +194,8 @@ const styles = StyleSheet.create({
   card: { gap: spacing.sm },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  rank: { fontSize: font.size.md, fontWeight: font.weight.semibold, color: colors.textMuted, marginTop: -spacing.md },
-  eyebrow: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.accentDark },
-  title: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
-  muted: { fontSize: font.size.md, color: colors.textMuted },
+  rank: { ...type.label, fontSize: font.size.md, marginTop: -spacing.md },
+  eyebrow: type.eyebrow,
+  title: type.heading,
+  muted: type.muted,
 });

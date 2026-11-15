@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import SponsoredBadge from "../../components/SponsoredBadge";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
-import { colors, font, radius, spacing } from "../../constants/theme";
+import { colors, font, radius, spacing, emoji as emojiSize } from "../../constants/theme";
 import { experienceEmoji, groupSize } from "../../lib/experiences";
 import { useUserId } from "../../lib/session";
 
@@ -316,7 +316,7 @@ export default function ExperienceDetailScreen() {
 const styles = StyleSheet.create({
   hero: { width: "100%", height: 180, borderRadius: radius.lg, marginBottom: spacing.md },
   emojiHero: { backgroundColor: colors.cardMuted, alignItems: "center", justifyContent: "center" },
-  heroEmoji: { fontSize: 72 },
+  heroEmoji: { fontSize: emojiSize.xl },
   business: { fontSize: font.size.sm, fontWeight: font.weight.semibold, color: colors.textMuted, marginTop: spacing.sm },
   price: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.accent, marginVertical: spacing.xs },
   meta: { fontSize: font.size.sm, color: colors.text },

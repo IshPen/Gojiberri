@@ -8,7 +8,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Button, Card, ErrorState, LoadingState, Screen, Subtitle, Title } from "../components/ui";
 import { api } from "../convex/_generated/api";
 import GojiBreakdown, { type GojiBreakdownData } from "../components/GojiBreakdown";
-import { brand, colors, font, radius, spacing } from "../constants/theme";
+import { brand, colors, font, radius, spacing, emoji as emojiSize } from "../constants/theme";
 import { formatGojis } from "../lib/format";
 import { mockDelay, useMockQuery } from "../lib/mock";
 import { useUserId } from "../lib/session";
@@ -231,7 +231,7 @@ export default function CameraScreen() {
 
 const styles = StyleSheet.create({
   center: { alignItems: "center", gap: spacing.md },
-  big: { fontSize: 56 },
+  big: { fontSize: emojiSize.xl },
   fullWidth: { alignSelf: "stretch" },
   planCard: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
   planTitle: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.accentDark },

@@ -7,8 +7,8 @@ import { LayoutAnimation, Pressable, StyleSheet, Text, View } from "react-native
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import { SchoolHeader } from "../../components/SchoolBadge";
 import { api } from "../../convex/_generated/api";
-import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
-import { crewStanding, formatPts, schoolFor, withAlpha } from "../../lib/school";
+import { brand, colors, emoji, font, minTapTarget, radius, shadow, spacing, type } from "../../constants/theme";
+import { crewStanding, formatPts } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 
 type CrewRow = { groupId: Id<"groups">; name: string; school: string; avgPoints: number; memberCount: number };
@@ -16,6 +16,7 @@ type SchoolRow = { school: string; avgPoints: number; userCount: number };
 type LockedPlan = FunctionReturnType<typeof api.plans.getMyUpcomingPlans>[number];
 
 const MEDALS = ["🥇", "🥈", "🥉"];
+const MEDAL_COLORS = [colors.gold, colors.silver, colors.bronze];
 const LIMIT = 20;
 
 type Segment = "crews" | "schools" | "me";
@@ -61,9 +62,17 @@ function useRankedRows<T>(rows: T[] | undefined | null, keyOf: (row: T) => strin
 function RankBadge({ index, delta, testID }: { index: number; delta?: number; testID: string }) {
   return (
     <View style={styles.rankCol}>
-      <Text testID={testID} style={index < 3 ? styles.medal : styles.rank}>
-        {index < 3 ? MEDALS[index] : index + 1}
-      </Text>
+      {index < 3 ? (
+        <View style={[styles.medalDisc, { backgroundColor: MEDAL_COLORS[index] + "33", borderColor: MEDAL_COLORS[index] }]}>
+          <Text testID={testID} style={styles.medal}>
+            {MEDALS[index]}
+          </Text>
+        </View>
+      ) : (
+        <Text testID={testID} style={styles.rank}>
+          {index + 1}
+        </Text>
+      )}
       {delta ? (
         <Text testID={testID + "-delta"} style={[styles.delta, { color: delta > 0 ? colors.success : colors.danger }]}>
           {delta > 0 ? "▲" : "▼"}
@@ -77,12 +86,11 @@ function RankBadge({ index, delta, testID }: { index: number; delta?: number; te
 function RivalryCard({ rows, myGroupIds, school }: { rows: CrewRow[]; myGroupIds: Set<string>; school: string }) {
   const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
   const standing = allCrews ? crewStanding(allCrews.filter((c) => c.school === school), (id) => myGroupIds.has(id)) : null;
-  const accent = schoolFor(school).color;
   if (!standing) {
     const top = rows[0];
     return (
-      <Card testID="crews-rivalry" style={[styles.rivalry, { backgroundColor: withAlpha(accent, 0.08), borderColor: withAlpha(accent, 0.3) }]}>
-        <Text style={[styles.rivalryVs, { color: accent }]}>TOP OF {school.toUpperCase()}</Text>
+      <Card testID="crews-rivalry" style={styles.rivalry}>
+        <Text style={styles.rivalryVs}>TOP OF {school.toUpperCase()}</Text>
         <Text style={styles.rivalryName} numberOfLines={1}>
           {top.name}
         </Text>
@@ -96,7 +104,7 @@ function RivalryCard({ rows, myGroupIds, school }: { rows: CrewRow[]; myGroupIds
   const rival = ahead ?? behind;
   if (!rival) {
     return (
-      <Card testID="crews-rivalry" style={[styles.rivalry, { backgroundColor: withAlpha(accent, 0.08), borderColor: withAlpha(accent, 0.3) }]}>
+      <Card testID="crews-rivalry" style={styles.rivalry}>
         <Text style={styles.rivalryName}>{mine.name}</Text>
         <Text testID="crews-rivalry-gap" style={styles.rivalryGap}>
           The only crew on the {school} board so far. Invite another friend group to compete.
@@ -106,11 +114,11 @@ function RivalryCard({ rows, myGroupIds, school }: { rows: CrewRow[]; myGroupIds
   }
   const gap = formatPts(Math.abs(rival.avgPoints - mine.avgPoints));
   return (
-    <Card testID="crews-rivalry" style={[styles.rivalry, { backgroundColor: withAlpha(accent, 0.08), borderColor: withAlpha(accent, 0.3) }]}>
+    <Card testID="crews-rivalry" style={styles.rivalry}>
       <Text style={styles.rivalryName} numberOfLines={1}>
         {mine.name}
       </Text>
-      <Text style={[styles.rivalryVs, { color: accent }]}>VS</Text>
+      <Text style={styles.rivalryVs}>VS</Text>
       <Text style={styles.rivalryName} numberOfLines={1}>
         {rival.name}
       </Text>
@@ -143,7 +151,7 @@ function CrewsSection({ school, myGroupIds, testID = "crews-section" }: { school
         rows.map((c, i) => {
           const mine = myGroupIds.has(c.groupId);
           return (
-            <Card key={c.groupId} testID={"crew-row-" + i} tone={mine ? "accent" : "default"} style={[styles.row, i < 3 && styles.podiumRow]}>
+            <Card key={c.groupId} testID={"crew-row-" + i} tone={mine ? "accent" : "default"} style={styles.row}>
               <RankBadge index={i} delta={deltas.get(c.groupId)} testID={"crew-rank-" + i} />
               <View style={styles.rowBody}>
                 <Text testID={"crew-name-" + i} numberOfLines={1} style={styles.rowTitle}>
@@ -202,7 +210,7 @@ function SchoolsSection({ mySchool }: { mySchool: string | null }) {
       {rows.map((s, i) => {
         const mine = s.school === mySchool;
         return (
-          <Card key={s.school} testID={"school-row-" + i} tone={mine ? "accent" : "default"} style={[styles.row, styles.schoolRow, i < 3 && styles.podiumRow]}>
+          <Card key={s.school} testID={"school-row-" + i} tone={mine ? "accent" : "default"} style={[styles.row, styles.schoolRow]}>
             <RankBadge index={i} delta={deltas.get(s.school)} testID={"school-rank-" + i} />
             <View style={styles.rowBody}>
               <Text testID={"school-name-" + i} numberOfLines={1} style={styles.schoolName}>
@@ -375,7 +383,7 @@ export default function LeaderboardScreen() {
 const styles = StyleSheet.create({
   segments: { flexDirection: "row", backgroundColor: colors.cardMuted, borderRadius: radius.pill, padding: spacing.xs },
   segment: { flex: 1, minHeight: minTapTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
-  segmentOn: { backgroundColor: colors.card },
+  segmentOn: { backgroundColor: colors.card, ...shadow.sm },
   segmentText: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.textMuted },
   segmentTextOn: { color: colors.accentDark },
   section: { gap: spacing.md },
@@ -400,26 +408,26 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
   },
-  podiumRow: { borderWidth: 2 },
   schoolRow: { minHeight: minTapTarget + 36 },
-  rankCol: { width: 36, alignItems: "center" },
-  medal: { fontSize: 28 },
+  rankCol: { width: 40, alignItems: "center" },
+  medalDisc: { width: 40, height: 40, borderRadius: radius.pill, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  medal: { fontSize: emoji.sm },
   rank: { fontSize: font.size.lg, fontWeight: font.weight.heavy, color: colors.textMuted },
   delta: { fontSize: font.size.xs, fontWeight: font.weight.heavy },
   rowBody: { flex: 1, gap: 2 },
-  rowTitle: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
+  rowTitle: type.heading,
   rowMeta: { fontSize: font.size.sm, color: colors.textMuted },
   schoolName: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.text },
   scoreCol: { alignItems: "flex-end" },
   score: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.accentDark },
   scoreUnit: { fontSize: font.size.xs, fontWeight: font.weight.semibold, color: colors.textMuted },
-  rivalry: { alignItems: "center", gap: spacing.xs, paddingVertical: spacing.lg },
-  rivalryName: { fontSize: font.size.xxl, fontWeight: font.weight.heavy, color: colors.text },
+  rivalry: { alignItems: "center", gap: spacing.xs, paddingVertical: spacing.lg, backgroundColor: colors.accentSoft, borderColor: colors.accentSoft },
+  rivalryName: { ...type.title, textAlign: "center" },
   rivalryVs: { fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.accent, letterSpacing: 2 },
   rivalryGap: { marginTop: spacing.xs, fontSize: font.size.sm, fontWeight: font.weight.semibold, color: colors.textMuted },
   climb: { gap: spacing.sm },
   meCard: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xl },
-  meBig: { fontSize: 48 },
+  meBig: { fontSize: emoji.lg },
   meHeadline: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.accentDark, textAlign: "center" },
   meSchool: { fontSize: font.size.lg, fontWeight: font.weight.heavy, color: colors.text, textAlign: "center" },
   meSub: { fontSize: font.size.sm, color: colors.textMuted, textAlign: "center" },

@@ -4,9 +4,9 @@ import { useRouter } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import { SchoolHeader } from "../../components/SchoolBadge";
-import { brand, colors, font, radius, spacing } from "../../constants/theme";
+import { brand, colors, font, radius, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
-import { crewStanding, formatPts, schoolFor, withAlpha } from "../../lib/school";
+import { crewStanding, formatPts } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 
 export default function GroupsScreen() {
@@ -18,7 +18,6 @@ export default function GroupsScreen() {
   const school = user?.homeArea ?? null;
   const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
   const board = allCrews?.filter((c) => c.school === school);
-  const accent = schoolFor(school).color;
 
   const myIds = new Set<string>((groups ?? []).map((g) => g._id));
   const myBest = (board ?? []).find((c) => myIds.has(c.groupId));
@@ -78,14 +77,14 @@ export default function GroupsScreen() {
         groups.map((group, i) => {
           const rank = rankOf(group._id);
           return (
-            <Card key={group._id} testID={`group-card-${i}`} onPress={() => router.push(`/group/${group._id}`)} style={[styles.groupCard, { borderLeftColor: accent }]}>
+            <Card key={group._id} testID={`group-card-${i}`} onPress={() => router.push(`/group/${group._id}`)} style={styles.groupCard}>
               <View style={styles.cardTop}>
                 <Text testID={`group-name-${i}`} style={styles.groupName} numberOfLines={1}>
                   {group.name}
                 </Text>
                 {rank ? (
-                  <View testID={`group-rank-${i}`} style={[styles.rankPill, { backgroundColor: withAlpha(accent, 0.12) }]}>
-                    <Text style={[styles.rankText, { color: accent }]}>#{rank.rank} at {rank.school}</Text>
+                  <View testID={`group-rank-${i}`} style={styles.rankPill}>
+                    <Text style={styles.rankText}>#{rank.rank} at {rank.school}</Text>
                   </View>
                 ) : null}
               </View>
@@ -114,7 +113,7 @@ export default function GroupsScreen() {
           ) : (
             rivals.slice(0, 5).map((c, i) => (
               <Card key={c.groupId} testID={`rival-row-${i}`} style={styles.rivalRow}>
-                <Text testID={`rival-rank-${i}`} style={[styles.rivalRank, { color: accent }]}>
+                <Text testID={`rival-rank-${i}`} style={styles.rivalRank}>
                   #{rankOf(c.groupId)?.rank}
                 </Text>
                 <View style={styles.rivalBody}>
@@ -140,11 +139,11 @@ export default function GroupsScreen() {
 
 const styles = StyleSheet.create({
   actions: { gap: spacing.md },
-  groupCard: { gap: spacing.md, borderLeftWidth: 6 },
+  groupCard: { gap: spacing.md },
   cardTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  groupName: { flex: 1, fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.text },
-  rankPill: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  rankText: { fontSize: font.size.xs, fontWeight: font.weight.heavy },
+  groupName: { ...type.heading, flex: 1, fontSize: font.size.xl },
+  rankPill: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: colors.accentSoft },
+  rankText: { fontSize: font.size.xs, fontWeight: font.weight.heavy, color: colors.accentDark },
   avatars: { flexDirection: "row" },
   avatar: {
     width: 40,
@@ -159,7 +158,7 @@ const styles = StyleSheet.create({
   avatarText: { fontWeight: font.weight.heavy, color: colors.accentDark },
   members: { fontSize: font.size.sm, color: colors.textMuted },
   rivalRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  rivalRank: { width: 40, fontSize: font.size.lg, fontWeight: font.weight.heavy, textAlign: "center" },
+  rivalRank: { width: 40, fontSize: font.size.lg, fontWeight: font.weight.heavy, textAlign: "center", color: colors.accentDark },
   rivalBody: { flex: 1, gap: 2 },
   rivalName: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
 });

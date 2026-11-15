@@ -5,10 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
 import { SchoolCrest } from "../../components/SchoolBadge";
-import { brand, colors, font, radius, spacing } from "../../constants/theme";
+import { brand, colors, emoji, font, radius, shadow, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatGojis, formatRewards } from "../../lib/format";
-import { crewStanding, formatPts, schoolFor, withAlpha } from "../../lib/school";
+import { crewStanding, formatPts, schoolFor } from "../../lib/school";
 import { clearUserId, useUserId } from "../../lib/session";
 
 export default function ProfileScreen() {
@@ -82,10 +82,10 @@ export default function ProfileScreen() {
             <Text testID="profile-budget" style={styles.area}>Up to ${user.budgetMax} per outing</Text>
           </View>
 
-          <Card testID="profile-school-card" style={[styles.schoolCard, { backgroundColor: withAlpha(school.color, 0.08), borderColor: withAlpha(school.color, 0.35) }]}>
+          <Card testID="profile-school-card" style={styles.schoolCard}>
             <SchoolCrest school={user.homeArea} size={52} testID="profile-school-crest" />
             <View style={styles.schoolBody}>
-              <Text testID="profile-school-name" style={[styles.schoolName, { color: school.color }]}>
+              <Text testID="profile-school-name" style={styles.schoolName}>
                 {school.name} space
               </Text>
               <Text testID="profile-school-rank" style={styles.schoolMeta}>
@@ -236,19 +236,19 @@ const styles = StyleSheet.create({
   earnEmoji: { fontSize: font.size.lg },
   earnTitle: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text },
   hero: { alignItems: "center", gap: spacing.sm },
-  schoolCard: { flexDirection: "row", alignItems: "center", gap: spacing.lg, borderWidth: 1 },
+  schoolCard: { flexDirection: "row", alignItems: "center", gap: spacing.lg },
   schoolBody: { flex: 1, gap: spacing.xs },
-  schoolName: { fontSize: font.size.xl, fontWeight: font.weight.heavy },
+  schoolName: { ...type.heading, fontSize: font.size.xl },
   schoolMeta: { fontSize: font.size.sm, color: colors.textMuted },
   crews: { gap: spacing.sm },
   crewChip: { gap: 2 },
   crewName: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
-  avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: colors.accent },
-  avatarText: { fontSize: 44, fontWeight: font.weight.heavy, color: colors.accentDark },
+  avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center", borderWidth: 4, borderColor: colors.card, ...shadow.lift },
+  avatarText: { fontSize: emoji.lg, fontWeight: font.weight.black, color: colors.accentDark },
   area: { fontSize: font.size.md, color: colors.textMuted },
   stats: { flexDirection: "row", gap: spacing.sm },
   stat: { flex: 1, alignItems: "center", paddingHorizontal: spacing.sm, paddingVertical: spacing.lg },
-  statEmoji: { fontSize: 28 },
+  statEmoji: { fontSize: emoji.md },
   statValue: { fontSize: font.size.xxl, fontWeight: font.weight.heavy, color: colors.text },
   statLabel: { fontSize: font.size.xs, fontWeight: font.weight.bold, color: colors.textMuted, textAlign: "center" },
   progressTitle: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text },

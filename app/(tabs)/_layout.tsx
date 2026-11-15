@@ -1,63 +1,58 @@
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
-import { colors, font } from "../../constants/theme";
+import { Text, View } from "react-native";
+import { colors, emoji, font, radius } from "../../constants/theme";
 
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
+function TabIcon({ glyph, focused }: { glyph: string; focused: boolean }) {
+  return (
+    <View
+      style={{
+        width: 48,
+        height: 30,
+        borderRadius: radius.pill,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: focused ? colors.accentSoft : "transparent",
+      }}
+    >
+      <Text style={{ fontSize: emoji.sm, opacity: focused ? 1 : 0.55 }}>{glyph}</Text>
+    </View>
+  );
 }
+
+const TABS = [
+  { name: "recommended", title: "For You", glyph: "✨" },
+  { name: "groups", title: "Crews", glyph: "👯" },
+  { name: "experiences", title: "Explore", glyph: "🎟️" },
+  { name: "leaderboard", title: "Ranks", glyph: "🏆" },
+  { name: "profile", title: "Profile", glyph: "🍓" },
+];
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
+        animation: "shift",
+        tabBarActiveTintColor: colors.accentDark,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.border },
-        tabBarLabelStyle: { fontSize: font.size.xs, fontWeight: font.weight.semibold },
+        tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.border, minHeight: 64, paddingTop: 6 },
+        tabBarItemStyle: { paddingBottom: 4 },
+        tabBarLabelStyle: { fontSize: font.size.xs, fontWeight: font.weight.bold, lineHeight: 16 },
+        tabBarAllowFontScaling: false,
         sceneStyle: { backgroundColor: colors.background },
       }}
     >
-      <Tabs.Screen
-        name="recommended"
-        options={{
-          title: "For You",
-          tabBarButtonTestID: "tab-recommended",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="✨" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="groups"
-        options={{
-          title: "Crews",
-          tabBarButtonTestID: "tab-groups",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👯" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="experiences"
-        options={{
-          title: "Experiences",
-          tabBarButtonTestID: "tab-experiences",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🎟️" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="leaderboard"
-        options={{
-          title: "Leaderboard",
-          tabBarButtonTestID: "tab-leaderboard",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏆" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarButtonTestID: "tab-profile",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🍓" focused={focused} />,
-        }}
-      />
+      {TABS.map((t) => (
+        <Tabs.Screen
+          key={t.name}
+          name={t.name}
+          options={{
+            title: t.title,
+            tabBarButtonTestID: `tab-${t.name}`,
+            tabBarIcon: ({ focused }) => <TabIcon glyph={t.glyph} focused={focused} />,
+          }}
+        />
+      ))}
     </Tabs>
   );
 }

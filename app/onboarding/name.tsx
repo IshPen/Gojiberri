@@ -4,7 +4,7 @@ import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useMutation } from "convex/react";
 import { Button, Card, ErrorState, Screen, SectionHeader, Subtitle } from "../../components/ui";
 import { SchoolCrest } from "../../components/SchoolBadge";
-import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
+import { brand, colors, font, minTapTarget, radius, spacing, type, emoji as emojiSize } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { schoolFor } from "../../lib/school";
 import { setUserId } from "../../lib/session";
@@ -100,7 +100,7 @@ export default function NameScreen() {
 
 const styles = StyleSheet.create({
   hero: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.lg },
-  heroTitle: { fontSize: font.size.hero, fontWeight: font.weight.heavy, color: colors.text, textAlign: "center" },
+  heroTitle: { ...type.display, textAlign: "center" },
   center: { textAlign: "center" },
   input: {
     minHeight: 56,
@@ -123,5 +123,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: radius.lg,
   },
-  avatarEmoji: { fontSize: 32 },
+  avatarEmoji: { fontSize: emojiSize.md },
 });

@@ -1,6 +1,8 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +13,16 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
-import { colors, font, minTapTarget, radius, shadow, spacing } from "../constants/theme";
+import { brand, colors, emoji, font, minTapTarget, motion, radius, shadow, spacing, type } from "../constants/theme";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+export function usePressScale(to: number = motion.pressScale) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const spring = (toValue: number) =>
+    Animated.spring(scale, { toValue, speed: 40, bounciness: toValue === 1 ? 8 : 0, useNativeDriver: Platform.OS !== "web" }).start();
+  return { scale, onPressIn: () => spring(to), onPressOut: () => spring(1) };
+}
 
 type ScreenProps = {
   children: ReactNode;
@@ -68,16 +79,27 @@ export function Card({ children, onPress, testID, style, tone = "default", disab
     );
   }
   return (
-    <Pressable
+    <PressCard testID={testID} onPress={onPress} disabled={disabled} accessibilityLabel={accessibilityLabel} style={base}>
+      {children}
+    </PressCard>
+  );
+}
+
+function PressCard({ children, onPress, testID, style, disabled, accessibilityLabel }: Omit<CardProps, "tone">) {
+  const press = usePressScale(0.98);
+  return (
+    <AnimatedPressable
       testID={testID}
       onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [base, pressed && styles.pressed, disabled && styles.disabled]}
+      style={[style, disabled && styles.disabled, { transform: [{ scale: press.scale }] }]}
     >
       {children}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -100,27 +122,31 @@ const buttonVariants = {
   },
   ghost: { container: { backgroundColor: "transparent" }, text: { color: colors.accent } },
   danger: { container: { backgroundColor: colors.dangerSoft }, text: { color: colors.danger } },
+
 };
 
 export function Button({ label, onPress, testID, variant = "primary", loading, disabled, icon, style }: ButtonProps) {
   const v = buttonVariants[variant];
   const inactive = disabled || loading;
+  const press = usePressScale();
   return (
-    <Pressable
+    <AnimatedPressable
       testID={testID}
       onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       disabled={inactive}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
-      style={({ pressed }) => [styles.button, v.container, pressed && styles.pressed, inactive && styles.disabled, style]}
+      style={[styles.button, v.container, variant === "primary" && !inactive && shadow.lift, inactive && styles.disabled, style, { transform: [{ scale: press.scale }] }]}
     >
       {loading ? (
         <ActivityIndicator color={v.text.color} />
       ) : (
         <Text style={[styles.buttonText, v.text]}>{icon ? `${icon}  ${label}` : label}</Text>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -132,17 +158,28 @@ type ChipProps = {
 };
 
 export function Chip({ label, selected, onPress, testID }: ChipProps) {
+  const press = usePressScale(0.94);
   return (
-    <Pressable
+    <AnimatedPressable
       testID={testID}
       onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       disabled={!onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected }}
-      style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
+      style={[styles.chip, selected && styles.chipSelected, { transform: [{ scale: press.scale }] }]}
     >
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
-    </Pressable>
+    </AnimatedPressable>
+  );
+}
+
+export function BerryMark({ emoji: glyph = brand.emoji, size = 88, testID }: { emoji?: string; size?: number; testID?: string }) {
+  return (
+    <View testID={testID} style={[styles.berry, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Text style={{ fontSize: size * 0.5 }}>{glyph}</Text>
+    </View>
   );
 }
 
@@ -192,10 +229,10 @@ type EmptyStateProps = {
   actionTestID?: string;
 };
 
-export function EmptyState({ emoji = "🍓", title, body, actionLabel, onAction, testID = "empty-state", actionTestID = "empty-state-action" }: EmptyStateProps) {
+export function EmptyState({ emoji: glyph = brand.emoji, title, body, actionLabel, onAction, testID = "empty-state", actionTestID = "empty-state-action" }: EmptyStateProps) {
   return (
     <Card testID={testID} tone="muted" style={styles.stateCard}>
-      <Text style={styles.stateEmoji}>{emoji}</Text>
+      <BerryMark emoji={glyph} size={72} />
       <Text style={styles.stateTitle}>{title}</Text>
       {body ? <Text style={styles.stateBody}>{body}</Text> : null}
       {actionLabel && onAction ? (
@@ -214,8 +251,8 @@ type ErrorStateProps = {
 export function ErrorState({ message = "Something went wrong.", onRetry, testID = "error-state" }: ErrorStateProps) {
   return (
     <Card testID={testID} style={[styles.stateCard, { backgroundColor: colors.dangerSoft, borderColor: colors.dangerSoft }]}>
-      <Text style={styles.stateEmoji}>😵</Text>
-      <Text style={styles.stateTitle}>Oops</Text>
+      <Text style={styles.stateEmoji}>🫐</Text>
+      <Text style={styles.stateTitle}>Well, that's a squished berry</Text>
       <Text testID={`${testID}-message`} style={styles.stateBody}>
         {message}
       </Text>
@@ -236,8 +273,7 @@ export const styles = StyleSheet.create({
     padding: spacing.xl,
     ...shadow.card,
   },
-  pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
-  disabled: { opacity: 0.5 },
+  disabled: { opacity: 0.45 },
   button: {
     minHeight: Math.max(minTapTarget, 54),
     borderRadius: radius.pill,
@@ -245,7 +281,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  buttonText: { fontSize: font.size.lg, fontWeight: font.weight.bold },
+  buttonText: { fontSize: font.size.lg, fontWeight: font.weight.heavy, letterSpacing: 0.2 },
   chip: {
     minHeight: minTapTarget,
     paddingHorizontal: spacing.lg,
@@ -259,13 +295,14 @@ export const styles = StyleSheet.create({
   chipSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   chipText: { fontSize: font.size.md, fontWeight: font.weight.semibold, color: colors.text },
   chipTextSelected: { color: colors.accentDark },
-  title: { fontSize: font.size.xxl, fontWeight: font.weight.heavy, color: colors.text },
-  subtitle: { fontSize: font.size.md, color: colors.textMuted, lineHeight: 22 },
+  title: type.title,
+  subtitle: type.muted,
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.sm },
-  sectionTitle: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
+  sectionTitle: type.heading,
   state: { alignItems: "center", justifyContent: "center", paddingVertical: spacing.xxxl, gap: spacing.md },
-  stateCard: { alignItems: "center", paddingVertical: spacing.xxl },
-  stateEmoji: { fontSize: 44, marginBottom: spacing.sm },
-  stateTitle: { fontSize: font.size.xl, fontWeight: font.weight.bold, color: colors.text, textAlign: "center" },
-  stateBody: { fontSize: font.size.md, color: colors.textMuted, textAlign: "center", marginTop: spacing.xs, lineHeight: 22 },
+  stateCard: { alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.xs, ...shadow.sm },
+  stateEmoji: { fontSize: emoji.lg, marginBottom: spacing.sm },
+  stateTitle: { ...type.heading, fontSize: font.size.xl, textAlign: "center", marginTop: spacing.md },
+  stateBody: { ...type.muted, textAlign: "center", marginTop: spacing.xs },
+  berry: { alignItems: "center", justifyContent: "center", backgroundColor: colors.accentSoft, borderWidth: 3, borderColor: colors.card, ...shadow.sm },
 });

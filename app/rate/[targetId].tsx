@@ -6,7 +6,7 @@ import { StyleSheet, Text, TextInput, View } from "react-native";
 import StarRating from "../../components/StarRating";
 import { Button, Card, Chip, EmptyState, ErrorState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import { api } from "../../convex/_generated/api";
-import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
+import { brand, colors, font, minTapTarget, radius, spacing, emoji as emojiSize } from "../../constants/theme";
 import { mockDelay } from "../../lib/mock";
 import { useUserId } from "../../lib/session";
 
@@ -157,5 +157,5 @@ const styles = StyleSheet.create({
   },
   starsLabel: { marginTop: spacing.sm, fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.textMuted },
   success: { alignItems: "center", gap: spacing.md, paddingVertical: spacing.xxl },
-  bigEmoji: { fontSize: 64 },
+  bigEmoji: { fontSize: emojiSize.xl },
 });

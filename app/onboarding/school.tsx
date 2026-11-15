@@ -2,9 +2,9 @@ import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useQuery } from "convex/react";
-import { Button, ErrorState, Screen, Subtitle } from "../../components/ui";
+import { BerryMark, Button, ErrorState, Screen, Subtitle } from "../../components/ui";
 import { SchoolCrest, SchoolPicker } from "../../components/SchoolBadge";
-import { brand, colors, font, spacing } from "../../constants/theme";
+import { brand, colors, font, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { schoolFor } from "../../lib/school";
 
@@ -54,10 +54,9 @@ export default function SchoolScreen() {
         {picked ? (
           <SchoolCrest school={picked.name} size={72} testID="school-hero-crest" />
         ) : (
-          <Text testID="school-hero-emoji" style={styles.heroEmoji}>
-            {brand.emoji}
-          </Text>
+          <BerryMark testID="school-hero-emoji" size={96} />
         )}
+        <Text style={styles.wordmark}>{brand.name.toLowerCase()}</Text>
         <Text testID="school-title" style={styles.heroTitle}>
           {picked ? `Join the ${picked.name} space` : "Pick your school"}
         </Text>
@@ -91,8 +90,8 @@ export default function SchoolScreen() {
 
 const styles = StyleSheet.create({
   hero: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.lg },
-  heroEmoji: { fontSize: 72 },
-  heroTitle: { fontSize: font.size.hero, fontWeight: font.weight.heavy, color: colors.text, textAlign: "center" },
+  wordmark: { ...type.eyebrow, marginTop: spacing.sm, letterSpacing: 3 },
+  heroTitle: { ...type.display, textAlign: "center" },
   center: { textAlign: "center" },
   loading: { fontSize: font.size.sm, color: colors.textMuted, textAlign: "center" },
 });

@@ -6,7 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { colors, font, radius, spacing } from "../../constants/theme";
+import { colors, font, radius, spacing, emoji as emojiSize } from "../../constants/theme";
 
 type RedeemerId = Id<"sponsors"> | Id<"businesses">;
 type Result = { valid: boolean; reason: string | null; studentName: string | null; crewName: string | null; itemTitle: string | null };
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   result: { alignItems: "center", gap: spacing.md },
   valid: { backgroundColor: colors.successSoft, borderColor: colors.success },
   invalid: { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
-  resultEmoji: { fontSize: 56 },
+  resultEmoji: { fontSize: emojiSize.xl },
   resultText: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.text, textAlign: "center" },
   cameraWrap: { height: 340, borderRadius: radius.lg, overflow: "hidden", backgroundColor: "#000", justifyContent: "center" },
   cancel: { position: "absolute", bottom: spacing.md, left: spacing.md, right: spacing.md },

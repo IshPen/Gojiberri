@@ -10,7 +10,7 @@ import ConfettiCannon from "react-native-confetti-cannon";
 import SponsoredBadge from "../../components/SponsoredBadge";
 import WhopCard from "../../components/WhopCard";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
-import { colors, font, radius, spacing } from "../../constants/theme";
+import { colors, font, motion, radius, spacing, type } from "../../constants/theme";
 import { mockDelay, useMockQuery } from "../../lib/mock";
 import { useUserId } from "../../lib/session";
 
@@ -343,7 +343,7 @@ export default function PotScreen() {
         </View>
       ) : null}
 
-      {showConfetti ? <ConfettiCannon testID="pot-confetti" count={140} origin={{ x: -10, y: 0 }} fadeOut autoStart /> : null}
+      {showConfetti ? <ConfettiCannon testID="pot-confetti" count={140} origin={{ x: -10, y: 0 }} colors={motion.confettiColors} fallSpeed={2600} fadeOut autoStart /> : null}
     </Screen>
   );
 }
@@ -417,10 +417,10 @@ function summarizeContributors(transactions: Transaction[], members: Member[]): 
 
 const styles = StyleSheet.create({
   progressHeader: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginBottom: spacing.md },
-  balance: { fontSize: font.size.hero, fontWeight: font.weight.heavy, color: colors.text },
+  balance: { ...type.display, fontVariant: ["tabular-nums"] },
   goal: { fontSize: font.size.lg, fontWeight: font.weight.semibold, color: colors.textMuted },
-  remaining: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.accent },
-  track: { height: 14, borderRadius: radius.pill, backgroundColor: colors.cardMuted, overflow: "hidden" },
+  remaining: { fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.accentDark },
+  track: { height: 14, borderRadius: radius.pill, backgroundColor: colors.accentSoft, overflow: "hidden" },
   fill: { height: "100%", borderRadius: radius.pill, backgroundColor: colors.accent },
   error: { color: colors.danger, fontSize: font.size.sm, fontWeight: font.weight.semibold, textAlign: "center" },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg },

@@ -1,8 +1,8 @@
 import { useQuery } from "convex/react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, font, minTapTarget, radius, spacing } from "../constants/theme";
+import { colors, font, minTapTarget, radius, shadow, spacing, type } from "../constants/theme";
 import { api } from "../convex/_generated/api";
-import { SCHOOLS, schoolFor, withAlpha } from "../lib/school";
+import { SCHOOLS, schoolFor } from "../lib/school";
 
 export function SchoolCrest({ school, size = 44, testID }: { school: string | null | undefined; size?: number; testID?: string }) {
   const s = schoolFor(school);
@@ -23,10 +23,10 @@ export function SchoolHeader({ school, testID = "school-header-badge" }: { schoo
   const s = schoolFor(school);
   const count = crews === undefined ? null : crews.length;
   return (
-    <View testID={testID} style={[styles.header, { backgroundColor: withAlpha(s.color, 0.1), borderColor: withAlpha(s.color, 0.35) }]}>
+    <View testID={testID} style={styles.header}>
       <SchoolCrest school={school} size={34} testID={testID + "-crest"} />
       <View style={styles.headerBody}>
-        <Text testID={testID + "-name"} style={[styles.headerName, { color: s.color }]} numberOfLines={1}>
+        <Text testID={testID + "-name"} style={styles.headerName} numberOfLines={1}>
           {school ? `${s.name} space` : "Pick your school"}
         </Text>
         <Text testID={testID + "-count"} style={styles.headerMeta} numberOfLines={1}>
@@ -51,16 +51,16 @@ export function SchoolPicker({ selected, onSelect, counts }: { selected: string 
             accessibilityState={{ selected: on }}
             accessibilityLabel={`Join the ${s.name} space`}
             onPress={() => onSelect(s.name)}
-            style={[styles.option, { borderColor: on ? s.color : colors.border, backgroundColor: on ? withAlpha(s.color, 0.1) : colors.card }]}
+            style={[styles.option, on && styles.optionOn]}
           >
             <SchoolCrest school={s.name} size={40} testID={`school-crest-${s.slug}`} />
             <View style={styles.headerBody}>
-              <Text style={[styles.optionName, on && { color: s.color }]}>{s.name}</Text>
+              <Text style={styles.optionName}>{s.name}</Text>
               <Text testID={`school-count-${s.slug}`} style={styles.headerMeta} numberOfLines={1}>
                 {c ? `${c.crews} ${c.crews === 1 ? "crew" : "crews"} · ${c.students} ${c.students === 1 ? "student" : "students"} here` : s.tagline}
               </Text>
             </View>
-            <Text style={[styles.check, { color: s.color }]}>{on ? "✓" : ""}</Text>
+            <Text style={styles.check}>{on ? "✓" : ""}</Text>
           </Pressable>
         );
       })}
@@ -71,12 +71,13 @@ export function SchoolPicker({ selected, onSelect, counts }: { selected: string 
 const styles = StyleSheet.create({
   crest: { alignItems: "center", justifyContent: "center", borderTopLeftRadius: radius.sm, borderTopRightRadius: radius.sm },
   crestText: { color: colors.textOnAccent, fontWeight: font.weight.heavy, letterSpacing: 0.5 },
-  header: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1 },
+  header: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, ...shadow.sm },
   headerBody: { flex: 1, gap: 2 },
-  headerName: { fontSize: font.size.md, fontWeight: font.weight.heavy },
-  headerMeta: { fontSize: font.size.sm, color: colors.textMuted },
+  headerName: { ...type.heading, fontSize: font.size.md },
+  headerMeta: { ...type.label, fontWeight: font.weight.regular },
   picker: { gap: spacing.sm },
-  option: { flexDirection: "row", alignItems: "center", gap: spacing.md, minHeight: minTapTarget + 20, padding: spacing.md, borderRadius: radius.lg, borderWidth: 2 },
-  optionName: { fontSize: font.size.lg, fontWeight: font.weight.heavy, color: colors.text },
-  check: { fontSize: font.size.xl, fontWeight: font.weight.heavy, width: 24, textAlign: "center" },
+  option: { flexDirection: "row", alignItems: "center", gap: spacing.md, minHeight: minTapTarget + 20, padding: spacing.md, borderRadius: radius.lg, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.card },
+  optionOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  optionName: type.heading,
+  check: { fontSize: font.size.xl, fontWeight: font.weight.heavy, width: 24, textAlign: "center", color: colors.accent },
 });
