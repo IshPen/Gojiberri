@@ -192,5 +192,7 @@ export default defineSchema({
     userId: v.id("users"),
     reason: v.union(v.literal("checkin"), v.literal("solo"), v.literal("confirm"), v.literal("rate")),
     points: v.number(),
+    planId: v.optional(v.id("plans")),
+    groupId: v.optional(v.id("groups")),
   }).index("by_user", ["userId"]),
 });
