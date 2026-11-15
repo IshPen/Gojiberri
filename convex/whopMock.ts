@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { env, internalMutation, internalQuery } from "./_generated/server";
+import { env, internalMutation, internalQuery, mutation, MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 
 function checkoutUrl(token: string) {
   if (env.WHOP_MOCK !== "true") throw new Error("Whop demo mode is disabled");
@@ -8,53 +9,88 @@ function checkoutUrl(token: string) {
   return `${env.CONVEX_SITE_URL}/whop/mock-checkout?token=${token}`;
 }
 
+function newToken() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function insertContribution(
+  ctx: MutationCtx,
+  { token, userId, groupId, amount }: { token: string; userId: Id<"users">; groupId: Id<"groups">; amount: number },
+) {
+  const url = checkoutUrl(token);
+  const cents = Math.round(amount * 100);
+  if (!Number.isSafeInteger(cents) || cents < 1 || Math.abs(amount * 100 - cents) > 1e-6) {
+    throw new Error("Enter a valid contribution in dollars and cents");
+  }
+  const group = await ctx.db.get("groups", groupId);
+  if (!group?.memberIds.includes(userId) || !(await ctx.db.get("users", userId))) {
+    throw new Error("Only crew members can contribute");
+  }
+  const pot = await ctx.db.query("pots").withIndex("by_group", (q) => q.eq("groupId", groupId)).unique();
+  if (!pot) throw new Error("This group doesn't have a fund yet");
+  if (await ctx.db.query("whopMockCheckouts").withIndex("by_token", (q) => q.eq("token", token)).unique()) {
+    throw new Error("Demo checkout token already exists");
+  }
+  await ctx.db.insert("whopMockCheckouts", {
+    token, kind: "contribution", userId, potId: pot._id, amount: cents / 100,
+    currency: "usd", title: `${group.name} fun fund`, status: "pending", expiresAt: Date.now() + 30 * 60 * 1000,
+  });
+  return url;
+}
+
 export const createContribution = internalMutation({
   args: { token: v.string(), userId: v.id("users"), groupId: v.id("groups"), amount: v.number() },
-  handler: async (ctx, { token, userId, groupId, amount }) => {
-    const url = checkoutUrl(token);
-    const cents = Math.round(amount * 100);
-    if (!Number.isSafeInteger(cents) || cents < 1 || Math.abs(amount * 100 - cents) > 1e-6) {
-      throw new Error("Enter a valid contribution in dollars and cents");
-    }
-    const group = await ctx.db.get("groups", groupId);
-    if (!group?.memberIds.includes(userId) || !(await ctx.db.get("users", userId))) {
-      throw new Error("Only crew members can contribute");
-    }
-    const pot = await ctx.db.query("pots").withIndex("by_group", (q) => q.eq("groupId", groupId)).unique();
-    if (!pot) throw new Error("This group doesn't have a fund yet");
-    if (await ctx.db.query("whopMockCheckouts").withIndex("by_token", (q) => q.eq("token", token)).unique()) {
-      throw new Error("Demo checkout token already exists");
-    }
-    await ctx.db.insert("whopMockCheckouts", {
-      token, kind: "contribution", userId, potId: pot._id, amount: cents / 100,
-      currency: "usd", title: `${group.name} fun fund`, status: "pending", expiresAt: Date.now() + 30 * 60 * 1000,
-    });
-    return url;
-  },
+  handler: insertContribution,
 });
+
+async function insertExperience(ctx: MutationCtx, { token, purchaseId }: { token: string; purchaseId: Id<"experiencePurchases"> }) {
+  const url = checkoutUrl(token);
+  const purchase = await ctx.db.get("experiencePurchases", purchaseId);
+  if (!purchase || purchase.status !== "pending" || purchase.whopCheckoutId || !purchase.whopPlanId) {
+    throw new Error("Purchase is not available for demo checkout");
+  }
+  const business = await ctx.db.get("businesses", purchase.businessId);
+  if (!business) throw new Error("Business not found");
+  if (await ctx.db.query("whopMockCheckouts").withIndex("by_token", (q) => q.eq("token", token)).unique()) {
+    throw new Error("Demo checkout token already exists");
+  }
+  await ctx.db.insert("whopMockCheckouts", {
+    token, kind: "experience", userId: purchase.userId, purchaseId,
+    amount: purchase.amount, currency: purchase.currency, title: business.name,
+    status: "pending", expiresAt: Date.now() + 30 * 60 * 1000,
+  });
+  await ctx.runMutation(internal.purchases.attachCheckout, {
+    purchaseId, whopCheckoutId: `ch_mock_${token}`, checkoutUrl: url,
+  });
+  return url;
+}
 
 export const createExperience = internalMutation({
   args: { token: v.string(), purchaseId: v.id("experiencePurchases") },
-  handler: async (ctx, { token, purchaseId }) => {
-    const url = checkoutUrl(token);
-    const purchase = await ctx.db.get("experiencePurchases", purchaseId);
-    if (!purchase || purchase.status !== "pending" || purchase.whopCheckoutId || !purchase.whopPlanId) {
-      throw new Error("Purchase is not available for demo checkout");
+  handler: insertExperience,
+});
+
+export const startContributionCheckout = mutation({
+  args: { userId: v.id("users"), groupId: v.id("groups"), amount: v.number() },
+  handler: async (ctx, args): Promise<{ mode: "real" } | { mode: "mock"; checkoutUrl: string }> => {
+    if (env.WHOP_MOCK !== "true") return { mode: "real" };
+    return { mode: "mock", checkoutUrl: await insertContribution(ctx, { ...args, token: newToken() }) };
+  },
+});
+
+export const startExperienceCheckout = mutation({
+  args: { experienceId: v.id("experiences"), userId: v.id("users"), groupId: v.optional(v.id("groups")) },
+  handler: async (ctx, { experienceId, userId, groupId }): Promise<{ mode: "real" } | { mode: "mock"; checkoutUrl: string }> => {
+    if (env.WHOP_MOCK !== "true") return { mode: "real" };
+    const experience = await ctx.db.get("experiences", experienceId);
+    if (!experience?.active || !(await ctx.db.get("businesses", experience.businessId))) throw new Error("This experience isn't for sale");
+    if (!experience.whopPlanId) {
+      await ctx.runMutation(internal.context.saveExperienceWhopIds, {
+        experienceId, whopProductId: `prod_mock_${experienceId}`, whopPlanId: `plan_mock_${experienceId}`,
+      });
     }
-    const business = await ctx.db.get("businesses", purchase.businessId);
-    if (!business) throw new Error("Business not found");
-    if (await ctx.db.query("whopMockCheckouts").withIndex("by_token", (q) => q.eq("token", token)).unique()) {
-      throw new Error("Demo checkout token already exists");
-    }
-    await ctx.db.insert("whopMockCheckouts", {
-      token, kind: "experience", userId: purchase.userId, purchaseId,
-      amount: purchase.amount, currency: purchase.currency, title: business.name,
-      status: "pending", expiresAt: Date.now() + 30 * 60 * 1000,
-    });
-    await ctx.runMutation(internal.purchases.attachCheckout, {
-      purchaseId, whopCheckoutId: `ch_mock_${token}`, checkoutUrl: url,
-    });
-    return url;
+    const purchaseId = await ctx.runMutation(internal.purchases.createPending, { userId, experienceId, groupId, quantity: 1 });
+    return { mode: "mock", checkoutUrl: await insertExperience(ctx, { purchaseId, token: newToken() }) };
   },
 });
 

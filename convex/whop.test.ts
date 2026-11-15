@@ -601,6 +601,86 @@ describe("explicit Whop demo mode", () => {
     expect((await state()).transactions).toEqual([]);
   });
 
+  it("starts mock checkouts in a V8 mutation with the same rows and URL as the Node actions", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const strip = <T extends { _id: unknown; _creationTime: number; token: string }>({ _id, _creationTime, token: _token, ...rest }: T) => rest;
+    const rows = async (start: boolean) => {
+      const { t, ids } = await fixture();
+      await t.run((ctx) => ctx.db.patch("experiences", ids.experienceId, { whopPlanId: undefined }));
+      const contribution = start
+        ? await t.mutation(api.whopMock.startContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 12.34 })
+        : { mode: "mock", checkoutUrl: await t.action(api.whop.createContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 12.34 }) };
+      const experience = start
+        ? await t.mutation(api.whopMock.startExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId, groupId: ids.groupId })
+        : { mode: "mock", checkoutUrl: await t.action(api.experienceCheckout.createExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId, groupId: ids.groupId }) };
+      expect(contribution.mode).toBe("mock");
+      expect(experience.mode).toBe("mock");
+      const tokens = [contribution, experience].map((result) => tokenFrom((result as { checkoutUrl: string }).checkoutUrl));
+      return t.run(async (ctx) => {
+        const checkouts = await ctx.db.query("whopMockCheckouts").collect();
+        const purchases = (await ctx.db.query("experiencePurchases").collect()).filter((p) => p._id !== ids.purchaseId);
+        expect(checkouts.map((c) => c.token)).toEqual(tokens);
+        expect(purchases.map((p) => p.whopCheckoutId)).toEqual([`ch_mock_${tokens[1]}`]);
+        expect(purchases[0].checkoutUrl).toBe((experience as { checkoutUrl: string }).checkoutUrl);
+        return {
+          checkouts: checkouts.map(strip).map((c) => ({ ...c, purchaseId: c.purchaseId && "new" })),
+          purchases: purchases.map(({ _id, _creationTime, whopCheckoutId: _checkout, checkoutUrl: _url, ...rest }) => rest),
+          experience: await ctx.db.get("experiences", ids.experienceId),
+        };
+      });
+    };
+    const viaStart = await rows(true);
+    expect(viaStart).toEqual(await rows(false));
+    expect(viaStart.checkouts).toMatchObject([
+      { kind: "contribution", amount: 12.34, status: "pending", title: "Synthetic crew fun fund" },
+      { kind: "experience", amount: 25.5, status: "pending", title: "Synthetic business" },
+    ]);
+    expect(viaStart.purchases).toMatchObject([{ status: "pending", quantity: 1, amount: 25.5 }]);
+    expect(viaStart.experience?.whopPlanId).toMatch(/^plan_mock_/);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, "false", "TRUE"])("start mutations return real mode and write nothing unless the flag is exactly true (%s)", async (flag) => {
+    vi.stubEnv("WHOP_MOCK", flag);
+    const { t, ids } = await fixture();
+    await t.run((ctx) => ctx.db.patch("experiences", ids.experienceId, { whopPlanId: undefined }));
+    const before = await t.run(async (ctx) => ({
+      experience: await ctx.db.get("experiences", ids.experienceId),
+      purchases: await ctx.db.query("experiencePurchases").collect(),
+    }));
+    expect(await t.mutation(api.whopMock.startContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 10 })).toEqual({ mode: "real" });
+    expect(await t.mutation(api.whopMock.startExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId })).toEqual({ mode: "real" });
+    expect(await t.run(async (ctx) => ({
+      experience: await ctx.db.get("experiences", ids.experienceId),
+      purchases: await ctx.db.query("experiencePurchases").collect(),
+    }))).toEqual(before);
+    expect(await t.run((ctx) => ctx.db.query("whopMockCheckouts").collect())).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("validates start amounts and experiences without writing, and pays a started token exactly once", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, ids, state } = await fixture();
+    for (const amount of [0, 0.004, 1.005, -1]) {
+      await expect(t.mutation(api.whopMock.startContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount })).rejects.toThrow("dollars and cents");
+    }
+    await t.run((ctx) => ctx.db.patch("experiences", ids.experienceId, { active: false }));
+    await expect(t.mutation(api.whopMock.startExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId })).rejects.toThrow("isn't for sale");
+    expect(await t.run((ctx) => ctx.db.query("whopMockCheckouts").collect())).toEqual([]);
+    expect(await t.run((ctx) => ctx.db.query("experiencePurchases").collect())).toHaveLength(1);
+    const first = await t.mutation(api.whopMock.startContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 10 });
+    const second = await t.mutation(api.whopMock.startContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 10 });
+    const token = tokenFrom((first as { checkoutUrl: string }).checkoutUrl);
+    expect(tokenFrom((second as { checkoutUrl: string }).checkoutUrl)).not.toBe(token);
+    const responses = await Promise.all([pay(t, token), pay(t, token)]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect((await pay(t, token)).status).toBe(200);
+    const after = await state();
+    expect(after.pot?.balance).toBe(50);
+    expect(after.transactions).toHaveLength(1);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("never calls Whop for demo transfers or unsupported sponsor checkout", async () => {
     vi.stubEnv("WHOP_MOCK", "true");
     const { t, ids } = await fixture();
