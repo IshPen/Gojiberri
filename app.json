@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Gojiberri",
+    "slug": "gojiberri",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "gojiberri",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCalendarsUsageDescription": "Gojiberri reads when you're busy so plans fit everyone's free time.",
+        "NSCalendarsFullAccessUsageDescription": "Gojiberri reads when you're busy so plans fit everyone's free time, and adds locked plans to your calendar.",
+        "NSCameraUsageDescription": "Gojiberri uses the camera for photo check-ins.",
+        "NSPhotoLibraryUsageDescription": "Gojiberri lets you pick a photo for your check-in."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFF4EE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
