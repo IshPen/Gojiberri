@@ -149,9 +149,8 @@ export const pay = internalMutation({
   handler: (ctx, { token }) => payCheckout(ctx, token),
 });
 
-function snapshot(checkout: Doc<"whopMockCheckouts">) {
-  const status = checkout.status === "paid" ? "paid" : checkout.expiresAt <= Date.now() ? "expired" : "pending";
-  return { kind: checkout.kind, title: checkout.title, amount: checkout.amount, currency: checkout.currency, status } as const;
+function snapshot({ kind, title, amount, currency, status, expiresAt }: Doc<"whopMockCheckouts">) {
+  return { kind, title, amount, currency, status, expiresAt };
 }
 
 export const getMockCheckout = query({

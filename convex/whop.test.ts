@@ -688,7 +688,7 @@ describe("explicit Whop demo mode", () => {
     if (started.mode !== "mock") throw new Error("expected mock mode");
     expect(tokenFrom(started.checkoutUrl)).toBe(started.token);
     expect(await t.query(api.whopMock.getMockCheckout, { token: started.token })).toEqual({
-      kind: "contribution", title: "Synthetic crew fun fund", amount: 10, currency: "usd", status: "pending",
+      kind: "contribution", title: "Synthetic crew fun fund", amount: 10, currency: "usd", status: "pending", expiresAt: now + 30 * 60 * 1000,
     });
     const results = await Promise.allSettled([
       t.mutation(api.whopMock.payMockCheckout, { token: started.token }),
@@ -707,7 +707,7 @@ describe("explicit Whop demo mode", () => {
     const experience = await t.mutation(api.whopMock.startExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId });
     if (experience.mode !== "mock") throw new Error("expected mock mode");
     expect(await t.mutation(api.whopMock.payMockCheckout, { token: experience.token })).toEqual({
-      kind: "experience", title: "Synthetic business", amount: 25.5, currency: "usd", status: "paid",
+      kind: "experience", title: "Synthetic business", amount: 25.5, currency: "usd", status: "paid", expiresAt: now + 30 * 60 * 1000,
     });
     expect((await state()).business?.earned).toBe(32.5);
     expect(fetch).not.toHaveBeenCalled();
@@ -727,7 +727,7 @@ describe("explicit Whop demo mode", () => {
     await expect(t.mutation(api.whopMock.payMockCheckout, { token: started.token })).rejects.toThrow("Not found");
     vi.stubEnv("WHOP_MOCK", "true");
     vi.spyOn(Date, "now").mockReturnValue(now + 31 * 60 * 1000);
-    expect(await t.query(api.whopMock.getMockCheckout, { token: started.token })).toMatchObject({ status: "expired" });
+    expect(await t.query(api.whopMock.getMockCheckout, { token: started.token })).toMatchObject({ status: "pending", expiresAt: now + 30 * 60 * 1000 });
     await expect(t.mutation(api.whopMock.payMockCheckout, { token: started.token })).rejects.toThrow("expired");
     expect((await state()).pot?.balance).toBe(40);
     expect((await state()).transactions).toEqual([]);
