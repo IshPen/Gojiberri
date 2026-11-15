@@ -121,7 +121,10 @@ export const markPaid = internalMutation({
     } else if (args.whopCheckoutId !== undefined && purchase.whopCheckoutId && args.whopCheckoutId !== purchase.whopCheckoutId) {
       reason = `Paid checkout ${args.whopCheckoutId}, expected ${purchase.whopCheckoutId}`;
     }
-    if (reason) {
+    const business = await ctx.db.get("businesses", purchase.businessId);
+    if (!business) reason ??= `Business ${purchase.businessId} not found`;
+    if (reason || !business) {
+      reason ??= "Business not found";
       await ctx.db.patch("experiencePurchases", purchase._id, { status: "failed", failureReason: reason });
       return { result: "failed" as const, reason };
     }
@@ -133,8 +136,7 @@ export const markPaid = internalMutation({
       failureReason: undefined,
       ...(purchase.whopCheckoutId ? {} : args.whopCheckoutId ? { whopCheckoutId: args.whopCheckoutId } : {}),
     });
-    const business = await ctx.db.get("businesses", purchase.businessId);
-    if (business) await ctx.db.patch("businesses", business._id, { earned: business.earned + purchase.amount });
+    await ctx.db.patch("businesses", business._id, { earned: business.earned + purchase.amount });
     return { result: "completed" as const };
   },
 });
