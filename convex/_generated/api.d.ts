@@ -9,6 +9,7 @@
  */
 
 import type * as availability from "../availability.js";
+import type * as businessDashboard from "../businessDashboard.js";
 import type * as businesses from "../businesses.js";
 import type * as cards from "../cards.js";
 import type * as context from "../context.js";
@@ -41,6 +42,7 @@ import type * as reminders from "../reminders.js";
 import type * as seed from "../seed.js";
 import type * as sponsors from "../sponsors.js";
 import type * as suggest from "../suggest.js";
+import type * as taste from "../taste.js";
 import type * as time from "../time.js";
 import type * as users from "../users.js";
 import type * as votes from "../votes.js";
@@ -55,6 +57,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   availability: typeof availability;
+  businessDashboard: typeof businessDashboard;
   businesses: typeof businesses;
   cards: typeof cards;
   context: typeof context;
@@ -87,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   sponsors: typeof sponsors;
   suggest: typeof suggest;
+  taste: typeof taste;
   time: typeof time;
   users: typeof users;
   votes: typeof votes;

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { external, scheduleExternal } from "./refs";
 
 const timeBlock = v.object({ start: v.number(), end: v.number() });
@@ -43,6 +44,7 @@ export const updatePreferences = mutation({
   handler: async (ctx, { userId, ...prefs }) => {
     await ctx.db.patch("users", userId, { ...prefs, onboarded: true });
     await scheduleExternal(ctx, external.rememberPreferences, { userId });
+    await ctx.scheduler.runAfter(0, internal.taste.rebuild, { userId });
     return null;
   },
 });

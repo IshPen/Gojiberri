@@ -1,5 +1,4 @@
-import { makeFunctionReference } from "convex/server";
-import { ConvexError, type GenericId as Id } from "convex/values";
+import type { GenericId as Id } from "convex/values";
 import { useAction, useMutation, useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
 import { Stack, useLocalSearchParams, type ErrorBoundaryProps } from "expo-router";
@@ -13,23 +12,11 @@ import WhopCard from "../../components/WhopCard";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
 import { colors, font, motion, radius, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
+import { friendlyError } from "../../lib/errors";
 import { useUserId } from "../../lib/session";
-import { formatDollars, mockPlanSplit, mockPotShares, type PlanSplit, type PotShare } from "../../lib/split";
-
-// HOME-38: funds.getPotShares and funds.getPlanSplit, referenced by name until they deploy. Flip SPLIT_MOCK once they do.
-const SPLIT_MOCK = true;
-const getPotSharesRef = makeFunctionReference<"query", { groupId: Id<"groups"> }, PotShare[]>("funds:getPotShares");
-const getPlanSplitRef = makeFunctionReference<"query", { planId: Id<"plans"> }, PlanSplit | null>("funds:getPlanSplit");
+import { formatDollars, type PlanSplit } from "../../lib/split";
 
 const DEFAULT_PER_MEMBER = 20;
-
-type Short = { userId: Id<"users">; name: string; shortBy: number };
-
-function shortFrom(e: unknown): Short[] | null {
-  if (!(e instanceof ConvexError)) return null;
-  const data = e.data as { code?: string; attendees?: Short[] } | undefined;
-  return data?.code === "ATTENDEES_SHORT" ? data.attendees ?? [] : null;
-}
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
@@ -46,7 +33,7 @@ export default function PotScreen() {
   const { userId } = useUserId();
   const me = userId as Id<"users"> | null;
 
-  const [busy, setBusy] = useState<"start" | "chip" | "topup" | "pay" | null>(null);
+  const [busy, setBusy] = useState<"start" | "chip" | "topup" | "pay" | "issue" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
 
@@ -57,32 +44,13 @@ export default function PotScreen() {
 
   const winner = plan && plan.status === "locked" && plan.winningIndex !== undefined ? plan.options[plan.winningIndex] : undefined;
   const experienceId = winner?.experienceId;
-  const experience = useQuery(api.experiences.getExperience, SPLIT_MOCK && experienceId ? { experienceId } : "skip");
-
-  const liveShares = useQuery(getPotSharesRef, !SPLIT_MOCK && groupId ? { groupId } : "skip");
-  const liveSplit = useQuery(getPlanSplitRef, !SPLIT_MOCK && planId && experienceId ? { planId: pid } : "skip");
-
-  const members = plan?.group.members ?? [];
-  const shares = SPLIT_MOCK ? (pot ? mockPotShares(members, pot.transactions) : pot) : liveShares;
-  const split: PlanSplit | null | undefined = !experienceId || pot === null
-    ? null
-    : !SPLIT_MOCK
-      ? liveSplit
-      : experience === undefined || !shares || !pot
-        ? undefined
-        : experience === null
-          ? null
-          : mockPlanSplit({
-              planId: pid,
-              experienceId,
-              pricePerPerson: experience.pricePerPerson,
-              attendees: members.filter((m) => plan?.votes.some((v) => v.userId === m._id && v.confirmed)),
-              shares,
-              transactions: pot.transactions,
-            });
+  const shares = useQuery(api.funds.getPotShares, groupId ? { groupId } : "skip");
+  const liveSplit = useQuery(api.funds.getPlanSplit, planId && experienceId ? { planId: pid } : "skip");
+  const split: PlanSplit | null | undefined = !experienceId || pot === null ? null : liveSplit;
 
   const createPot = useMutation(api.funds.createPot);
   const chargeCard = useMutation(api.cards.chargeCard);
+  const issueCard = useMutation(api.cards.issueCard);
   const checkout = useAction(api.whop.createContributionCheckout);
 
   const run = async (kind: NonNullable<typeof busy>, fn: () => Promise<void>) => {
@@ -91,16 +59,7 @@ export default function PotScreen() {
     try {
       await fn();
     } catch (e) {
-      const short = shortFrom(e);
-      setActionError(
-        short
-          ? `Still short: ${short.map((s) => `${s.name} needs ${formatDollars(s.shortBy)}`).join(", ")}.`
-          : e instanceof ConvexError
-            ? String(e.data)
-            : e instanceof Error
-              ? e.message
-              : "Something went wrong.",
-      );
+      setActionError(friendlyError(e));
     } finally {
       setBusy(null);
     }
@@ -110,7 +69,7 @@ export default function PotScreen() {
     run(kind, async () => {
       if (!groupId) return;
       if (!me) throw new Error("Sign in to add money.");
-      const url = await checkout({ userId: me, groupId, amount: Math.max(1, amount) });
+      const url = await checkout({ userId: me, groupId, amount });
       await WebBrowser.openBrowserAsync(url);
     });
 
@@ -202,6 +161,20 @@ export default function PotScreen() {
       {actionError ? <ActionError message={actionError} /> : null}
 
       <WhopCard crewName={crewName} balance={pot.balance} goal={split?.total || pot.balance} last4={cardView?.card.last4} limit={cardView?.limit ?? pot.balance} sandbox />
+      {cardView === null ? (
+        <Button
+          testID="pot-issue-card-button"
+          label="Issue card"
+          icon="💳"
+          variant="secondary"
+          loading={busy === "issue"}
+          disabled={!!busy}
+          onPress={() => run("issue", async () => void (await issueCard({ groupId: plan.groupId })))}
+        />
+      ) : null}
+      <Text testID="pot-card-note" style={[styles.muted, { textAlign: "center", fontSize: font.size.sm }]}>
+        Demo card: Whop is simulated. No real money moves.
+      </Text>
 
       <Button
         testID="pot-chip-in-button"
@@ -322,19 +295,8 @@ function SplitCard({
         <>
           {mine && mine.shortBy > 0 ? (
             <>
-              <Button
-                testID="pot-top-up"
-                label={mine.shortBy < 1 ? "Top up $1 (min)" : `Top up ${formatDollars(mine.shortBy)}`}
-                loading={busy === "topup"}
-                disabled={!!busy}
-                onPress={() => onTopUp(mine.shortBy)}
-              />
+              <Button testID="pot-top-up" label={`Top up ${formatDollars(mine.shortBy)}`} loading={busy === "topup"} disabled={!!busy} onPress={() => onTopUp(mine.shortBy)} />
               <DemoPaymentLabel testID="pot-top-up-demo" />
-              {mine.shortBy < 1 ? (
-                <Text testID="pot-top-up-min" style={[styles.muted, { textAlign: "center" }]}>
-                  Top-ups start at $1. The extra stays in your share.
-                </Text>
-              ) : null}
             </>
           ) : null}
           <Button

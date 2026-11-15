@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, MutationCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { external, scheduleExternal } from "./refs";
 import { AwardItem, awardPoints, checkinItems, crewStreak, FULLCREW_ITEM } from "./points";
 import { lockQuote } from "./novelty";
@@ -73,6 +74,7 @@ export const savePhoto = mutation({
     const novelty = await lockQuote(ctx, args.userId, plan);
     const items = checkinItems(novelty.points, await crewStreak(ctx, group, plan.window.start, plan._id));
     for (const item of items) await awardPoints(ctx, args.userId, item.reason, source, item.points);
+    await ctx.scheduler.runAfter(0, internal.taste.rebuild, { userId: args.userId });
 
     const wholeCrew = group.memberIds.every(
       (id) => id === args.userId || (memberEvents.get(id) ?? []).some(isCheckin),

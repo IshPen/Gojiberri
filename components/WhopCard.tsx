@@ -31,7 +31,7 @@ export default function WhopCard({ crewName, balance, goal, last4, limit, sandbo
         </Text>
         {sandbox ? (
           <View testID={`${testID}-sandbox`} style={styles.sandbox}>
-            <Text style={styles.sandboxText}>SANDBOX</Text>
+            <Text style={styles.sandboxText}>DEMO</Text>
           </View>
         ) : null}
       </View>
