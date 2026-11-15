@@ -60,7 +60,7 @@ export const createDeposit = action({
     if (deposit.status !== "pending") throw new Error(`Your deposit for this plan is already ${deposit.status}`);
     if (deposit.checkoutUrl) return deposit.checkoutUrl;
 
-    const checkoutUrl = await createCheckout("Sidequest $5 flake deposit", DEPOSIT_AMOUNT, {
+    const checkoutUrl = await createCheckout("Gojiberri $5 flake deposit", DEPOSIT_AMOUNT, {
       kind: "deposit",
       depositId: deposit._id,
     });
