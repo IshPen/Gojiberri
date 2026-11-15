@@ -6,6 +6,7 @@ import schema from "./schema";
 import { api } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { CAMPUS_CENTERS } from "./places";
+import { computeTaste, TasteInput } from "./taste";
 import { addDays, localDate } from "./time";
 
 const modules = { ...import.meta.glob("./**/*.ts"), ...import.meta.glob("./_generated/*.js") };
@@ -16,6 +17,11 @@ type Offer = { title: string; price: number; tags: string[]; km?: number; minGro
 
 const KM_PER_DEG_LAT = 111.2;
 const today = localDate(Date.now());
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type Taste = Partial<Omit<TasteInput, "user">>;
+const profileOf = (persona: Persona, taste: Taste = {}) =>
+  computeTaste({ user: persona, swipes: [], ratings: [], passes: [], checkins: [], ...taste });
 
 function world(persona: Persona) {
   const t = convexTest(schema, modules);
@@ -23,11 +29,12 @@ function world(persona: Persona) {
   const north = (km = 1) => ({ lat: campus.lat + km / KM_PER_DEG_LAT, lng: campus.lng });
   const ids: Record<string, Id<"places"> | Id<"experiences">> = {};
 
-  const setup = async ({ spots = [], offers = [] }: { spots?: Spot[]; offers?: Offer[] }) =>
+  const setup = async ({ spots = [], offers = [], taste }: { spots?: Spot[]; offers?: Offer[]; taste?: Taste }) =>
     await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         ...persona, onboarded: true, points: 0, diamonds: 0, streak: 0, busyBlocks: [],
       });
+      if (taste) await ctx.db.insert("tasteProfiles", { userId, ...profileOf(persona, taste), updatedAt: Date.now() });
       for (const s of spots) {
         ids[s.name] = await ctx.db.insert("places", {
           name: s.name, area: persona.homeArea, category: s.category ?? "activity", priceLevel: s.priceLevel ?? 1,
@@ -71,6 +78,7 @@ describe("recs.forYou", () => {
   it("keeps a vegetarian on a $20 budget within budget and near campus, with the fitting partner first", async () => {
     const w = world({ name: "Vera", budgetMax: 20, homeArea: "Stanford", diet: ["vegetarian"], vibes: ["cozy", "arts"] });
     const userId = await w.setup({
+      taste: {},
       offers: [
         { title: "Veg supper club", price: 18, tags: ["cozy", "vegetarian-friendly"] },
         { title: "Tasting menu", price: 45, tags: ["cozy", "vegetarian-friendly"] },
@@ -95,7 +103,7 @@ describe("recs.forYou", () => {
     expect(recs.find((r) => r.title === "Far cozy café")!.distanceKm).toBeCloseTo(12, 0);
   });
 
-  it("lifts a fitting partner above a slightly better non-partner, but never over budget or a disliked tag", async () => {
+  it("lifts a fitting partner above a slightly better non-partner, but never over budget or a disliked tag (no profile, vibes fallback)", async () => {
     const w = world({ name: "Max", budgetMax: 20, homeArea: "Stanford", diet: [], vibes: ["climbing", "music"] });
     const userId = await w.setup({
       offers: [
@@ -119,32 +127,87 @@ describe("recs.forYou", () => {
     expect(names).toContain("Record shop");
   });
 
-  it("uses the user's own pot share as the budget for a crew feed and respects crew size", async () => {
-    const w = world({ name: "Pat", budgetMax: 50, homeArea: "Stanford", diet: [], vibes: ["games"] });
+  it("filters a crew feed on max(budgetMax, pot share), lets the pot share drive the reason, and respects crew size", async () => {
+    const w = world({ name: "Pat", budgetMax: 20, homeArea: "Stanford", diet: [], vibes: ["games"] });
     const userId = await w.setup({
+      taste: {},
       offers: [
         { title: "Cheap game night", price: 8, tags: ["games"] },
+        { title: "Board game café", price: 18, tags: ["games"] },
         { title: "Arcade pass", price: 25, tags: ["games"] },
         { title: "Big group escape room", price: 8, tags: ["games"], minGroup: 4 },
       ],
     });
-    const groupId = await w.t.run(async (ctx) => {
+    const { groupId, friend } = await w.t.run(async (ctx) => {
       const friend = await ctx.db.insert("users", {
-        name: "Fran", budgetMax: 50, homeArea: "Stanford", diet: [], vibes: [], onboarded: true, points: 0, diamonds: 0, streak: 0, busyBlocks: [],
+        name: "Fran", budgetMax: 20, homeArea: "Stanford", diet: [], vibes: [], onboarded: true, points: 0, diamonds: 0, streak: 0, busyBlocks: [],
       });
       const groupId = await ctx.db.insert("groups", { name: "Duo", inviteCode: "DUO001", ownerId: userId, memberIds: [userId, friend] });
-      const potId = await ctx.db.insert("pots", { groupId, balance: 40, monthlyContribution: 20 });
+      const potId = await ctx.db.insert("pots", { groupId, balance: 10, monthlyContribution: 20 });
       await ctx.db.insert("transactions", { potId, type: "contribution", amount: 10, userId, status: "completed" });
-      await ctx.db.insert("transactions", { potId, type: "contribution", amount: 30, userId: friend, status: "completed" });
-      return groupId;
+      return { groupId, friend };
     });
 
-    expect(titles(await w.feed(userId))).toEqual(expect.arrayContaining(["Cheap game night", "Arcade pass", "Big group escape room"]));
-    expect(titles(await w.feed(userId, { groupId }))).toEqual(["Cheap game night"]);
+    const crewFeed = await w.feed(userId, { groupId });
+    expect(titles(crewFeed.filter((r) => r.kind === "experience")).sort()).toEqual(["Board game café", "Cheap game night"]);
+    expect(crewFeed.find((r) => r.title === "Cheap game night")!.reason).toBe("You like games, your pot share covers it and it's 1 km from campus");
+    expect(crewFeed.find((r) => r.title === "Board game café")!.reason).toBe("You like games and it's 1 km from campus");
+
+    const neverChippedIn = titles(await w.feed(friend, { groupId }));
+    expect(neverChippedIn).toEqual(expect.arrayContaining(["Cheap game night", "Board game café"]));
+    expect(neverChippedIn).not.toContain("Arcade pass");
+  });
+
+  it("ranks by the taste profile's weights and drops its disliked tags", async () => {
+    const persona = { name: "Tia", budgetMax: 20, homeArea: "Stanford", diet: [], vibes: ["cozy"] };
+    const w = world(persona);
+    const climbSwipe = { chosenTags: ["climbing"], rejectedTags: [] };
+    const taste: Taste = {
+      swipes: [climbSwipe, climbSwipe, climbSwipe],
+      ratings: [{ stars: 1, tags: ["karaoke"] }, { stars: 1, tags: ["karaoke"] }],
+    };
+    expect(profileOf(persona, taste).dislikedTags).toEqual(["karaoke"]);
+    const userId = await w.setup({
+      taste,
+      spots: [
+        { name: "Cozy café", tags: ["cozy", "coffee"], km: 1 },
+        { name: "Climbing gym", tags: ["climbing", "social"], km: 1 },
+        { name: "Karaoke bar", tags: ["karaoke", "cozy"], km: 1 },
+      ],
+    });
+    const recs = await w.feed(userId);
+
+    expect(titles(recs)).toEqual(["Climbing gym", "Cozy café"]);
+  });
+
+  it("uses the profile's category history for stretch novelty", async () => {
+    const persona = { name: "Ola", budgetMax: 20, homeArea: "Stanford", diet: [], vibes: ["active", "social"] };
+    const w = world(persona);
+    const userId = await w.setup({
+      taste: {
+        checkins: [
+          { tags: [], category: "outdoors", at: Date.now() },
+          ...[1, 2, 3].map((i) => ({ tags: [], category: "arts", at: Date.now() - (60 + i) * DAY_MS })),
+        ],
+      },
+      spots: [
+        { name: "Rec center", tags: ["active", "social"], km: 1 },
+        { name: "Run club", tags: ["active", "social"], km: 1 },
+        { name: "Trail run", tags: ["active", "trails"], category: "outdoors", km: 1 },
+        { name: "Dance studio", tags: ["active", "dance"], category: "arts", km: 1 },
+        { name: "Salsa dinner", tags: ["active", "salsa"], category: "food", km: 1 },
+      ],
+    });
+    const recs = await w.feed(userId, { limit: 3 });
+
+    expect(recs.map((r) => r.slot)).toEqual(["safe", "safe", "stretch"]);
+    expect(recs[2].title).toBe("Salsa dinner");
   });
 
   describe("a climber at Berkeley", () => {
-    const climber = () => world({ name: "Cleo", budgetMax: 30, homeArea: "Berkeley", diet: [], vibes: ["climbing", "active"] });
+    const cleo = { name: "Cleo", budgetMax: 30, homeArea: "Berkeley", diet: [], vibes: ["climbing", "active"] };
+    const climber = () => world(cleo);
+    const taste: Taste = { swipes: [{ chosenTags: ["climbing", "active"], rejectedTags: ["karaoke"] }] };
     const spots: Spot[] = [
       { name: "Bouldering gym", tags: ["climbing", "active", "social"], priceLevel: 2, km: 1 },
       { name: "Fire trail", tags: ["hiking", "active", "views"], category: "outdoors", km: 2 },
@@ -161,9 +224,10 @@ describe("recs.forYou", () => {
 
     it("makes every third pick a stretch: the most novel item that still fits", async () => {
       const w = climber();
-      const userId = await w.setup({ spots });
+      const userId = await w.setup({ spots, taste });
       const recs = await w.feed(userId, { limit: 9 });
-      const vibes = new Set(["climbing", "active"]);
+      const weights = profileOf(cleo, taste).tagWeights;
+      const vibes = new Set(Object.keys(weights).filter((tag) => weights[tag] > 0));
       const unfamiliar = (tags: string[]) => tags.filter((tag) => !vibes.has(tag)).length / tags.length;
 
       expect(recs.map((r) => r.slot)).toEqual(["safe", "safe", "stretch", "safe", "safe", "stretch", "safe", "safe", "safe"]);
@@ -179,7 +243,7 @@ describe("recs.forYou", () => {
 
     it("demotes a spot checked into in the last 14 days, then brings it back", async () => {
       const w = climber();
-      const userId = await w.setup({ spots });
+      const userId = await w.setup({ spots, taste });
       expect((await w.feed(userId))[0].title).toBe("Bouldering gym");
 
       await w.pastPlan(userId, "Bouldering gym", { checkin: true });

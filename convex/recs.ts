@@ -5,6 +5,7 @@ import { potLedger, shareCents } from "./funds";
 import { ideaDetails, planIdeaKey } from "./novelty";
 import { CAMPUS_CENTERS, DEFAULT_CAMPUS, distanceKm } from "./places";
 import { fitsBudget, priceRange } from "./pricing";
+import { WEIGHTS } from "./taste";
 import { addDays, DAY, localDate, localTime } from "./time";
 
 const DEFAULT_LIMIT = 10;
@@ -16,12 +17,16 @@ const DISTANCE_WEIGHT = 0.5;
 const BUDGET_WEIGHT = 0.1;
 const PARTNER_BOOST = 0.25;
 const PARTNER_TIEBREAK = 0.05;
+const POT_BONUS = 0.05;
+const FULL_FIT_WEIGHT = 3 * WEIGHTS.vibe;
+const DIET_MATCH_WEIGHT = WEIGHTS.vibe;
 const RECENT_PENALTY = 0.6;
 const ROTATION_BAND = 0.08;
-const MIN_STRETCH_FIT = 1 / 3;
+const MIN_FIT = 1 / FULL_FIT_WEIGHT;
 const STRETCH_EVERY = 3;
 const RECENT_DAYS = 14;
 const NOVELTY_DAYS = 30;
+const HISTORY_LIMIT = 200;
 
 const norm = (term: string) => term.trim().toLowerCase();
 const label = (tag: string) => tag.replace(/-/g, " ");
@@ -103,37 +108,48 @@ export const forYou = query({
           .withIndex("by_group", (q) => q.eq("groupId", group._id))
           .first()
       : null;
-    const potShare = pot ? shareCents(await potLedger(ctx, pot._id), userId) : null;
-    const budget = potShare ? (potShare.contributed - potShare.spent) / 100 : user.budgetMax;
+    const share = pot ? shareCents(await potLedger(ctx, pot._id), userId) : null;
+    const potShare = share ? (share.contributed - share.spent) / 100 : null;
+    const budget = Math.max(user.budgetMax, potShare ?? 0);
+    const profile = await ctx.db
+      .query("tasteProfiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
 
     const recentKeys = new Set<string>();
-    const recentCategories = new Set<string>();
+    const lastCategoryAt = new Map(Object.entries(profile?.lastCategoryAt ?? {}).map(([c, at]) => [norm(c), at]));
+    const categoryCounts = new Map(Object.entries(profile?.categoryCounts ?? {}).map(([c, n]) => [norm(c), n]));
     const checkins = await ctx.db
       .query("pointEvents")
       .withIndex("by_user", (q) =>
         q.eq("userId", userId).gte("_creationTime", dayEnd - NOVELTY_DAYS * DAY).lt("_creationTime", dayEnd),
       )
-      .collect();
+      .order("desc")
+      .take(HISTORY_LIMIT);
     for (const event of checkins) {
       if (event.reason !== "checkin" || !event.planId) continue;
       const plan = await ctx.db.get("plans", event.planId);
       const winner = plan?.winningIndex !== undefined ? plan.options[plan.winningIndex] : undefined;
       if (!winner) continue;
       const place = await ctx.db.get("places", winner.placeId);
-      if (place) recentCategories.add(place.category);
+      if (place) lastCategoryAt.set(norm(place.category), Math.max(lastCategoryAt.get(norm(place.category)) ?? 0, event._creationTime));
       if (event._creationTime < dayEnd - RECENT_DAYS * DAY) continue;
       recentKeys.add(`place:${winner.placeId}`);
       if (winner.experienceId) recentKeys.add(`exp:${winner.experienceId}`);
     }
 
-    const likes = new Set(user.vibes.map(norm));
-    const diets = user.diet.map(norm);
+    const weights = new Map(
+      profile ? Object.entries(profile.tagWeights).map(([t, w]) => [norm(t), w]) : user.vibes.map((t) => [norm(t), WEIGHTS.vibe]),
+    );
+    const liked = (tag: string) => (weights.get(tag) ?? 0) > 0;
+    const diets = (profile?.dietConstraints ?? user.diet).map(norm);
     const lovedTags = new Set<string>();
     const badTags = new Set<string>();
     const ratings = await ctx.db
       .query("ratings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+      .order("desc")
+      .take(HISTORY_LIMIT);
     for (const rating of ratings) {
       if (rating.stars > 2 && rating.stars < 4) continue;
       const plan = rating.planId ? await ctx.db.get("plans", rating.planId) : null;
@@ -141,9 +157,10 @@ export const forYou = query({
       const rated = key ? await ideaDetails(ctx, key) : null;
       for (const tag of rated?.tags ?? []) (rating.stars <= 2 ? badTags : lovedTags).add(norm(tag));
     }
-    const dislikes = new Set(
-      [...badTags].filter((t) => !lovedTags.has(t) && !likes.has(t) && !diets.some((d) => t.startsWith(d))),
-    );
+    const dislikes = new Set([
+      ...(profile?.dislikedTags ?? []).map(norm),
+      ...[...badTags].filter((t) => !lovedTags.has(t) && !liked(t) && !diets.some((d) => t.startsWith(d))),
+    ]);
 
     const candidates: Candidate[] = [];
     const experiencePlaces = new Set<string>();
@@ -190,9 +207,12 @@ export const forYou = query({
       .filter((c) => (c.kind === "experience" ? c.cost <= budget : fitsBudget(c.priceLevel ?? 1, budget)))
       .filter((c) => !c.tags.some((t) => dislikes.has(t)))
       .map((c) => {
-        const matchedVibes = c.tags.filter((t) => likes.has(t));
+        const matchedVibes = c.tags.filter(liked).sort((a, b) => weights.get(b)! - weights.get(a)!);
         const matchedDiet = c.tags.filter((t) => diets.some((d) => t === d || t === `${d}-friendly`));
-        const fit = Math.min(new Set([...matchedVibes, ...matchedDiet]).size, 3) / 3;
+        const weighted =
+          c.tags.reduce((sum, t) => sum + (weights.get(t) ?? 0), 0) + (matchedDiet.length ? DIET_MATCH_WEIGHT : 0);
+        const fit = Math.min(1, Math.max(0, weighted / FULL_FIT_WEIGHT));
+        const potCovers = potShare !== null && c.cost <= potShare;
         const km = c.location ? distanceKm(campus, c.location) : null;
         const headroom = budget > 0 ? Math.max(0, 1 - c.cost / budget) : 0;
         const recent = recentKeys.has(c.key);
@@ -200,14 +220,17 @@ export const forYou = query({
           fit +
           BUDGET_WEIGHT * headroom +
           DISTANCE_WEIGHT * (km === null ? 0.5 : distanceFactor(km)) +
-          (c.partner ? (fit >= MIN_STRETCH_FIT ? PARTNER_BOOST : PARTNER_TIEBREAK) : 0) -
+          (c.partner ? (fit >= MIN_FIT ? PARTNER_BOOST : PARTNER_TIEBREAK) : 0) +
+          (potCovers ? POT_BONUS : 0) -
           (recent ? RECENT_PENALTY : 0) +
           ROTATION_BAND * hash01(`${userId}:${today}:${c.key}`);
-        const unfamiliar = c.tags.filter((t) => !likes.has(t));
+        const unfamiliar = c.tags.filter((t) => !liked(t));
+        const category = c.category ? norm(c.category) : undefined;
+        const categoryRecent = category !== undefined && (lastCategoryAt.get(category) ?? 0) >= dayEnd - NOVELTY_DAYS * DAY;
         const novelty =
           0.7 * (c.tags.length ? unfamiliar.length / c.tags.length : 1) +
-          0.3 * (c.category && recentCategories.has(c.category) ? 0 : 1);
-        return { c, fit, km, score, novelty, recent, matchedVibes, matchedDiet, unfamiliar };
+          0.3 * (categoryRecent ? 0 : 1 / (1 + (category ? (categoryCounts.get(category) ?? 0) : 0)));
+        return { c, fit, km, score, novelty, recent, potCovers, matchedVibes, matchedDiet, unfamiliar };
       })
       .sort((a, b) => b.score - a.score || a.c.key.localeCompare(b.c.key));
 
@@ -218,7 +241,7 @@ export const forYou = query({
       const stretch =
         picked.length % STRETCH_EVERY === STRETCH_EVERY - 1
           ? scored
-              .filter((s) => !used.has(s.c.key) && !s.recent && s.fit >= MIN_STRETCH_FIT && s.unfamiliar.length > 0)
+              .filter((s) => !used.has(s.c.key) && !s.recent && s.fit >= MIN_FIT && s.unfamiliar.length > 0)
               .sort((a, b) => b.novelty - a.novelty || b.score - a.score)[0]
           : undefined;
       const item = stretch ?? scored.find((s) => !used.has(s.c.key))!;
@@ -227,15 +250,15 @@ export const forYou = query({
     }
 
     return picked.map(({ item, slot }) => {
-      const { c, km, matchedVibes, matchedDiet, unfamiliar } = item;
-      const where = km === null ? [] : [`it's ${round(km, 1)} km from campus`];
+      const { c, km, potCovers, matchedVibes, matchedDiet, unfamiliar } = item;
+      const where = [...(potCovers ? ["your pot share covers it"] : []), ...(km === null ? [] : [`it's ${round(km, 1)} km from campus`])];
       const reason =
         slot === "stretch"
           ? `Something new for you: ${listOf(unfamiliar.slice(0, 2).map(label))}. ${sentence([`you like ${label(matchedVibes[0] ?? matchedDiet[0])}`, ...where])}`
           : sentence([
               ...(matchedVibes.length ? [`you like ${listOf(matchedVibes.slice(0, 2).map(label))}`] : []),
               ...(matchedDiet.length ? [`it's ${label(matchedDiet[0])}`] : []),
-              ...(matchedVibes.length || matchedDiet.length ? [] : [potShare ? "it fits your pot share" : `it fits your $${budget} budget`]),
+              ...(matchedVibes.length || matchedDiet.length || potCovers ? [] : [`it fits your ${budget} budget`]),
               ...where,
             ]);
       return {
