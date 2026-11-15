@@ -10,7 +10,6 @@ import { brand, colors, font, minTapTarget, radius, spacing } from "../../consta
 import { useUserId } from "../../lib/session";
 
 const VIBES = ["chill", "chaotic", "cozy", "thrilling", "fancy", "would-redo"];
-const RATE_POINTS = 10;
 const HOME_DELAY_MS = 1800;
 
 export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
@@ -83,10 +82,9 @@ export default function RateScreen() {
         <Card testID="rate-success" tone="success" style={styles.success}>
           <Text style={styles.bigEmoji}>🎉</Text>
           <Title style={{ textAlign: "center" }}>Thanks for rating!</Title>
-          <Text testID="rate-reward" style={styles.reward}>
-            +{RATE_POINTS} points
-          </Text>
-          <Subtitle style={{ textAlign: "center" }}>Your next plans just got smarter. Heading home…</Subtitle>
+          <Subtitle testID="rate-confirmation" style={{ textAlign: "center" }}>
+            Saved. Your crew's next plans just got smarter. Heading home…
+          </Subtitle>
           <Button testID="rate-done" label="Back home" onPress={() => router.replace("/home")} style={{ alignSelf: "stretch", marginTop: spacing.lg }} />
         </Card>
       </Screen>
@@ -98,7 +96,7 @@ export default function RateScreen() {
       <Stack.Screen options={{ title: "Rate it" }} />
       <Title testID="rate-title">How was the hang?</Title>
       <Subtitle testID="rate-subtitle">
-        Rating earns +{RATE_POINTS} points and teaches {brand.name} what your crew loves.
+        Your rating teaches {brand.name} what your crew loves.
       </Subtitle>
 
       <Card testID="rate-stars-card" style={{ alignItems: "center", paddingVertical: spacing.xl }}>
@@ -157,5 +155,4 @@ const styles = StyleSheet.create({
   starsLabel: { marginTop: spacing.sm, fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.textMuted },
   success: { alignItems: "center", gap: spacing.md, paddingVertical: spacing.xxl },
   bigEmoji: { fontSize: 64 },
-  reward: { fontSize: font.size.hero, fontWeight: font.weight.heavy, color: colors.success },
 });

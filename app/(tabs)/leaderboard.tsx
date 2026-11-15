@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutAnimation, Pressable, StyleSheet, Text, View } from "react-native";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, Subtitle, Title } from "../../components/ui";
 import { api } from "../../convex/_generated/api";
-import { colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
+import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
 import { useMockQuery } from "../../lib/mock";
 import { useUserId } from "../../lib/session";
 
@@ -177,7 +177,7 @@ function CrewsSection({ mySchool, myGroupIds }: { mySchool: string | null; myGro
                 <Text testID={"crew-points-" + i} style={styles.score}>
                   {Math.round(c.avgPoints).toLocaleString()}
                 </Text>
-                <Text style={styles.scoreUnit}>avg pts</Text>
+                <Text style={styles.scoreUnit}>avg {brand.pointsEmoji}</Text>
               </View>
               {mine ? <View testID="crew-row-mine" /> : null}
             </Card>
@@ -214,7 +214,7 @@ function SchoolsSection({ mySchool }: { mySchool: string | null }) {
             {second.school}
           </Text>
           <Text testID="schools-rivalry-gap" style={styles.rivalryGap}>
-            {top.school} leads by {Math.round(top.avgPoints - second.avgPoints)} avg points
+            {top.school} leads by {Math.round(top.avgPoints - second.avgPoints)} avg {brand.points}
           </Text>
         </Card>
       ) : null}
@@ -236,7 +236,7 @@ function SchoolsSection({ mySchool }: { mySchool: string | null }) {
               <Text testID={"school-points-" + i} style={styles.score}>
                 {Math.round(s.avgPoints).toLocaleString()}
               </Text>
-              <Text style={styles.scoreUnit}>avg pts</Text>
+              <Text style={styles.scoreUnit}>avg {brand.pointsEmoji}</Text>
             </View>
             {mine ? <View testID="school-row-mine" /> : null}
           </Card>
@@ -252,7 +252,12 @@ function MeSection({ userId }: { userId: string | null }) {
   const mock = useMockQuery(MOCK_MY_RANKS, USE_MOCK);
   const ranks = USE_MOCK ? mock : userId ? live : null;
   const climb = (
-    <Button testID="me-check-in" label="Check in to climb" icon="📸" onPress={() => router.push("/camera")} />
+    <View style={styles.climb}>
+      <Button testID="me-check-in" label="Check in to climb" icon="📸" onPress={() => router.push("/camera")} />
+      <Text testID="me-check-in-hint" style={styles.meSub}>
+        Snap a photo at your crew's next outing to earn {brand.points}.
+      </Text>
+    </View>
   );
 
   if (!USE_MOCK && !userId) return <ErrorState testID="me-error" message="Sign in to see your ranks." />;
@@ -260,7 +265,7 @@ function MeSection({ userId }: { userId: string | null }) {
   if (ranks === null) {
     return (
       <View style={styles.section}>
-        <EmptyState testID="me-empty" emoji="🧭" title="No crew yet" body="Join or start a crew, then check in on a plan to get on the board." />
+        <EmptyState testID="me-empty" emoji="🧭" title="No crew yet" body="Join or start a crew, then check in on a group outing to get on the board." />
         {climb}
       </View>
     );
@@ -277,14 +282,14 @@ function MeSection({ userId }: { userId: string | null }) {
             : "Your crew is #" + ranks.crewRank + " at " + ranks.school + ", " + gap + " pts behind " + ranks.leaderName}
         </Text>
         <Text testID="me-crew-name" style={styles.meSub}>
-          {ranks.crewName} · {Math.round(ranks.crewAvg)} avg points this week
+          {ranks.crewName} · {Math.round(ranks.crewAvg)} avg {brand.points} this week
         </Text>
       </Card>
       <Card testID="me-school-card" style={styles.meCard}>
         <Text testID="me-school-rank" style={styles.meSchool}>
           {ranks.school} is #{ranks.schoolRank} among schools
         </Text>
-        <Text style={styles.meSub}>Every check-in raises your school's average too.</Text>
+        <Text style={styles.meSub}>Every group outing check-in raises your school's average too.</Text>
       </Card>
       {climb}
     </View>
@@ -311,7 +316,7 @@ export default function LeaderboardScreen() {
   return (
     <Screen testID="leaderboard-screen">
       <Title testID="leaderboard-title">Leaderboard</Title>
-      <Subtitle testID="leaderboard-subtitle">Your floor vs. theirs. Weekly average points per member.</Subtitle>
+      <Subtitle testID="leaderboard-subtitle">Your floor vs. theirs. Weekly average {brand.points} per member.</Subtitle>
 
       <View style={styles.segments} accessibilityRole="tablist">
         {SEGMENTS.map((s) => (
@@ -380,6 +385,7 @@ const styles = StyleSheet.create({
   rivalryName: { fontSize: font.size.xxl, fontWeight: font.weight.heavy, color: colors.text },
   rivalryVs: { fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.accent, letterSpacing: 2 },
   rivalryGap: { marginTop: spacing.xs, fontSize: font.size.sm, fontWeight: font.weight.semibold, color: colors.textMuted },
+  climb: { gap: spacing.sm },
   meCard: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xl },
   meBig: { fontSize: 48 },
   meHeadline: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.accentDark, textAlign: "center" },
