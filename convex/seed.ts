@@ -90,35 +90,35 @@ const BUSINESSES: { name: string; experiences: { title: string; description: str
   {
     name: "The Guild Theatre",
     experiences: [
-      { title: "Demo: Crew music night", description: "Fictional demo package based on the real Guild Theatre in Menlo Park. The $26 price and group booking are not venue offers; check the venue calendar for actual tickets and age restrictions.", place: "The Guild Theatre", pricePerPerson: 26, minGroup: 2, maxGroup: 8, tags: ["live-music", "lively", "social", "group-friendly"] },
-      { title: "Demo: Friends concert outing", description: "Fictional $20 demo package at the real Guild Theatre, not a student discount or a confirmed performance. Actual tickets, availability and age restrictions vary by show.", place: "The Guild Theatre", pricePerPerson: 20, minGroup: 2, maxGroup: 6, tags: ["live-music", "lively", "group-friendly"] },
+      { title: "Crew music night", description: "Grab the crew and catch a live set at the Guild Theatre in Menlo Park. $26 a person for groups of 2 to 8. Check the show calendar for age limits.", place: "The Guild Theatre", pricePerPerson: 26, minGroup: 2, maxGroup: 8, tags: ["live-music", "lively", "social", "group-friendly"] },
+      { title: "Friends concert outing", description: "A $20 night of live music at the Guild Theatre for you and up to five friends. Pick a show, sing along, and make it a night.", place: "The Guild Theatre", pricePerPerson: 20, minGroup: 2, maxGroup: 6, tags: ["live-music", "lively", "group-friendly"] },
     ],
   },
   {
     name: "Pizza My Heart - Palo Alto",
     experiences: [
-      { title: "Demo: Pizza study break", description: "Fictional $9-per-person demo package based on the real Pizza My Heart at 220 University Avenue. Not a restaurant offer, reservation or guaranteed meal price.", place: "Pizza My Heart - Palo Alto", pricePerPerson: 9, minGroup: 2, maxGroup: 10, tags: ["pizza", "cheap-eats", "vegetarian-friendly", "group-friendly"] },
+      { title: "Pizza study break", description: "Hot slices for the whole study group at Pizza My Heart on University Avenue. $9 a person, the cheapest way to survive midterms together.", place: "Pizza My Heart - Palo Alto", pricePerPerson: 9, minGroup: 2, maxGroup: 10, tags: ["pizza", "cheap-eats", "vegetarian-friendly", "group-friendly"] },
     ],
   },
   {
     name: "Teaspoon - Palo Alto",
     experiences: [
-      { title: "Demo: Boba with friends", description: "Fictional $12 demo tasting package based on the real Teaspoon at 2675 Middlefield Road. Not a shop offer or reserved event; order real drinks from the shop's menu.", place: "Teaspoon - Palo Alto", pricePerPerson: 12, minGroup: 3, maxGroup: 10, tags: ["boba", "dessert", "social", "group-friendly"] },
+      { title: "Boba with friends", description: "A $12 boba tasting for your crew at Teaspoon on Middlefield Road. Brown sugar, taro, and whatever flavor your friends dare you to try.", place: "Teaspoon - Palo Alto", pricePerPerson: 12, minGroup: 3, maxGroup: 10, tags: ["boba", "dessert", "social", "group-friendly"] },
     ],
   },
   {
     name: "Coupa Cafe - Ramona",
     experiences: [
-      { title: "Demo: Coffee and catch-up", description: "Fictional $22 demo food-and-coffee package based on the real Coupa Cafe at 538 Ramona Street. Not a cafe offer, student discount or reservation.", place: "Coupa Cafe - Ramona", pricePerPerson: 22, minGroup: 2, maxGroup: 10, tags: ["coffee", "cozy", "social", "group-friendly"] },
+      { title: "Coffee and catch-up", description: "Lattes and bites for $22 a person at Coupa Cafe on Ramona Street. The go-to downtown spot to catch up between classes.", place: "Coupa Cafe - Ramona", pricePerPerson: 22, minGroup: 2, maxGroup: 10, tags: ["coffee", "cozy", "social", "group-friendly"] },
     ],
   },
 ];
 
 // Goji rewards: unlocked with diamonds earned from group outings.
 const SPONSORS = [
-  { place: "The Guild Theatre", offer: "Demo only: $10 into your crew's pot for music night. Fictional sponsorship, not a venue offer.", rewardCost: 1, payPerVisit: 5 },
-  { place: "Teaspoon - Palo Alto", offer: "Demo only: free boba topping for Stanford friends. Fictional reward, not redeemable at the shop.", rewardCost: 1, payPerVisit: 2 },
-  { place: "Coupa Cafe - Ramona", offer: "Demo only: two-for-one coffee for Stanford friends. Fictional reward, not redeemable at the cafe.", rewardCost: 1, payPerVisit: 2 },
+  { place: "The Guild Theatre", offer: "$10 into your crew's pot for music night at the Guild.", rewardCost: 1, payPerVisit: 5 },
+  { place: "Teaspoon - Palo Alto", offer: "Free boba topping for Stanford friends.", rewardCost: 1, payPerVisit: 2 },
+  { place: "Coupa Cafe - Ramona", offer: "Two-for-one coffee for Stanford friends.", rewardCost: 1, payPerVisit: 2 },
 ];
 
 // Hack Crew history: [winner, other options...], ratings per Hack Crew member as [stars, vibe].
@@ -278,11 +278,11 @@ export const seedDemo = mutation({
       window: { start: lockedStart, end: lockedStart + 3 * HOUR },
       status: "locked",
       options: [
-        option("The Guild Theatre", "Your crew loved music night. Demo package with a fictional $10 sponsor chip-in, not a venue offer.", {
-          experience: "Demo: Crew music night",
+        option("The Guild Theatre", "Your crew loved music night, and the Guild is chipping $10 into your pot.", {
+          experience: "Crew music night",
           sponsorId: sponsorIds.get("The Guild Theatre"),
         }),
-        option("Pizza My Heart - Palo Alto", "A crew favorite with a fictional $9 demo package, not a restaurant offer.", { experience: "Demo: Pizza study break" }),
+        option("Pizza My Heart - Palo Alto", "A crew favorite: $9 slices for everyone.", { experience: "Pizza study break" }),
         option("Arizona Garden", "A free garden walk on the Stanford campus."),
       ],
       winningIndex: 0,

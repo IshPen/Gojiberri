@@ -213,8 +213,8 @@ async function bookedOuting(crewName: string, people: [string, number][], experi
   }
   return planId;
 }
-await bookedOuting("Night Owls", [["Noah", 25], ["Chloe", 20]], "Demo: Friends concert outing", nextWeekday(5), 19);
-await bookedOuting("Side Questers", [["Leo", 10], ["Sam", 10]], "Demo: Pizza study break", nextWeekday(4), 18);
+await bookedOuting("Night Owls", [["Noah", 25], ["Chloe", 20]], "Friends concert outing", nextWeekday(5), 19);
+await bookedOuting("Side Questers", [["Leo", 10], ["Sam", 10]], "Pizza study break", nextWeekday(4), 18);
 
 // 7. Direct experience purchases through the mock Whop checkout.
 async function purchase(crewName: string, userName: string, experienceTitle: string) {
@@ -225,10 +225,10 @@ async function purchase(crewName: string, userName: string, experienceTitle: str
   await mockPay(await c.action(api.experienceCheckout.createExperienceCheckout, { experienceId, userId, groupId: crew(crewName)._id }));
   log(`${userName} bought ${experienceTitle}`);
 }
-await purchase("Midnight Crew", "Maya", "Demo: Boba with friends");
-await purchase("Boba Besties", "Priya", "Demo: Coffee and catch-up");
-await purchase("Chalk Pals", "Ava", "Demo: Coffee and catch-up");
-await purchase("Night Owls", "Noah", "Demo: Crew music night");
+await purchase("Midnight Crew", "Maya", "Boba with friends");
+await purchase("Boba Besties", "Priya", "Coffee and catch-up");
+await purchase("Chalk Pals", "Ava", "Coffee and catch-up");
+await purchase("Night Owls", "Noah", "Crew music night");
 
 // 8. QR redemptions scanned by businesses and sponsors.
 async function redeem(crewName: string, userName: string, kind: "offer" | "experience", refId: Id, scannerId: Id) {
@@ -238,9 +238,9 @@ async function redeem(crewName: string, userName: string, kind: "offer" | "exper
   const result = await c.mutation(api.redemptions.redeemCode, { code: issued.code, businessId: scannerId });
   log(`${userName} redeemed ${issued.itemTitle} at ${issued.businessName}: ${result.valid ? "ok" : result.reason}`);
 }
-await redeem("Midnight Crew", "Maya", "experience", exp("Demo: Boba with friends")._id, businessId("Teaspoon - Palo Alto"));
-await redeem("Boba Besties", "Priya", "experience", exp("Demo: Coffee and catch-up")._id, businessId("Coupa Cafe - Ramona"));
-await redeem("Night Owls", "Noah", "experience", exp("Demo: Friends concert outing")._id, businessId("The Guild Theatre"));
+await redeem("Midnight Crew", "Maya", "experience", exp("Boba with friends")._id, businessId("Teaspoon - Palo Alto"));
+await redeem("Boba Besties", "Priya", "experience", exp("Coffee and catch-up")._id, businessId("Coupa Cafe - Ramona"));
+await redeem("Night Owls", "Noah", "experience", exp("Friends concert outing")._id, businessId("The Guild Theatre"));
 for (const [crewName, name, business] of [
   ["Midnight Crew", "Maya", "Teaspoon - Palo Alto"],
   ["Boba Besties", "Priya", "Teaspoon - Palo Alto"],

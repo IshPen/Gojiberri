@@ -81,3 +81,65 @@ it("removeFromGroup drops the member and returns the new count", async () => {
     expect((await ctx.db.get("groups", ids.groupId))!.memberIds).toEqual([ids.ana]);
   });
 });
+
+it("rewriteDemoCopy swaps exact old copy, is idempotent, and leaves other rows alone", async () => {
+  const t = convexTest(schema, modules);
+  const ids = await t.run(async (ctx) => {
+    const placeId = await ctx.db.insert("places", {
+      name: "The Guild Theatre", area: "Stanford", category: "arts", priceLevel: 2, tags: ["live-music"], lat: 0, lng: 0, durationMins: 150,
+    });
+    const businessId = await ctx.db.insert("businesses", { name: "The Guild Theatre", earned: 0 });
+    const experience = (title: string, description: string) =>
+      ctx.db.insert("experiences", {
+        businessId, placeId, title, description, pricePerPerson: 26, minGroup: 2, maxGroup: 8, tags: ["live-music"], active: true,
+      });
+    const music = await experience(
+      "Demo: Crew music night",
+      "Fictional demo package based on the real Guild Theatre in Menlo Park. The $26 price and group booking are not venue offers; check the venue calendar for actual tickets and age restrictions.",
+    );
+    const partial = await experience("Demo: Crew music night!", "Crew music night");
+    const sponsor = await ctx.db.insert("sponsors", {
+      business: "The Guild Theatre", offer: "Demo only: $10 into your crew's pot for music night. Fictional sponsorship, not a venue offer.",
+      placeId, priceLevel: 2, tags: ["live-music"], rewardCost: 1, payPerVisit: 5, active: true,
+    });
+    const other = await ctx.db.insert("sponsors", {
+      business: "Cafe", offer: "10% off any drink today", placeId, priceLevel: 1, tags: [], rewardCost: 1, payPerVisit: 2, active: true,
+    });
+    const ana = await ctx.db.insert("users", {
+      name: "Ana", budgetMax: 30, homeArea: "Stanford", diet: [], vibes: [], onboarded: true, points: 0, diamonds: 0, streak: 0, busyBlocks: [],
+    });
+    const groupId = await ctx.db.insert("groups", { name: "Crew", inviteCode: "CREW00", ownerId: ana, memberIds: [ana] });
+    const planId = await ctx.db.insert("plans", {
+      groupId, window: { start: 0, end: 1 }, status: "locked", winningIndex: 0, confirmBy: 0,
+      options: [
+        { placeId, title: "The Guild Theatre", costMin: 26, costMax: 26, why: "Your crew loved music night. Demo package with a fictional $10 sponsor chip-in, not a venue offer.", experienceId: music },
+        { placeId, title: "Arizona Garden", costMin: 0, costMax: 0, why: "A free garden walk on the Stanford campus." },
+      ],
+    });
+    return { music, partial, sponsor, other, placeId, businessId, planId };
+  });
+
+  expect(await t.mutation(internal.admin.rewriteDemoCopy, {})).toEqual({ experiences: 1, sponsors: 1, businesses: 0, places: 0, plans: 1 });
+  expect(await t.mutation(internal.admin.rewriteDemoCopy, {})).toEqual({ experiences: 0, sponsors: 0, businesses: 0, places: 0, plans: 0 });
+
+  await t.run(async (ctx) => {
+    const music = (await ctx.db.get("experiences", ids.music))!;
+    expect(music.title).toBe("Crew music night");
+    expect(music.description).not.toMatch(/demo|fictional/i);
+    expect(music.pricePerPerson).toBe(26);
+    expect(music.tags).toEqual(["live-music"]);
+    const partial = (await ctx.db.get("experiences", ids.partial))!;
+    expect(partial.title).toBe("Demo: Crew music night!");
+    expect(partial.description).toBe("Crew music night");
+    expect((await ctx.db.get("sponsors", ids.sponsor))!.offer).toBe("$10 into your crew's pot for music night at the Guild.");
+    expect((await ctx.db.get("sponsors", ids.other))!.offer).toBe("10% off any drink today");
+    expect((await ctx.db.get("places", ids.placeId))!.name).toBe("The Guild Theatre");
+    expect((await ctx.db.get("businesses", ids.businessId))!.name).toBe("The Guild Theatre");
+    const plan = (await ctx.db.get("plans", ids.planId))!;
+    expect(plan.options.map((o) => o.why)).toEqual([
+      "Your crew loved music night, and the Guild is chipping $10 into your pot.",
+      "A free garden walk on the Stanford campus.",
+    ]);
+    expect(plan.options[0].experienceId).toBe(ids.music);
+  });
+});
