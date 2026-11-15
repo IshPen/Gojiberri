@@ -26,6 +26,7 @@ import type * as photos from "../photos.js";
 import type * as places from "../places.js";
 import type * as plans from "../plans.js";
 import type * as points from "../points.js";
+import type * as pots from "../pots.js";
 import type * as pricing from "../pricing.js";
 import type * as ratings from "../ratings.js";
 import type * as recurrences from "../recurrences.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   places: typeof places;
   plans: typeof plans;
   points: typeof points;
+  pots: typeof pots;
   pricing: typeof pricing;
   ratings: typeof ratings;
   recurrences: typeof recurrences;

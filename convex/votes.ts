@@ -7,10 +7,12 @@ import { isDemoMode } from "./plans";
 import { external, scheduleExternal } from "./refs";
 
 export async function lockPlan(ctx: MutationCtx, plan: Doc<"plans">, winningIndex: number) {
+  if (plan.status !== "voting") return;
   const extended = Math.max(plan.confirmBy, Date.now() + 5 * MINUTE);
   const confirmBy = isDemoMode() ? extended : Math.min(extended, plan.window.start);
   await ctx.db.patch("plans", plan._id, { status: "locked", winningIndex, confirmBy });
   await ctx.scheduler.runAfter(0, internal.reminders.scheduleForPlan, { planId: plan._id });
+  await ctx.scheduler.runAfter(0, internal.pots.onPlanLocked, { planId: plan._id });
   const group = await ctx.db.get("groups", plan.groupId);
   if (group?.keikiChatId) {
     await scheduleExternal(ctx, external.sendKeikiMessage, {
