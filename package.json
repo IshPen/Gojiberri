@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "convex": "^1.50.0",
-    "react-native-confetti-cannon": "^1.5.2"
+    "react-native-confetti-cannon": "^1.5.2",
+    "supermemory": "^5.1.2"
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^5.0.0",
