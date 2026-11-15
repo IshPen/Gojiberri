@@ -1,7 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internalQuery, mutation } from "./_generated/server";
 import { external, scheduleExternal } from "./refs";
-import { awardPoints } from "./points";
 
 export const submitRating = mutation({
   args: {
@@ -33,7 +32,6 @@ export const submitRating = mutation({
       ratingId = existing._id;
     } else {
       ratingId = await ctx.db.insert("ratings", { userId, planId, questId, stars: clamped, vibe: word });
-      await awardPoints(ctx, userId, "rate");
     }
     await scheduleExternal(ctx, external.rememberRating, { ratingId });
     return ratingId;

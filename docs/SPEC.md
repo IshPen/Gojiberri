@@ -274,7 +274,7 @@ export default defineSchema({
 });
 ```
 
-**Points rules:** check-in +50, solo quest +25, confirm before the deadline +15, rating +10. Every 500 points converts to 1 diamond.
+**Points rules:** check-in +50, solo quest +25, confirm before the deadline +15. Ratings award no points. Every 500 points converts to 1 diamond.
 
 ## Backend API contract
 
@@ -301,7 +301,7 @@ export default defineSchema({
 | reminders.ts | `scheduleForPlan` | iM | planId | Schedules reminders at -24h and -2h, the drop at confirmBy, the rating prompt the next morning at 9am | I |
 | reminders.ts | `dropUnconfirmed` / `sendReminder` / `sendRatingPrompt` | iM / iA | planId | Push via `notifications.send` | I |
 | notifications.ts | `send` | iA | userIds\[\], title, body, data | POST to the Expo push API | I |
-| ratings.ts | `submitRating` | M | userId, planId? or questId?, stars, vibe | Inserts, +10 points, schedules `memory.rememberRating` | I |
+| ratings.ts | `submitRating` | M | userId, planId? or questId?, stars, vibe | Inserts (no points), schedules `memory.rememberRating` | I |
 | photos.ts | `generateUploadUrl` | M |  | Upload URL | I |
 | photos.ts | `savePhoto` | M | userId, storageId, groupId?, planId?, questId?, caption? | photoId, +50 points, records a sponsor visit if the place is sponsored | I |
 | photos.ts | `getGroupStory` | Q | groupId | photos\[\] with URL, user name, plan title, newest first | I |
