@@ -65,8 +65,7 @@ export default function NameScreen() {
           Welcome to {brand.name}
         </Text>
         <Subtitle testID="name-subtitle" style={styles.center}>
-          Plan hangouts with your crew, earn {brand.points} {brand.pointsEmoji} and unlock {brand.diamonds}{" "}
-          {brand.diamondsEmoji}.
+          Plan hangouts with your crew and earn {brand.points} {brand.pointsEmoji}. Every {brand.pointsPerReward} unlocks a free treat from a local spot {brand.rewardEmoji}
         </Subtitle>
       </View>
 

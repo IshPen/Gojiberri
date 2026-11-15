@@ -9,7 +9,7 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHead
 import SponsoredBadge from "../../components/SponsoredBadge";
 import PointsPill from "../../components/PointsPill";
 import { brand, colors, font, spacing } from "../../constants/theme";
-import { formatGoldenGojis, formatPriceLevel } from "../../lib/format";
+import { formatPriceLevel, formatRewards } from "../../lib/format";
 import { mockDelay, useMockQuery } from "../../lib/mock";
 import { useUserId } from "../../lib/session";
 
@@ -36,9 +36,9 @@ const getUserRef = makeFunctionReference<"query", { userId: Id<"users"> }, User 
 const redeemRewardRef = makeFunctionReference<"mutation", { userId: Id<"users">; sponsorId: Id<"sponsors"> }, string>("sponsors:redeemReward");
 
 const MOCK_SPONSORS: Sponsor[] = [
-  { _id: "sp1" as Id<"sponsors">, business: "Ritual Coffee Roasters", offer: "Free pastry with any drink", placeId: "pl1" as Id<"places">, priceLevel: 2, tags: ["coffee", "cozy"], rewardCost: 3, payPerVisit: 2.5, active: true },
-  { _id: "sp2" as Id<"sponsors">, business: "Smitten Ice Cream", offer: "Buy one scoop, get one free", placeId: "pl2" as Id<"places">, priceLevel: 1, tags: ["dessert"], rewardCost: 2, payPerVisit: 1.5, active: true },
-  { _id: "sp3" as Id<"sponsors">, business: "Flour + Water Pizzeria", offer: "15% off your table", placeId: "pl3" as Id<"places">, priceLevel: 3, tags: ["dinner", "date night"], rewardCost: 8, payPerVisit: 6, active: true },
+  { _id: "sp1" as Id<"sponsors">, business: "Ritual Coffee Roasters", offer: "Free pastry with any drink", placeId: "pl1" as Id<"places">, priceLevel: 2, tags: ["coffee", "cozy"], rewardCost: 1, payPerVisit: 2.5, active: true },
+  { _id: "sp2" as Id<"sponsors">, business: "Smitten Ice Cream", offer: "Buy one scoop, get one free", placeId: "pl2" as Id<"places">, priceLevel: 1, tags: ["dessert"], rewardCost: 1, payPerVisit: 1.5, active: true },
+  { _id: "sp3" as Id<"sponsors">, business: "Flour + Water Pizzeria", offer: "15% off your table", placeId: "pl3" as Id<"places">, priceLevel: 3, tags: ["dinner", "date night"], rewardCost: 1, payPerVisit: 6, active: true },
 ];
 const MOCK_USER: User = { _id: "u1" as Id<"users">, name: "Uma", points: 1240, diamonds: 4 };
 
@@ -63,7 +63,7 @@ export default function SponsorScreen() {
   const redeem = USE_MOCK
     ? async (args: { userId: Id<"users">; sponsorId: Id<"sponsors"> }) => {
         const s = MOCK_SPONSORS.find((m) => m._id === args.sponsorId);
-        if (!s || (user?.diamonds ?? 0) - spent < s.rewardCost) throw new Error("Not enough Golden Gojis yet.");
+        if (!s || (user?.diamonds ?? 0) - spent < s.rewardCost) throw new Error("No rewards ready yet.");
         return mockDelay(`GOJI-${s.business.slice(0, 3).toUpperCase()}-7Q2X`, 800);
       }
     : redeemLive;
@@ -132,15 +132,15 @@ export default function SponsorScreen() {
         </Text>
       </Card>
 
-      <SectionHeader title="Your balance" />
+      <SectionHeader title="Your rewards" />
       <Card testID="sponsor-balance" tone="muted" style={styles.row}>
         <View style={{ gap: spacing.xs }}>
-          <Subtitle>Cost</Subtitle>
-          <PointsPill testID="sponsor-cost" kind="golden" size="lg" points={sponsor.rewardCost} />
+          <Subtitle>Uses</Subtitle>
+          <PointsPill testID="sponsor-cost" kind="rewards" size="lg" points={sponsor.rewardCost} />
         </View>
         <View style={{ gap: spacing.xs }}>
-          <Subtitle>You have</Subtitle>
-          <PointsPill testID="sponsor-balance-pill" kind="golden" size="lg" points={balance} />
+          <Subtitle>Ready</Subtitle>
+          <PointsPill testID="sponsor-balance-pill" kind="rewards" size="lg" points={balance} />
         </View>
       </Card>
 
@@ -161,12 +161,12 @@ export default function SponsorScreen() {
           ) : null}
           <Button
             testID="redeem-button"
-            label={missing > 0 ? `Earn ${missing} more` : `Redeem for ${formatGoldenGojis(sponsor.rewardCost)}`}
+            label={missing > 0 ? "No rewards ready yet" : `Redeem (uses ${formatRewards(sponsor.rewardCost)})`}
             onPress={onRedeem}
             loading={redeeming}
             disabled={missing > 0}
           />
-          {missing > 0 ? <Subtitle testID="redeem-hint" style={styles.center}>Complete quests and plans to earn {brand.diamonds}.</Subtitle> : null}
+          {missing > 0 ? <Subtitle testID="redeem-hint" style={styles.center}>Every {brand.pointsPerReward} {brand.points} unlocks a free reward. Check in and finish quests to earn them.</Subtitle> : null}
         </>
       )}
     </Screen>
