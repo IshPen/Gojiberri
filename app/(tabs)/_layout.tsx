@@ -22,7 +22,7 @@ function TabIcon({ glyph, focused }: { glyph: string; focused: boolean }) {
 const TABS = [
   { name: "recommended", title: "For You", glyph: "✨" },
   { name: "groups", title: "Crews", glyph: "👯" },
-  { name: "experiences", title: "Explore", glyph: "🎟️" },
+  { name: "experiences", title: "Explore", glyph: "🎟️", hidden: true },
   { name: "leaderboard", title: "Ranks", glyph: "🏆" },
   { name: "profile", title: "Profile", glyph: "🍓" },
 ];
@@ -48,6 +48,7 @@ export default function TabsLayout() {
           name={t.name}
           options={{
             title: t.title,
+            href: "hidden" in t && t.hidden ? null : undefined,
             tabBarButtonTestID: `tab-${t.name}`,
             tabBarIcon: ({ focused }) => <TabIcon glyph={t.glyph} focused={focused} />,
           }}

@@ -11,6 +11,7 @@ import { avatarFor } from "../../lib/avatar";
 import { crewStanding, formatPts } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 import { cleanTitle } from "../../lib/format";
+import CrewCardHero from "../../components/CrewCardHero";
 
 type Plan = FunctionReturnType<typeof api.plans.getGroupPlans>[number];
 
@@ -99,6 +100,8 @@ export default function GroupScreen() {
         </Text>
       ) : null}
 
+      <CrewCardHero groupId={group._id} crewName={group.name} planId={potPlan?._id} me={userId} testID="group-crew-card" />
+
       <View testID="member-row" style={styles.members}>
         {group.members.map((m, i) => (
           <View key={m._id} style={styles.member}>
@@ -119,13 +122,6 @@ export default function GroupScreen() {
         </Text>
       </Text>
 
-      <Card testID="plan-on-for-you" tone="accent" onPress={() => router.push("/(tabs)/recommended")} style={styles.planCard}>
-        <View style={styles.planInfo}>
-          <Text style={styles.planTitle}>Pick an outing on For You</Text>
-          <Text style={styles.planWindow}>Tap a pick, choose a time and your crew votes right there.</Text>
-        </View>
-        <Text style={styles.planTitle}>›</Text>
-      </Card>
 
       <SectionHeader title="Your crew's plans" testID="upcoming-header" />
       {plans === undefined ? (
@@ -143,15 +139,6 @@ export default function GroupScreen() {
         </>
       ) : null}
 
-      {potPlan ? (
-        <Card testID="pot-link" tone="muted" onPress={() => router.push(`/pot/${potPlan._id}`)} style={styles.planCard}>
-          <View style={styles.planInfo}>
-            <Text style={styles.planTitle}>🧺 Crew basket</Text>
-            <Text style={styles.planWindow}>Add berries together and pay with your crew card</Text>
-          </View>
-          <Text style={styles.windowCheck}>›</Text>
-        </Card>
-      ) : null}
 
       <Card testID="story-link" tone="muted" onPress={() => router.push(`/story/${groupId}`)} style={styles.planCard}>
         <View style={styles.planInfo}>
