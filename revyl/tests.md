@@ -19,7 +19,7 @@ These are three natural-language tests to run on iOS and Android. Each step name
 3. Assert that `plan-generating` shows, then that `vote-option-0`, `vote-option-1` and `vote-option-2` appear.
 4. Tap `vote-option-1`. Assert that `vote-count-1` increases and `lock-banner` appears with the winner title (`lock-winner-title`).
 5. Tap `confirm-attendance`. Assert that `confirmed-badge` is visible.
-6. (Pass on ideas) On a plan that is still voting, tap `plan-reject` ("Not feeling these · 10 Gojis"), then `plan-reject-confirm`. Assert that `plan-reject-count` reads "1 of N passed", `plan-reject-spent` shows "-10 Gojis" and `plan-goji-balance` dropped by 10. When more than half the crew passes, `plan-generating` shows "New ideas on the way", then `plan-new-ideas` appears above 3 new `vote-option-*` cards. Needs votes.rejectOptions (HOME-34) deployed and `REJECT_MOCK = false`.
+6. (Pass on ideas) On a plan that is still voting, tap `plan-reject` ("Not feeling these · 10 Gojis"). Assert that `plan-goji-balance` reads "Spend 10 of your N Gojis to pass?", then tap `plan-reject-confirm`. Assert that `plan-reject-count` starts with "1 of N passed" and `plan-reject-spent` shows "-10 Gojis". When more than half the crew passes, `plan-generating` shows "New ideas on the way", then `plan-new-ideas` appears above the new `vote-option-*` cards. Needs votes.rejectOptions (HOME-34) deployed and `REJECT_MOCK = false`.
 
 ## 3. Take a photo, see it in the story, Gojis go up
 
