@@ -1,8 +1,8 @@
 export type School = { name: string; slug: string; crest: string; color: string; tagline: string };
 
 export const SCHOOLS: School[] = [
-  { name: "Berkeley", slug: "berkeley", crest: "CAL", color: "#1F4E99", tagline: "Golden Bears" },
   { name: "Stanford", slug: "stanford", crest: "S", color: "#8C1515", tagline: "Cardinal" },
+  { name: "Berkeley", slug: "berkeley", crest: "CAL", color: "#1F4E99", tagline: "Golden Bears" },
   { name: "USF", slug: "usf", crest: "USF", color: "#00543C", tagline: "Dons" },
   { name: "SF State", slug: "sf-state", crest: "SFSU", color: "#463077", tagline: "Gators" },
   { name: "Other", slug: "other", crest: "?", color: "#7B6E69", tagline: "Somewhere else" },
