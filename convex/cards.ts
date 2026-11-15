@@ -1,18 +1,10 @@
-import { v } from "convex/values";
-import { makeFunctionReference } from "convex/server";
+import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
+import { debitShares, loadPlanSplit } from "./funds";
 
 // MOCK group card. Whop card issuing isn't verified yet, so issueCard and chargeCard
 // keep the real integration's shape and only their internals will change.
-
-// Ishan's funds.ts (I-7), referenced by name so this file deploys on its own.
-const spend = makeFunctionReference<
-  "mutation",
-  { potId: Id<"pots">; amount: number; experienceId: Id<"experiences">; planId: Id<"plans"> },
-  unknown
->("funds:spend");
 
 export const issueCard = internalMutation({
   args: { groupId: v.id("groups") },
@@ -54,10 +46,9 @@ export const chargeCard = mutation({
     if (!plan || plan.groupId !== groupId) throw new Error("Plan not found");
     if (plan.status !== "locked" || plan.winningIndex === undefined) throw new Error("Lock the plan before paying");
 
-    const experienceId = plan.options[plan.winningIndex]?.experienceId;
-    if (!experienceId) throw new Error("The winning option isn't a bookable experience");
-    const experience = await ctx.db.get("experiences", experienceId);
-    if (!experience) throw new Error("Experience not found");
+    const loaded = await loadPlanSplit(ctx, planId);
+    if (!loaded) throw new Error("The winning option isn't a bookable experience");
+    const { experience, split } = loaded;
 
     const [card, pot] = await Promise.all([
       ctx.db
@@ -71,41 +62,29 @@ export const chargeCard = mutation({
     ]);
     if (!card || card.status === "frozen") throw new Error("The group card isn't active");
     if (!pot) throw new Error("This group doesn't have a fund yet");
+    if (split.charged) throw new Error("This plan is already paid");
 
-    const ledger = await ctx.db
-      .query("transactions")
-      .withIndex("by_pot", (q) => q.eq("potId", pot._id))
-      .collect();
-    if (ledger.some((t) => t.type === "spend" && t.planId === planId && t.status !== "failed")) {
-      throw new Error("This plan is already paid");
-    }
-
-    const confirmed = (
-      await ctx.db
-        .query("votes")
-        .withIndex("by_plan", (q) => q.eq("planId", planId))
-        .collect()
-    ).filter((vote) => vote.confirmed).length;
+    const confirmed = split.attendees.length;
     if (confirmed < group.memberIds.length && Date.now() < plan.confirmBy) {
       throw new Error("Wait until everyone confirms or the confirm deadline passes");
     }
     if (confirmed < experience.minGroup || confirmed > experience.maxGroup) {
       throw new Error(`${experience.title} needs ${experience.minGroup}-${experience.maxGroup} people, ${confirmed} confirmed`);
     }
-    const amount = experience.pricePerPerson * confirmed;
+    const short = split.attendees.filter((a) => a.shortBy > 0);
+    if (short.length > 0) {
+      throw new ConvexError({
+        code: "ATTENDEES_SHORT",
+        attendees: short.map(({ userId, name, shortBy }) => ({ userId, name, shortBy })),
+      });
+    }
+    const amount = split.total;
 
-    const spent = await ctx.runMutation(spend, { potId: pot._id, amount, experienceId, planId });
-    const transactionId =
-      typeof spent === "string"
-        ? (spent as Id<"transactions">)
-        : (
-            await ctx.db
-              .query("transactions")
-              .withIndex("by_pot", (q) => q.eq("potId", pot._id))
-              .order("desc")
-              .first()
-          )!._id;
-    await ctx.scheduler.runAfter(0, internal.whop.transferToBusiness, { transactionId });
+    const transactionIds = await debitShares(ctx, { pot, experience, planId, split });
+    for (const transactionId of transactionIds) {
+      await ctx.scheduler.runAfter(0, internal.whop.transferToBusiness, { transactionId });
+    }
+    const transactionId = transactionIds[0];
 
     const [business, updatedPot] = await Promise.all([
       ctx.db.get("businesses", experience.businessId),
