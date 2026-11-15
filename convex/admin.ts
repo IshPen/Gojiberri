@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, MutationCtx } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
+import schema from "./schema";
 
 const CHECKIN_REASONS: Doc<"pointEvents">["reason"][] = ["checkin", "novel_bonus", "regular_bonus", "fullcrew_bonus"];
 
@@ -76,6 +77,24 @@ export const deletePhotoCascade = internalMutation({
       pointEvents: pointEvents.length,
       pointsRemoved: pointEvents.reduce((sum, e) => sum + e.points, 0),
     };
+  },
+});
+
+export const patchPlan = internalMutation({
+  args: {
+    planId: v.id("plans"),
+    confirmBy: v.optional(v.number()),
+    status: v.optional(schema.tables.plans.validator.fields.status),
+  },
+  handler: async (ctx, { planId, confirmBy, status }) => {
+    const plan = await ctx.db.get("plans", planId);
+    if (!plan) throw new Error("Plan not found");
+    const patch: Partial<Doc<"plans">> = {};
+    if (confirmBy !== undefined) patch.confirmBy = confirmBy;
+    if (status !== undefined) patch.status = status;
+    await ctx.db.patch("plans", planId, patch);
+    const updated = (await ctx.db.get("plans", planId))!;
+    return { status: updated.status, confirmBy: updated.confirmBy };
   },
 });
 
