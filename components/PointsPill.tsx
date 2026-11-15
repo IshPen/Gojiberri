@@ -20,7 +20,7 @@ export default function PointsPill({ points, kind = "gojis", testID = "points-pi
         flexDirection: "row",
         alignItems: "center",
         gap: spacing.xs,
-        backgroundColor: golden ? colors.warningSoft : colors.accentSoft,
+        backgroundColor: golden ? colors.warningSoft : colors.berrySoft,
         borderRadius: radius.pill,
         paddingHorizontal: large ? spacing.lg : spacing.md,
         paddingVertical: large ? spacing.sm : spacing.xs,
@@ -32,7 +32,7 @@ export default function PointsPill({ points, kind = "gojis", testID = "points-pi
         style={{
           fontSize: large ? font.size.lg : font.size.sm,
           fontWeight: font.weight.heavy,
-          color: golden ? colors.text : colors.accentDark,
+          color: golden ? colors.text : colors.berryDark,
         }}
       >
         {points.toLocaleString()}

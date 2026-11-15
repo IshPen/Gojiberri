@@ -95,9 +95,9 @@ export function GojiDetails({ preview, testID }: { preview: GojiPreview | undefi
 
 const styles = StyleSheet.create({
   heading: { ...type.heading, fontSize: font.size.md },
-  chip: { alignSelf: "flex-start", backgroundColor: colors.accentSoft, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.accentSoft, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  chipOpen: { borderColor: colors.accent },
-  chipText: { fontSize: font.size.sm, fontWeight: font.weight.heavy, color: colors.accentDark },
+  chip: { alignSelf: "flex-start", backgroundColor: colors.berrySoft, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.berrySoft, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  chipOpen: { borderColor: colors.berry },
+  chipText: { fontSize: font.size.sm, fontWeight: font.weight.heavy, color: colors.berryDark },
   breakdown: { backgroundColor: colors.cardMuted, borderRadius: radius.md, padding: spacing.md, gap: spacing.xs },
   row: { flexDirection: "row", gap: spacing.md },
   points: { width: 40, fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.leaf, textAlign: "right" },
