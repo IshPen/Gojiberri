@@ -98,7 +98,7 @@ export const saveOptions = internalMutation({
               title: `Your crew passed, here ${options.length === 1 ? "is 1 new idea" : `are ${options.length} new ideas`}`,
               body,
             }
-          : { title: "3 ideas are ready", body }),
+          : { title: "Your top pick is ready", body }),
       data: { planId },
     });
     return null;
