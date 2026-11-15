@@ -217,7 +217,8 @@ export default defineSchema({
     userId: v.id("users"),
     reason: v.union(
       v.literal("checkin"), v.literal("solo"), v.literal("confirm"), v.literal("rate"), v.literal("reject_spend"),
-      v.literal("novel_bonus"), v.literal("regular_bonus"), v.literal("fullcrew_bonus")
+      v.literal("novel_bonus"), v.literal("regular_bonus"), v.literal("fullcrew_bonus"),
+      v.literal("offer_claim")
     ),
     points: v.number(),
     planId: v.optional(v.id("plans")),
@@ -261,4 +262,34 @@ export default defineSchema({
     .index("by_business_and_status_and_redeemedAt", ["businessId", "status", "redeemedAt"])
     .index("by_sponsor_and_status_and_redeemedAt", ["sponsorId", "status", "redeemedAt"])
     .index("by_user_and_ref_and_status", ["userId", "refId", "status"]),
+
+  offers: defineTable({                  // business-created offers students claim, then redeem by QR
+    businessName: v.string(),            // the dashboard account: a sponsor and a business with the same name
+    sponsorId: v.optional(v.id("sponsors")),
+    businessId: v.optional(v.id("businesses")),
+    title: v.string(),
+    description: v.string(),
+    perk: v.union(v.literal("discount"), v.literal("freebie")),
+    discountPercent: v.optional(v.number()), // 1-100, set when perk is discount
+    school: v.string(),                  // matches users.homeArea
+    minCrewSize: v.number(),
+    expiresAt: v.number(),
+    quantityCap: v.optional(v.number()), // max claims; unset means unlimited
+    gojiCost: v.number(),                // 0 means free
+    active: v.boolean(),
+    claimedCount: v.number(),
+    redeemedCount: v.number(),
+  })
+    .index("by_school_and_active_and_expiresAt", ["school", "active", "expiresAt"])
+    .index("by_businessName", ["businessName"]),
+
+  offerClaims: defineTable({
+    offerId: v.id("offers"),
+    userId: v.id("users"),
+    groupId: v.id("groups"),             // the crew that met minCrewSize at claim time
+    gojisSpent: v.number(),
+    redeemedAt: v.optional(v.number()),
+  })
+    .index("by_offer_and_user", ["offerId", "userId"])
+    .index("by_user", ["userId"]),
 });
