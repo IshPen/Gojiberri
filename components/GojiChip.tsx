@@ -1,4 +1,4 @@
-import { useAction, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useEffect, useState } from "react";
@@ -10,9 +10,9 @@ export type GojiPreview = { ideaKey: string; total: number; items: GojiPreviewIt
 export type IdeaFallback = { ideaKey: string; novel: boolean };
 
 // HOME-35: points.gojiPreview and novelty.requestScores, referenced by name until they deploy. Flip PREVIEW_MOCK once they do.
-const PREVIEW_MOCK = true;
+const PREVIEW_MOCK = false;
 const previewRef = makeFunctionReference<"query", { userId: Id<"users">; ideaKeys: string[] }, GojiPreview[]>("points:gojiPreview");
-const requestScoresRef = makeFunctionReference<"action", { userId: Id<"users">; ideaKeys: string[] }, null>("novelty:requestScores");
+const requestScoresRef = makeFunctionReference<"mutation", { userId: Id<"users">; ideaKeys: string[] }, null>("novelty:requestScores");
 
 function mockPreview({ ideaKey, novel }: IdeaFallback): GojiPreview {
   const items: GojiPreviewItem[] = [{ reason: "checkin", points: 50, label: "Check-in" }];
@@ -31,7 +31,7 @@ export function useGojiPreviews(userId: string | null, ideas: IdeaFallback[]): M
   const ideaKeys = ideas.map((i) => i.ideaKey);
   const joined = ideaKeys.join(",");
   const live = useQuery(previewRef, PREVIEW_MOCK || !userId || ideaKeys.length === 0 ? "skip" : { userId: userId as Id<"users">, ideaKeys });
-  const requestScores = useAction(requestScoresRef);
+  const requestScores = useMutation(requestScoresRef);
 
   useEffect(() => {
     if (PREVIEW_MOCK || !userId || !joined) return;

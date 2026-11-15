@@ -22,14 +22,12 @@ const generateUploadUrlRef = makeFunctionReference<"mutation", Record<string, ne
 const savePhotoRef = makeFunctionReference<
   "mutation",
   { userId: Id<"users">; storageId: Id<"_storage">; groupId?: Id<"groups">; planId?: Id<"plans">; caption?: string },
-  Id<"photos"> | ({ photoId: Id<"photos"> } & GojiBreakdownData)
+  { photoId: Id<"photos"> } & GojiBreakdownData
 >("photos:savePhoto");
 
 const MOCK_PLAN = { title: "Boba run at Asha Tea House", groupId: "mock_hack_crew" as Id<"groups"> };
 
 const PHOTO_POINTS = 50;
-// Until HOME-35 deploys, savePhoto returns a bare id after awarding the base check-in.
-const BASE_BREAKDOWN: GojiBreakdownData = { total: PHOTO_POINTS, items: [{ reason: "checkin", points: PHOTO_POINTS, label: "Check-in" }] };
 
 type Picked = { uri: string; mimeType: string };
 
@@ -48,7 +46,7 @@ export default function CameraScreen() {
   const generateLive = useMutation(generateUploadUrlRef);
   const saveLive = useMutation(savePhotoRef);
   const generateUploadUrl = USE_MOCK ? () => mockDelay("mock://upload", 300) : generateLive;
-  const savePhoto = USE_MOCK ? (_args: Parameters<typeof saveLive>[0]) => mockDelay("photo_mock_1" as Id<"photos">, 700) : saveLive;
+  const savePhoto = USE_MOCK ? (_args: Parameters<typeof saveLive>[0]) => mockDelay({ photoId: "photo_mock_1" as Id<"photos">, total: 0, items: [] }, 700) : saveLive;
 
   const livePlan = useQuery(api.plans.getPlan, USE_MOCK || !planId ? "skip" : { planId: planId as Id<"plans"> });
   const mockPlan = useMockQuery(MOCK_PLAN, USE_MOCK && !!planId);
@@ -129,7 +127,7 @@ export default function CameraScreen() {
         planId: planId ? (planId as Id<"plans">) : undefined,
         caption: caption.trim() || undefined,
       });
-      setGojis(typeof saved === "object" ? saved : planId ? BASE_BREAKDOWN : null);
+      setGojis(saved);
       setDone(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed. Please try again.");

@@ -67,7 +67,7 @@ const REFUSAL: Record<"maxed" | "not_voting" | "not_member", string> = {
 };
 const rejectRef = makeFunctionReference<"mutation", { userId: Id<"users">; planId: Id<"plans"> }, RejectResult>("votes:rejectOptions");
 const getUserRef = makeFunctionReference<"query", { userId: Id<"users"> }, { points: number } | null>("users:getUser");
-const REJECT_MOCK = true;
+const REJECT_MOCK = false;
 const MAX_REGENS = 3;
 const REJECT_COST = 10;
 
