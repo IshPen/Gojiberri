@@ -1,7 +1,7 @@
 import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Stack, useLocalSearchParams, type ErrorBoundaryProps } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter, type ErrorBoundaryProps } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
@@ -77,6 +77,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 export default function ExperienceDetailScreen() {
+  const router = useRouter();
   const { experienceId } = useLocalSearchParams<{ experienceId: string }>();
   const { userId, loading: sessionLoading } = useUserId();
   const experience = useQuery(
@@ -263,6 +264,10 @@ export default function ExperienceDetailScreen() {
           />
         )}
       </Card>
+
+      {myPurchase?.status === "completed" || receipt ? (
+        <Button testID="experience-show-qr" label="Show QR to redeem" icon="📱" onPress={() => router.push(`/redeem/experience/${experience._id}`)} />
+      ) : null}
 
       <SectionHeader title="Pay from crew pot" testID="experience-pot-header" />
       <Card testID="experience-pot-card" tone={receipt ? "success" : "default"}>

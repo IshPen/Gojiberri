@@ -245,4 +245,20 @@ export default defineSchema({
     .index("by_checkout", ["whopCheckoutId"])
     .index("by_user", ["userId"])
     .index("by_experience", ["experienceId"]),
+
+  redemptions: defineTable({             // short-lived QR codes a business scans
+    token: v.string(),                   // random, single use
+    kind: v.union(v.literal("offer"), v.literal("reward"), v.literal("experience")),
+    refId: v.string(),                   // sponsors / rewards / experiences id
+    userId: v.id("users"),
+    businessId: v.optional(v.id("businesses")),
+    sponsorId: v.optional(v.id("sponsors")),
+    status: v.union(v.literal("issued"), v.literal("redeemed"), v.literal("expired")),
+    expiresAt: v.number(),
+    redeemedAt: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_business_and_status_and_redeemedAt", ["businessId", "status", "redeemedAt"])
+    .index("by_sponsor_and_status_and_redeemedAt", ["sponsorId", "status", "redeemedAt"])
+    .index("by_user_and_ref_and_status", ["userId", "refId", "status"]),
 });

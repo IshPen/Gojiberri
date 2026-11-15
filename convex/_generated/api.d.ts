@@ -34,6 +34,7 @@ import type * as pricing from "../pricing.js";
 import type * as purchases from "../purchases.js";
 import type * as ratings from "../ratings.js";
 import type * as recurrences from "../recurrences.js";
+import type * as redemptions from "../redemptions.js";
 import type * as refs from "../refs.js";
 import type * as reminders from "../reminders.js";
 import type * as seed from "../seed.js";
@@ -77,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   purchases: typeof purchases;
   ratings: typeof ratings;
   recurrences: typeof recurrences;
+  redemptions: typeof redemptions;
   refs: typeof refs;
   reminders: typeof reminders;
   seed: typeof seed;

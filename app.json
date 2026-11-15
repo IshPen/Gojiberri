@@ -12,7 +12,7 @@
       "infoPlist": {
         "NSCalendarsUsageDescription": "Gojiberri reads when you're busy so plans fit everyone's free time.",
         "NSCalendarsFullAccessUsageDescription": "Gojiberri reads when you're busy so plans fit everyone's free time, and adds locked plans to your calendar.",
-        "NSCameraUsageDescription": "Gojiberri uses the camera for photo check-ins.",
+        "NSCameraUsageDescription": "Gojiberri uses the camera for photo check-ins and to scan reward QR codes.",
         "NSPhotoLibraryUsageDescription": "Gojiberri lets you pick a photo for your check-in."
       }
     },
@@ -35,7 +35,14 @@
     "plugins": [
       "expo-router",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Gojiberri uses the camera for photo check-ins and to scan reward QR codes.",
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false
