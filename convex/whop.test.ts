@@ -498,7 +498,7 @@ describe("explicit Whop demo mode", () => {
     expect(page.status).toBe(200);
     expect(page.headers.get("cache-control")).toBe("no-store");
     expect(page.headers.get("referrer-policy")).toBe("same-origin");
-    expect(html).toContain("Demo payment: Whop is simulated");
+    expect(html).toContain("Simulated checkout · no real payment is made");
     expect(html).toContain("Synthetic crew fun fund");
     expect(html).toContain("$10.00");
     expect((await state()).pot?.balance).toBe(40);
@@ -679,6 +679,75 @@ describe("explicit Whop demo mode", () => {
     expect(after.pot?.balance).toBe(50);
     expect(after.transactions).toHaveLength(1);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("lets the app confirm in-app through the same single-use fulfillment as the pay route", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, ids, state } = await fixture();
+    const started = await t.mutation(api.whopMock.startContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 10 });
+    if (started.mode !== "mock") throw new Error("expected mock mode");
+    expect(tokenFrom(started.checkoutUrl)).toBe(started.token);
+    expect(await t.query(api.whopMock.getMockCheckout, { token: started.token })).toEqual({
+      kind: "contribution", title: "Synthetic crew fun fund", amount: 10, currency: "usd", status: "pending",
+    });
+    const results = await Promise.allSettled([
+      t.mutation(api.whopMock.payMockCheckout, { token: started.token }),
+      t.mutation(api.whopMock.payMockCheckout, { token: started.token }),
+      pay(t, started.token),
+    ]);
+    expect(results.map((r) => r.status)).toEqual(["fulfilled", "fulfilled", "fulfilled"]);
+    expect((results[0] as PromiseFulfilledResult<unknown>).value).toMatchObject({ status: "paid", amount: 10 });
+    expect(await t.mutation(api.whopMock.payMockCheckout, { token: started.token })).toMatchObject({ status: "paid" });
+    expect(await t.query(api.whopMock.getMockCheckout, { token: started.token })).toMatchObject({ status: "paid" });
+    const after = await state();
+    expect(after.pot?.balance).toBe(50);
+    expect(after.transactions).toHaveLength(1);
+    expect(after.transactions[0].whopPaymentId).toBe(`mock_pay_${started.token}`);
+
+    const experience = await t.mutation(api.whopMock.startExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId });
+    if (experience.mode !== "mock") throw new Error("expected mock mode");
+    expect(await t.mutation(api.whopMock.payMockCheckout, { token: experience.token })).toEqual({
+      kind: "experience", title: "Synthetic business", amount: 25.5, currency: "usd", status: "paid",
+    });
+    expect((await state()).business?.earned).toBe(32.5);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("refuses in-app lookups and payment for unknown, expired, or disabled tokens", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, ids, state } = await fixture();
+    const started = await t.mutation(api.whopMock.startContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 10 });
+    if (started.mode !== "mock") throw new Error("expected mock mode");
+    for (const token of ["b".repeat(64), "invalid"]) {
+      expect(await t.query(api.whopMock.getMockCheckout, { token })).toBeNull();
+      await expect(t.mutation(api.whopMock.payMockCheckout, { token })).rejects.toThrow("Not found");
+    }
+    vi.stubEnv("WHOP_MOCK", "false");
+    expect(await t.query(api.whopMock.getMockCheckout, { token: started.token })).toBeNull();
+    await expect(t.mutation(api.whopMock.payMockCheckout, { token: started.token })).rejects.toThrow("Not found");
+    vi.stubEnv("WHOP_MOCK", "true");
+    vi.spyOn(Date, "now").mockReturnValue(now + 31 * 60 * 1000);
+    expect(await t.query(api.whopMock.getMockCheckout, { token: started.token })).toMatchObject({ status: "expired" });
+    await expect(t.mutation(api.whopMock.payMockCheckout, { token: started.token })).rejects.toThrow("expired");
+    expect((await state()).pot?.balance).toBe(40);
+    expect((await state()).transactions).toEqual([]);
+  });
+
+  it("renders a clean checkout and receipt with a visible simulation notice", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, ids } = await fixture();
+    const started = await t.mutation(api.whopMock.startContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 10 });
+    if (started.mode !== "mock") throw new Error("expected mock mode");
+    const checkout = await (await t.fetch(`/whop/mock-checkout?token=${started.token}`)).text();
+    const receipt = await (await pay(t, started.token)).text();
+    expect(checkout).toContain('<button type="submit">Pay $10.00</button>');
+    for (const html of [checkout, receipt]) {
+      expect(html).toContain('<div class="foot">Simulated checkout · no real payment is made</div>');
+      expect(html).not.toContain("Whop is simulated");
+      expect(html).not.toContain("· Demo");
+      expect(html).not.toMatch(/<(script|img|link)\b/);
+    }
+    expect(receipt).toContain("Return to the app");
   });
 
   it("never calls Whop for demo transfers or unsupported sponsor checkout", async () => {

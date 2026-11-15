@@ -15,25 +15,25 @@ function escapeHtml(value: string) {
 function mockCheckoutPage(checkout: Doc<"whopMockCheckouts">) {
   const paid = checkout.status === "paid";
   const amount = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(checkout.amount);
-  const title = paid ? "Demo payment complete" : "A little goes a long way.";
+  const contribution = checkout.kind === "contribution";
+  const title = paid ? "You're all set" : contribution ? "Chip in to your crew" : "Complete your booking";
   return new Response(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title} · Goji</title><style>
-*{box-sizing:border-box}body{margin:0;background:#f8f5ed;color:#203b2d;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;padding:36px 20px}
-main{max-width:440px;margin:0 auto}.brand{font-size:28px;font-weight:850;letter-spacing:-1px;margin-bottom:44px}.dot{color:#e77850}
-.badge{display:inline-block;background:#f9dfb1;color:#65451b;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:700}
-h1{font-size:36px;line-height:1.12;letter-spacing:-1.3px;margin:23px 0 14px}p{color:#657065;font-size:15px;line-height:1.6}
-.card{background:#fff;border:1px solid #e3e5da;border-radius:20px;padding:24px;margin:30px 0 20px}.label{font-size:11px;font-weight:750;letter-spacing:1.5px;text-transform:uppercase;color:#798174}
-h2{font-size:19px;line-height:1.4;margin:8px 0 24px;overflow-wrap:anywhere}.amount{font-size:44px;line-height:1;font-weight:750;letter-spacing:-1.5px}.currency{font-size:12px;color:#798174;margin-top:8px}
-button{font:inherit;font-weight:750;width:100%;border:0;border-radius:13px;padding:18px 12px;background:#285c3e;color:white;cursor:pointer;min-height:56px}button:focus-visible{outline:3px solid #e77850;outline-offset:3px}
-.fine{font-size:12px;text-align:center;margin-top:18px}.success{padding:16px;background:#e7efdf;border-radius:13px;font-weight:650;line-height:1.5}.foot{margin-top:44px;font-size:12px;color:#798174}
-</style></head><body><main><div class="brand">goji<span class="dot">.</span></div>
-<div class="badge">Demo payment: Whop is simulated</div><h1>${title}</h1>
-<p>${paid ? "Your simulated payment is recorded. No real money was charged." : "Try the full checkout flow. This is a simulation, so no card or real payment is needed."}</p>
-<section class="card"><div class="label">${checkout.kind === "contribution" ? "Chip in to" : "Experience from"}</div>
-<h2>${escapeHtml(checkout.title)}</h2><div class="amount">${amount}</div><div class="currency">USD · simulated payment</div></section>
-${paid ? '<div class="success">Return to the app to see your updated ' + (checkout.kind === "contribution" ? "fund balance." : "purchase status.") + '</div>' : `<form action="/whop/mock-pay" method="post"><input type="hidden" name="token" value="${escapeHtml(checkout.token)}"><button type="submit">Pay ${amount} · Demo</button></form><p class="fine">Only this demo balance or purchase will be updated.</p>`}
-<div class="foot">Goji demo checkout · Powered by a simulation, not Whop</div></main></body></html>`, {
+*{box-sizing:border-box}body{margin:0;background:#f8f5ed;color:#203b2d;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;min-height:100vh;padding:32px 20px}
+main{max-width:440px;margin:0 auto}.brand{font-size:28px;font-weight:850;letter-spacing:-1px;margin-bottom:36px}.dot{color:#e77850}
+h1{font-size:32px;line-height:1.15;letter-spacing:-1px;margin:0 0 10px}p{color:#657065;font-size:15px;line-height:1.6;margin:0}
+.card{background:#fff;border:1px solid #e3e5da;border-radius:20px;padding:22px 24px;margin:26px 0 20px}.label{font-size:11px;font-weight:750;letter-spacing:1.5px;text-transform:uppercase;color:#798174}
+h2{font-size:18px;line-height:1.4;margin:6px 0 18px;overflow-wrap:anywhere}.row{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid #eceee5;padding-top:16px}
+.row span{color:#657065;font-size:14px}.amount{font-size:34px;line-height:1;font-weight:750;letter-spacing:-1px}
+button{font:inherit;font-size:17px;font-weight:750;width:100%;border:0;border-radius:14px;padding:18px 12px;background:#285c3e;color:#fff;cursor:pointer;min-height:56px}button:focus-visible{outline:3px solid #e77850;outline-offset:3px}
+.success{padding:16px;background:#e7efdf;border-radius:14px;font-weight:650;line-height:1.5}.foot{margin-top:28px;font-size:12px;color:#798174;text-align:center}
+</style></head><body><main><div class="brand">goji<span class="dot">.</span></div><h1>${title}</h1>
+<p>${paid ? "Your payment is recorded." : contribution ? "Review your contribution, then confirm." : "Review your order, then confirm."}</p>
+<section class="card"><div class="label">${contribution ? "Chip in to" : "Experience from"}</div>
+<h2>${escapeHtml(checkout.title)}</h2><div class="row"><span>${paid ? "Paid" : "Total"} (USD)</span><div class="amount">${amount}</div></div></section>
+${paid ? '<div class="success">Return to the app to see your updated ' + (contribution ? "fund balance." : "purchase status.") + '</div>' : `<form action="/whop/mock-pay" method="post"><input type="hidden" name="token" value="${escapeHtml(checkout.token)}"><button type="submit">Pay ${amount}</button></form>`}
+<div class="foot">Simulated checkout · no real payment is made</div></main></body></html>`, {
     headers: {
       "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "same-origin",
       "X-Content-Type-Options": "nosniff",
