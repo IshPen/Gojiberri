@@ -10,9 +10,9 @@ import { chatText } from "./llm";
 // ASSUMED Keiki API (confirm with the Keiki team): inbound messages hit /keiki/webhook,
 // and we reply with POST {KEIKI_API_URL}/chats/{chatId}/messages { text }.
 const KEIKI_API = process.env.KEIKI_API_URL ?? "https://api.keiki.ai/v1";
-const APP_LINK = process.env.APP_DEEP_LINK ?? "sidequest://";
+const APP_LINK = process.env.APP_DEEP_LINK ?? "gojiberri://";
 
-const PLANNER_PROMPT = `You are Sidequest, a friendly planner living in a friend group's chat.
+const PLANNER_PROMPT = `You are Gojiberri, a friendly planner living in a friend group's chat.
 Answer in 1-2 short sentences. Nudge people to plan with "plan saturday", vote with "vote 2",
 or check progress with "status".`;
 
@@ -93,7 +93,7 @@ export const handleMessage = internalAction({
       await reply(
         groupName
           ? `Linked this chat to ${groupName}! Say "plan saturday" to get 3 ideas.`
-          : "Hi! Send your Sidequest group's 6-character invite code to link this chat.",
+          : "Hi! Send your Gojiberri group's 6-character invite code to link this chat.",
       );
       return null;
     }
@@ -104,7 +104,7 @@ export const handleMessage = internalAction({
     const [command, arg] = text.trim().split(/\s+/);
     const isAction = ["plan", "vote"].includes(command.toLowerCase());
     if (isAction && matches.length !== 1) {
-      await reply(`I can't tell who "${sender}" is in ${group.name}. Use the same name as your Sidequest profile.`);
+      await reply(`I can't tell who "${sender}" is in ${group.name}. Use the same name as your Gojiberri profile.`);
       return null;
     }
     const member = matches[0] ?? members.find((m) => m._id === group.ownerId)!;

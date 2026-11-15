@@ -60,6 +60,25 @@ export const redeemReward = mutation({
   },
 });
 
+export const getMyRewards = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const rewards = await ctx.db
+      .query("rewards")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(100);
+    return await Promise.all(
+      rewards
+        .filter((r) => r.redeemedAt !== undefined)
+        .map(async (r) => {
+          const sponsor = await ctx.db.get("sponsors", r.sponsorId);
+          return { ...r, business: sponsor?.business ?? "", offer: sponsor?.offer ?? "" };
+        }),
+    );
+  },
+});
+
 export const stats = query({
   args: { sponsorId: v.id("sponsors") },
   handler: async (ctx, { sponsorId }) => {
