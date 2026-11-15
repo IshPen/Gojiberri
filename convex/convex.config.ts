@@ -7,6 +7,7 @@ const app = defineApp({
     SUPERMEMORY_API_KEY: v.optional(v.string()),
     OPENAI_API_KEY: v.optional(v.string()),
     WHOP_API_KEY: v.optional(v.string()),
+    WHOP_MOCK: v.optional(v.string()),
     WHOP_API_BASE: v.optional(v.string()),
     WHOP_COMPANY_ID: v.optional(v.string()),
     WHOP_PRODUCT_ID: v.optional(v.string()),

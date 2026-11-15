@@ -44,6 +44,7 @@ import type * as time from "../time.js";
 import type * as users from "../users.js";
 import type * as votes from "../votes.js";
 import type * as whop from "../whop.js";
+import type * as whopMock from "../whopMock.js";
 
 import type {
   ApiFromModules,
@@ -88,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   votes: typeof votes;
   whop: typeof whop;
+  whopMock: typeof whopMock;
 }>;
 
 /**

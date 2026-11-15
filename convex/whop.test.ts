@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 const modules = { ...import.meta.glob("./**/*.ts"), ...import.meta.glob("./_generated/*.js") };
 const secret = "ws_synthetic_test_secret";
@@ -65,6 +65,8 @@ async function signed(body: string, timestamp = String(now / 1000), version = "v
 }
 
 beforeEach(() => {
+  vi.stubEnv("WHOP_MOCK", undefined);
+  vi.stubEnv("CONVEX_SITE_URL", "https://fixture.convex.site");
   vi.stubEnv("WHOP_COMPANY_ID", "biz_fixture");
   vi.stubEnv("WHOP_WEBHOOK_SECRET", secret);
   vi.spyOn(Date, "now").mockReturnValue(now);
@@ -426,6 +428,193 @@ describe("raw-body signature guard", () => {
     const { t, state } = await fixture();
     const body = "{";
     expect((await t.fetch("/whop/webhook", { method: "POST", body, headers: await signed(body) })).status).toBe(400);
+    expect((await state()).purchase?.status).toBe("pending");
+  });
+});
+
+describe("explicit Whop demo mode", () => {
+  const pay = (t: Awaited<ReturnType<typeof fixture>>["t"], token: string, extra = "") => t.fetch("/whop/mock-pay", {
+    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: `token=${token}${extra}`,
+  });
+  const tokenFrom = (url: string) => {
+    expect(new URL(url).origin).toBe("https://fixture.convex.site");
+    expect(new URL(url).pathname).toBe("/whop/mock-checkout");
+    const token = new URL(url).searchParams.get("token")!;
+    expect(token).toMatch(/^[a-f0-9]{64}$/);
+    return token;
+  };
+
+  it.each([undefined, "false", "TRUE", "1"])("returns 404 on both routes unless the flag is exactly true (%s)", async (flag) => {
+    vi.stubEnv("WHOP_MOCK", flag);
+    const { t } = await fixture();
+    expect((await t.fetch(`/whop/mock-checkout?token=${"a".repeat(64)}`)).status).toBe(404);
+    expect((await pay(t, "a".repeat(64))).status).toBe(404);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("keeps real checkout behavior when mock mode is unset", async () => {
+    const { t, ids } = await fixture();
+    const outgoing = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ id: "ch_real", purchase_url: "https://sandbox.whop.com/checkout/real" }), { status: 200 })));
+    vi.stubGlobal("fetch", outgoing);
+    expect(await t.action(api.whop.createContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 10 })).toBe("https://sandbox.whop.com/checkout/real");
+    expect(await t.action(api.experienceCheckout.createExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId })).toBe("https://sandbox.whop.com/checkout/real");
+    expect(outgoing).toHaveBeenCalledTimes(2);
+    expect(await t.run((ctx) => ctx.db.query("whopMockCheckouts").collect())).toEqual([]);
+  });
+
+  it("does not auto-fallback to a mock payment on a provider 401", async () => {
+    const { t, ids } = await fixture();
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("Authentication failed", { status: 401 }))));
+    await expect(t.action(api.experienceCheckout.createExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId })).rejects.toThrow("401");
+    expect(await t.run((ctx) => ctx.db.query("whopMockCheckouts").collect())).toEqual([]);
+    expect((await t.run((ctx) => ctx.db.get("businesses", ids.businessId)))?.earned).toBe(7);
+  });
+
+  it("creates a token-backed contribution and credits it exactly once", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    vi.stubEnv("WHOP_API_KEY", undefined);
+    vi.stubEnv("WHOP_COMPANY_ID", undefined);
+    const { t, ids, state } = await fixture();
+    const token = tokenFrom(await t.action(api.whop.createContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 10 }));
+    const page = await t.fetch(`/whop/mock-checkout?token=${token}&amount=999`);
+    const html = await page.text();
+    expect(page.status).toBe(200);
+    expect(page.headers.get("cache-control")).toBe("no-store");
+    expect(page.headers.get("referrer-policy")).toBe("same-origin");
+    expect(html).toContain("Demo payment: Whop is simulated");
+    expect(html).toContain("Synthetic crew fun fund");
+    expect(html).toContain("$10.00");
+    expect((await state()).pot?.balance).toBe(40);
+    const responses = await Promise.all([pay(t, token, "&amount=999&potId=forged"), pay(t, token)]);
+    for (const response of responses) {
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain("Return to the app");
+    }
+    const after = await state();
+    expect(after.pot?.balance).toBe(50);
+    expect(after.transactions).toHaveLength(1);
+    expect(after.transactions[0].whopPaymentId).toBe(`mock_pay_${token}`);
+    expect(after.business?.earned).toBe(7);
+    expect(after.purchase?.status).toBe("pending");
+    expect(await (await t.fetch(`/whop/mock-checkout?token=${token}`)).text()).not.toContain('<button type="submit">');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("creates deterministic mock product IDs and completes an experience without touching the pot", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, ids, state } = await fixture();
+    await t.run((ctx) => ctx.db.patch("experiences", ids.experienceId, { whopPlanId: undefined }));
+    const token = tokenFrom(await t.action(api.experienceCheckout.createExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId }));
+    const experience = await t.run((ctx) => ctx.db.get("experiences", ids.experienceId));
+    expect(experience).toMatchObject({ whopProductId: `prod_mock_${ids.experienceId}`, whopPlanId: `plan_mock_${ids.experienceId}` });
+    const checkout = await t.query(internal.whopMock.getCheckout, { token });
+    expect(checkout).toMatchObject({ status: "pending", amount: 25.5, currency: "usd", title: "Synthetic business" });
+    const purchaseId = checkout!.purchaseId!;
+    expect(await t.query(internal.purchases.getPurchase, { purchaseId })).toMatchObject({ status: "pending", whopCheckoutId: `ch_mock_${token}` });
+    expect((await state()).business?.earned).toBe(7);
+    const responses = await Promise.all([pay(t, token), pay(t, token)]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(await t.query(internal.purchases.getPurchase, { purchaseId })).toMatchObject({ status: "completed", whopPaymentId: `mock_pay_${token}` });
+    expect((await state()).business?.earned).toBe(32.5);
+    expect((await state()).pot?.balance).toBe(40);
+    expect((await state()).transactions).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("expires unpaid tokens and rejects unknown tokens without any credit", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, ids, state } = await fixture();
+    const token = tokenFrom(await t.action(api.whop.createContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 10 }));
+    vi.spyOn(Date, "now").mockReturnValue(now + 31 * 60 * 1000);
+    expect((await t.fetch(`/whop/mock-checkout?token=${token}`)).status).toBe(410);
+    expect((await pay(t, token)).status).toBe(409);
+    expect((await pay(t, "b".repeat(64))).status).toBe(404);
+    expect((await pay(t, "invalid")).status).toBe(404);
+    expect((await state()).pot?.balance).toBe(40);
+  });
+
+  it("disables already-issued tokens and internal mock fulfillment when the flag turns off", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, ids, state } = await fixture();
+    const token = tokenFrom(await t.action(api.whop.createContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 10 }));
+    vi.stubEnv("WHOP_MOCK", undefined);
+    expect((await t.fetch(`/whop/mock-checkout?token=${token}`)).status).toBe(404);
+    expect((await pay(t, token)).status).toBe(404);
+    expect(await t.mutation(internal.whopMock.pay, { token })).toBeNull();
+    expect((await state()).pot?.balance).toBe(40);
+  });
+
+  it("escapes display names and rejects cross-origin payment forms", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, ids, state } = await fixture();
+    await t.run((ctx) => ctx.db.patch("groups", ids.groupId, { name: '<script>alert("fixture")</script>' }));
+    const token = tokenFrom(await t.action(api.whop.createContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount: 10 }));
+    const html = await (await t.fetch(`/whop/mock-checkout?token=${token}`)).text();
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>");
+    expect((await t.fetch("/whop/mock-pay", { method: "POST", headers: {
+      "Content-Type": "application/x-www-form-urlencoded", origin: "https://untrusted.example",
+    }, body: `token=${token}` })).status).toBe(403);
+    expect((await state()).pot?.balance).toBe(40);
+  });
+
+  it("rolls back consumption when the purchase cannot be fulfilled", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, ids, state } = await fixture();
+    const token = tokenFrom(await t.action(api.experienceCheckout.createExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId }));
+    await t.run((ctx) => ctx.db.delete("businesses", ids.businessId));
+    expect((await pay(t, token)).status).toBe(409);
+    expect((await t.query(internal.whopMock.getCheckout, { token }))?.status).toBe("pending");
+    expect((await state()).transactions).toEqual([]);
+  });
+
+  it("never calls Whop for demo transfers or unsupported sponsor checkout", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, ids } = await fixture();
+    const transactionId = await t.run((ctx) => ctx.db.insert("transactions", {
+      potId: ids.potId, type: "spend", amount: 10, experienceId: ids.experienceId, status: "completed",
+    }));
+    await t.action(internal.whop.transferToBusiness, { transactionId });
+    expect((await t.run((ctx) => ctx.db.get("transactions", transactionId)))?.note).toBe("Demo transfer: Whop is simulated");
+    const sponsorId = await t.run(async (ctx) => {
+      const placeId = await ctx.db.insert("places", { name: "Fixture", area: "Fixture", category: "activity",
+        priceLevel: 1, tags: [], lat: 0, lng: 0, durationMins: 30 });
+      return await ctx.db.insert("sponsors", { business: "Fixture", offer: "Fixture", placeId, priceLevel: 1,
+        tags: [], rewardCost: 0, payPerVisit: 1, active: true });
+    });
+    await expect(t.action(api.whop.createSponsorCheckout, { sponsorId })).rejects.toThrow("unavailable in demo mode");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("reprovisions mock-only product IDs when real mode is restored", async () => {
+    const { t, ids } = await fixture();
+    await t.run((ctx) => ctx.db.patch("experiences", ids.experienceId, { whopPlanId: `plan_mock_${ids.experienceId}` }));
+    const outgoing = vi.fn((url: string) => Promise.resolve(new Response(JSON.stringify(
+      url.endsWith("/products") ? { id: "prod_restored" } : url.endsWith("/variants") ? { id: "plan_restored" }
+        : { id: "ch_restored", purchase_url: "https://sandbox.whop.com/checkout/restored" },
+    ), { status: 200 })));
+    vi.stubGlobal("fetch", outgoing);
+    expect(await t.action(api.experienceCheckout.createExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId }))
+      .toBe("https://sandbox.whop.com/checkout/restored");
+    expect(outgoing).toHaveBeenCalledTimes(3);
+    expect(await t.run((ctx) => ctx.db.query("whopMockCheckouts").collect())).toEqual([]);
+  });
+
+  it("does not send a stale mock variant to real checkout after failed reprovisioning", async () => {
+    const { t, ids } = await fixture();
+    await t.run((ctx) => ctx.db.patch("experiences", ids.experienceId, { whopPlanId: `plan_mock_${ids.experienceId}` }));
+    const outgoing = vi.fn(() => Promise.resolve(new Response("Authentication failed", { status: 401 })));
+    vi.stubGlobal("fetch", outgoing);
+    await expect(t.action(api.experienceCheckout.createExperienceCheckout, { userId: ids.userId, experienceId: ids.experienceId }))
+      .rejects.toThrow("isn't on Whop yet");
+    expect(outgoing).toHaveBeenCalledTimes(1);
+    expect(await t.run((ctx) => ctx.db.query("whopMockCheckouts").collect())).toEqual([]);
+  });
+
+  it("keeps the real webhook signature requirement even in demo mode", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, event, state } = await fixture();
+    expect((await t.fetch("/whop/webhook", { method: "POST", body: JSON.stringify(event) })).status).toBe(401);
     expect((await state()).purchase?.status).toBe("pending");
   });
 });
