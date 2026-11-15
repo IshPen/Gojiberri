@@ -1,0 +1,303 @@
+/// <reference types="vite/client" />
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./schema";
+import { internal } from "./_generated/api";
+
+const modules = { ...import.meta.glob("./**/*.ts"), ...import.meta.glob("./_generated/*.js") };
+const secret = "ws_synthetic_test_secret";
+const now = 1_800_000_000_000;
+const money = (amount: string) => ({ amount, currency: "usd", decimals: 2, display_decimals: 2 });
+
+async function fixture() {
+  const t = convexTest(schema, modules);
+  const ids = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      name: "Synthetic buyer", budgetMax: 30, homeArea: "Stanford", diet: [], vibes: [],
+      onboarded: true, points: 0, diamonds: 0, streak: 0, busyBlocks: [],
+    });
+    const businessId = await ctx.db.insert("businesses", { name: "Synthetic business", earned: 7 });
+    const experienceId = await ctx.db.insert("experiences", {
+      businessId, title: "Synthetic experience", description: "Fixture only", pricePerPerson: 25.5,
+      minGroup: 1, maxGroup: 4, tags: [], whopPlanId: "plan_fixture", active: true,
+    });
+    const groupId = await ctx.db.insert("groups", {
+      name: "Synthetic crew", inviteCode: "TEST00", ownerId: userId, memberIds: [userId],
+    });
+    const potId = await ctx.db.insert("pots", { groupId, balance: 40, monthlyContribution: 20 });
+    const purchaseId = await ctx.db.insert("experiencePurchases", {
+      userId, experienceId, businessId, groupId, quantity: 1, amount: 25.5, currency: "usd",
+      whopPlanId: "plan_fixture", whopCheckoutId: "ch_fixture", status: "pending",
+    });
+    return { userId, businessId, experienceId, groupId, potId, purchaseId };
+  });
+  const event = {
+    type: "payment.succeeded", api_version: "v1", api_version_date: "2026-11-14-1",
+    account_id: "biz_fixture",
+    data: {
+      id: "pay_fixture", status: "paid", substatus: "succeeded", currency: "usd", account_id: "biz_fixture",
+      checkout_configuration_id: "ch_fixture", variant_id: "plan_fixture",
+      metadata: { kind: "experience", purchaseId: ids.purchaseId },
+      subtotal: money("25.50"), total: money("25.50"), tax_amount: null, tax_behavior: null,
+      line_items: [{ variant_id: "plan_fixture", quantity: 1, subtotal: money("25.50") }],
+    },
+  };
+  const state = () => t.run(async (ctx) => ({
+    purchase: await ctx.db.get("experiencePurchases", ids.purchaseId),
+    business: await ctx.db.get("businesses", ids.businessId),
+    pot: await ctx.db.get("pots", ids.potId),
+    transactions: await ctx.db.query("transactions").collect(),
+  }));
+  return { t, ids, event, state };
+}
+
+async function signed(body: string, timestamp = String(now / 1000), version = "v1", keySecret = secret) {
+  const keyBytes = keySecret.startsWith("whsec_")
+    ? Uint8Array.from(atob(keySecret.slice(6)), (char) => char.charCodeAt(0))
+    : new TextEncoder().encode(keySecret);
+  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`msg_fixture.${timestamp}.${body}`));
+  return {
+    "webhook-id": "msg_fixture", "webhook-timestamp": timestamp,
+    "webhook-signature": `${version},${btoa(String.fromCharCode(...new Uint8Array(signature)))}`,
+  };
+}
+
+beforeEach(() => {
+  vi.stubEnv("WHOP_COMPANY_ID", "biz_fixture");
+  vi.stubEnv("WHOP_WEBHOOK_SECRET", secret);
+  vi.spyOn(Date, "now").mockReturnValue(now);
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.stubGlobal("fetch", vi.fn(() => { throw new Error("Network forbidden in webhook tests"); }));
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+describe("experience fulfillment", () => {
+  it("records a verified payment atomically without changing the fund", async () => {
+    const { t, event, state } = await fixture();
+    const body = JSON.stringify(event);
+    expect((await t.fetch("/whop/webhook", { method: "POST", body, headers: await signed(body) })).status).toBe(200);
+    const result = await state();
+    expect(result.purchase).toMatchObject({ status: "completed", whopPaymentId: "pay_fixture", amount: 25.5 });
+    expect(result.business?.earned).toBe(32.5);
+    expect(result.pot?.balance).toBe(40);
+    expect(result.transactions).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["exclusive", "inclusive"])("excludes fees and handles %s tax without crediting it", async (behavior) => {
+    const { t, event, state } = await fixture();
+    const data = { ...event.data, tax_amount: money("2.55"), tax_behavior: behavior,
+      total: money(behavior === "exclusive" ? "28.05" : "25.50"), amount_charged: money("31.00") };
+    await t.action(internal.whop.handleEvent, { event: { ...event, data } });
+    expect((await state()).business?.earned).toBe(32.5);
+  });
+
+  it("deduplicates replay and never downgrades a completed purchase", async () => {
+    const { t, event, state } = await fixture();
+    await t.action(internal.whop.handleEvent, { event });
+    const completed = await state();
+    await t.action(internal.whop.handleEvent, { event });
+    await t.action(internal.whop.handleEvent, { event: { ...event, data: { ...event.data,
+      id: "pay_second", checkout_configuration_id: "ch_other" } } });
+    expect(await state()).toEqual(completed);
+  });
+
+  it("deduplicates simultaneous deliveries in the purchase mutation", async () => {
+    const { t, event, state } = await fixture();
+    await Promise.all([
+      t.action(internal.whop.handleEvent, { event }),
+      t.action(internal.whop.handleEvent, { event }),
+    ]);
+    expect((await state()).business?.earned).toBe(32.5);
+    expect((await state()).transactions).toEqual([]);
+  });
+
+  it("ignores user and experience metadata in favor of the server snapshot", async () => {
+    const { t, ids, event, state } = await fixture();
+    await t.action(internal.whop.handleEvent, { event: { ...event, data: { ...event.data,
+      metadata: { ...event.data.metadata, userId: "untrusted", experienceId: "untrusted", amount: "999" } } } });
+    expect((await state()).purchase).toMatchObject({ userId: ids.userId, experienceId: ids.experienceId, amount: 25.5 });
+    expect((await state()).business?.earned).toBe(32.5);
+  });
+
+  it("does not complete or reserve a payment when the snapshot business is missing", async () => {
+    const { t, ids, event, state } = await fixture();
+    await t.run((ctx) => ctx.db.delete("businesses", ids.businessId));
+    await t.action(internal.whop.handleEvent, { event });
+    const result = await state();
+    expect(result.purchase?.status).toBe("failed");
+    expect(result.purchase?.whopPaymentId).toBeUndefined();
+    expect(result.purchase?.completedAt).toBeUndefined();
+    expect(result.pot?.balance).toBe(40);
+    expect(result.transactions).toEqual([]);
+  });
+
+  it("preserves a completed purchase replay after its business is deleted", async () => {
+    const { t, ids, event, state } = await fixture();
+    await t.action(internal.whop.handleEvent, { event });
+    const completed = (await state()).purchase;
+    await t.run((ctx) => ctx.db.delete("businesses", ids.businessId));
+    await t.action(internal.whop.handleEvent, { event });
+    expect((await state()).purchase).toEqual(completed);
+  });
+
+  it("allows a matching payment after a mismatched pending attempt", async () => {
+    const { t, event, state } = await fixture();
+    await t.action(internal.whop.handleEvent, { event: { ...event, data: { ...event.data,
+      subtotal: money("20.00"), total: money("20.00"),
+      line_items: [{ variant_id: "plan_fixture", quantity: 1, subtotal: money("20.00") }] } } });
+    expect((await state()).purchase?.status).toBe("failed");
+    await t.action(internal.whop.handleEvent, { event });
+    expect((await state()).purchase?.status).toBe("completed");
+    expect((await state()).business?.earned).toBe(32.5);
+  });
+
+  it("prevents one payment from completing a different purchase", async () => {
+    const { t, ids, event, state } = await fixture();
+    await t.action(internal.whop.handleEvent, { event });
+    const otherId = await t.run(async (ctx) => {
+      const purchase = (await ctx.db.get("experiencePurchases", ids.purchaseId))!;
+      const { _id, _creationTime, whopPaymentId: _payment, completedAt: _completed, ...pending } = purchase;
+      return ctx.db.insert("experiencePurchases", { ...pending, status: "pending" });
+    });
+    await t.action(internal.whop.handleEvent, { event: { ...event, data: { ...event.data,
+      metadata: { kind: "experience", purchaseId: otherId } } } });
+    expect((await t.run((ctx) => ctx.db.get("experiencePurchases", otherId)))?.status).toBe("pending");
+    expect((await state()).business?.earned).toBe(32.5);
+  });
+
+  it("binds a raced checkout only through the matching variant", async () => {
+    const { t, ids, event, state } = await fixture();
+    await t.run((ctx) => ctx.db.patch("experiencePurchases", ids.purchaseId, { whopCheckoutId: undefined }));
+    await t.action(internal.whop.handleEvent, { event });
+    expect((await state()).purchase).toMatchObject({ status: "completed", whopCheckoutId: "ch_fixture" });
+  });
+
+  it("returns HTTP 500 for unbound fulfillment so the provider can retry", async () => {
+    const { t, ids, event, state } = await fixture();
+    await t.run((ctx) => ctx.db.patch("experiencePurchases", ids.purchaseId, { whopCheckoutId: undefined }));
+    const body = JSON.stringify({ ...event, data: { ...event.data, variant_id: null } });
+    expect((await t.fetch("/whop/webhook", { method: "POST", body, headers: await signed(body) })).status).toBe(500);
+    expect((await state()).purchase?.status).toBe("pending");
+    await t.run((ctx) => ctx.db.patch("experiencePurchases", ids.purchaseId, { whopCheckoutId: "ch_fixture" }));
+    expect((await t.fetch("/whop/webhook", { method: "POST", body, headers: await signed(body) })).status).toBe(200);
+    expect((await state()).business?.earned).toBe(32.5);
+    expect(console.error).toHaveBeenCalledWith("whop.handleEvent failed");
+  });
+
+  it("never fulfills from metadata when both provider binding fields are missing", async () => {
+    const { t, event, state } = await fixture();
+    const body = JSON.stringify({ ...event, data: { ...event.data, variant_id: null, checkout_configuration_id: null } });
+    expect((await t.fetch("/whop/webhook", { method: "POST", body, headers: await signed(body) })).status).toBe(500);
+    expect((await state()).purchase?.status).toBe("pending");
+    expect((await state()).business?.earned).toBe(7);
+  });
+
+  it("retries rather than acknowledging experience payments when the account is not configured", async () => {
+    vi.stubEnv("WHOP_COMPANY_ID", undefined);
+    const { t, event, state } = await fixture();
+    const body = JSON.stringify(event);
+    expect((await t.fetch("/whop/webhook", { method: "POST", body, headers: await signed(body) })).status).toBe(500);
+    expect((await state()).purchase?.status).toBe("pending");
+  });
+
+  it.each([
+    { metadata: { kind: "experience", experienceId: "legacy", userId: "legacy" } },
+    { status: "pending" }, { substatus: "refunded" }, { currency: "eur" }, { account_id: "biz_other" },
+    { id: null }, { id: {} }, { subtotal: 25.5 }, { subtotal: money("2550") },
+    { subtotal: money("2.55e1") }, { subtotal: money("25.5001") }, { subtotal: money("-25.50") },
+    { subtotal: money("9007199254740993") }, { subtotal: { amount: "25.50", currency: "eur" } },
+    { total: money("24.00") }, { total: null }, { tax_amount: money("2.55"), tax_behavior: null },
+    { line_items: [] }, { line_items: [{ variant_id: "plan_fixture", quantity: 2, subtotal: money("25.50") }] },
+    { variant_id: "plan_other" }, { checkout_configuration_id: "ch_other" },
+    { checkout_configuration_id: {} }, { metadata: [] },
+  ])("does not fulfill malformed or mismatched data: %j", async (override) => {
+    const { t, event, state } = await fixture();
+    await t.action(internal.whop.handleEvent, { event: { ...event, data: { ...event.data, ...override } } });
+    const result = await state();
+    expect(result.purchase?.status).not.toBe("completed");
+    expect(result.business?.earned).toBe(7);
+    expect(result.pot?.balance).toBe(40);
+    expect(result.transactions).toEqual([]);
+  });
+
+  it.each([null, [], {}, { type: "payment.failed" }, { type: "payment.succeeded", data: [] }])(
+    "ignores unrelated or malformed envelopes: %j", async (event) => {
+      const { t, state } = await fixture();
+      const before = await state();
+      await t.action(internal.whop.handleEvent, { event });
+      expect(await state()).toEqual(before);
+    },
+  );
+
+  it("preserves contribution fulfillment and payment deduplication", async () => {
+    const { t, ids, state } = await fixture();
+    const event = { type: "payment.succeeded", data: { id: "pay_contribution", metadata: {
+      kind: "contribution", potId: ids.potId, userId: ids.userId, amount: "10",
+    } } };
+    await t.action(internal.whop.handleEvent, { event });
+    await t.action(internal.whop.handleEvent, { event });
+    const result = await state();
+    expect(result.pot?.balance).toBe(50);
+    expect(result.transactions).toHaveLength(1);
+    expect(result.business?.earned).toBe(7);
+    expect(result.purchase?.status).toBe("pending");
+  });
+});
+
+describe("raw-body signature guard", () => {
+  it.each(["not-a-timestamp", "NaN", "Infinity", "1800000000.1", "1e9", "", "1799999399", "1800000601"])(
+    "rejects signed invalid/expired timestamp %s before fulfillment", async (timestamp) => {
+      const { t, event, state } = await fixture();
+      const body = JSON.stringify(event);
+      const res = await t.fetch("/whop/webhook", { method: "POST", body, headers: await signed(body, timestamp) });
+      expect(res.status).toBe(401);
+      expect((await state()).purchase?.status).toBe("pending");
+    },
+  );
+
+  it.each(["v2", "v0", ""])("rejects unsupported signature version %s", async (version) => {
+    const { t, event, state } = await fixture();
+    const body = JSON.stringify(event);
+    const res = await t.fetch("/whop/webhook", { method: "POST", body, headers: await signed(body, undefined, version) });
+    expect(res.status).toBe(401);
+    expect((await state()).purchase?.status).toBe("pending");
+  });
+
+  it("rejects tampered bodies, missing headers, and malformed signatures", async () => {
+    const { t, event, state } = await fixture();
+    const body = JSON.stringify(event);
+    const headers = await signed(body);
+    expect((await t.fetch("/whop/webhook", { method: "POST", body: body + " ", headers })).status).toBe(401);
+    expect((await t.fetch("/whop/webhook", { method: "POST", body })).status).toBe(401);
+    headers["webhook-signature"] = "v1,%%%";
+    expect((await t.fetch("/whop/webhook", { method: "POST", body, headers })).status).toBe(401);
+    expect((await state()).purchase?.status).toBe("pending");
+  });
+
+  it("supports rotated v1 signatures and existing whsec keys", async () => {
+    const keySecret = "whsec_" + btoa("synthetic legacy key");
+    vi.stubEnv("WHOP_WEBHOOK_SECRET", keySecret);
+    const { t, event, state } = await fixture();
+    const body = JSON.stringify(event);
+    const headers = await signed(body, undefined, "v1", keySecret);
+    headers["webhook-signature"] = "v1,invalid v2,ignored " + headers["webhook-signature"];
+    expect((await t.fetch("/whop/webhook", { method: "POST", body, headers })).status).toBe(200);
+    expect((await state()).purchase?.status).toBe("completed");
+  });
+
+  it("returns 400 for signed invalid JSON without dispatching", async () => {
+    const { t, state } = await fixture();
+    const body = "{";
+    expect((await t.fetch("/whop/webhook", { method: "POST", body, headers: await signed(body) })).status).toBe(400);
+    expect((await state()).purchase?.status).toBe("pending");
+  });
+});
