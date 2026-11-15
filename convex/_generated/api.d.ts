@@ -40,6 +40,7 @@ import type * as reminders from "../reminders.js";
 import type * as seed from "../seed.js";
 import type * as sponsors from "../sponsors.js";
 import type * as suggest from "../suggest.js";
+import type * as taste from "../taste.js";
 import type * as time from "../time.js";
 import type * as users from "../users.js";
 import type * as votes from "../votes.js";
@@ -85,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   sponsors: typeof sponsors;
   suggest: typeof suggest;
+  taste: typeof taste;
   time: typeof time;
   users: typeof users;
   votes: typeof votes;

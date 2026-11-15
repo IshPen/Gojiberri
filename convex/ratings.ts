@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { external, scheduleExternal } from "./refs";
 
 export const submitRating = mutation({
@@ -25,6 +26,7 @@ export const submitRating = mutation({
       ratingId = await ctx.db.insert("ratings", { userId, planId, stars: clamped, vibe: word });
     }
     await scheduleExternal(ctx, external.rememberRating, { ratingId });
+    await ctx.scheduler.runAfter(0, internal.taste.rebuild, { userId });
     return ratingId;
   },
 });
