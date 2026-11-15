@@ -13,6 +13,7 @@ import { brand, colors, font, spacing, type } from "../../constants/theme";
 import { formatPriceLevel, formatRewards } from "../../lib/format";
 import { useUserId } from "../../lib/session";
 import { offerStatus, perkLabel, sameBusiness, toggleFollow, useBusinessMock } from "../../lib/businessMock";
+import { cleanTitle } from "../../lib/format";
 
 function BusinessOffers({ name }: { name: string }) {
   const router = useRouter();
@@ -208,7 +209,7 @@ export default function SponsorScreen() {
           <Card key={e.experienceId} testID={`sponsor-experience-${i}`} style={styles.itemRow} onPress={e.usesLeft > 0 ? undefined : () => router.push(`/experience/${e.experienceId}`)}>
             <View style={{ flex: 1, gap: spacing.xs }}>
               <Text style={styles.itemTitle} numberOfLines={2}>
-                {e.title}
+                {cleanTitle(e.title)}
               </Text>
               <Text style={styles.meta}>
                 ${e.pricePerPerson} per person · {e.minGroup}-{e.maxGroup} friends

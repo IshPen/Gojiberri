@@ -10,6 +10,7 @@ import { api } from "../../convex/_generated/api";
 import { brand, colors, emoji, font, minTapTarget, radius, shadow, spacing, type } from "../../constants/theme";
 import { crewStanding, formatPts } from "../../lib/school";
 import { useUserId } from "../../lib/session";
+import { cleanTitle } from "../../lib/format";
 
 type CrewRow = { groupId: Id<"groups">; name: string; school: string; avgPoints: number; memberCount: number };
 type SchoolRow = { school: string; avgPoints: number; userCount: number };
@@ -266,7 +267,7 @@ function MeSection({ userId, crewId, myGroupIds }: { userId: string | null; crew
         </Text>
       ) : lockedPlan ? (
         <Text testID="me-check-in-hint" style={styles.meSub}>
-          Snap a photo at {lockedPlan.winner?.title ?? "your crew's outing"} with {lockedPlan.groupName} to earn {brand.points}.
+          Snap a photo at {(lockedPlan.winner ? cleanTitle(lockedPlan.winner.title) : undefined) ?? "your crew's outing"} with {lockedPlan.groupName} to earn {brand.points}.
         </Text>
       ) : (
         <>

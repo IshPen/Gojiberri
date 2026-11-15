@@ -10,6 +10,7 @@ import { Card, Chip, EmptyState, ErrorState, LoadingState, Screen, Subtitle, Tit
 import { colors, font, radius, spacing, emoji as emojiSize } from "../../constants/theme";
 import { DEFAULT_SCHOOL, experienceEmoji, groupSize, SCHOOL_AREAS } from "../../lib/experiences";
 import { useUserId } from "../../lib/session";
+import { cleanTitle } from "../../lib/format";
 
 type ExperienceRow = {
   _id: Id<"experiences">;
@@ -120,7 +121,7 @@ export default function ExperiencesScreen() {
               key={e._id}
               testID={`experience-card-${e._id}`}
               tone={e.partner ? "accent" : "default"}
-              accessibilityLabel={`${e.title} from ${e.businessName}`}
+              accessibilityLabel={`${cleanTitle(e.title)} from ${e.businessName}`}
               onPress={() => router.push(`/experience/${e._id}`)}
             >
               <View style={styles.row}>
@@ -138,7 +139,7 @@ export default function ExperiencesScreen() {
                     {e.area ? ` · ${e.area}` : ""}
                   </Text>
                   <Text style={styles.title} numberOfLines={2} testID={`experience-title-${e._id}`}>
-                    {e.title}
+                    {cleanTitle(e.title)}
                   </Text>
                   <Text style={styles.meta} testID={`experience-price-${e._id}`}>
                     ${e.pricePerPerson} per person · {groupSize(e.minGroup, e.maxGroup)}
