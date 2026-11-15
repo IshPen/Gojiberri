@@ -12,6 +12,37 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { brand, colors, font, spacing, type } from "../../constants/theme";
 import { formatPriceLevel, formatRewards } from "../../lib/format";
 import { useUserId } from "../../lib/session";
+import { offerStatus, perkLabel, sameBusiness, toggleFollow, useBusinessMock } from "../../lib/businessMock";
+
+function BusinessOffers({ name }: { name: string }) {
+  const router = useRouter();
+  const allOffers = useBusinessMock((s) => s.offers);
+  const following = useBusinessMock((s) => s.following.some((b) => sameBusiness(b, name)));
+  const offers = allOffers.filter((o) => sameBusiness(o.businessName, name) && offerStatus(o) === "Live");
+  return (
+    <>
+      <Button
+        testID="sponsor-follow"
+        label={following ? "Following · you'll get their deals" : "Follow for deals"}
+        icon={following ? "✓" : "＋"}
+        variant="ghost"
+        onPress={() => toggleFollow(name)}
+      />
+      {offers.length ? <SectionHeader title="Offers for crews" testID="sponsor-offers-header" /> : null}
+      {offers.map((o, i) => (
+        <Card key={o.id} testID={`sponsor-offer-${i}`} tone="accent" style={styles.itemRow} onPress={() => router.push(`/offer/${o.id}`)}>
+          <View style={{ flex: 1, gap: spacing.xs }}>
+            <Text style={styles.itemTitle}>{o.title}</Text>
+            <Text style={styles.meta}>
+              {perkLabel(o)} · crews of {o.minCrewSize}+
+            </Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Card>
+      ))}
+    </>
+  );
+}
 
 function errorText(e: unknown) {
   if (e instanceof ConvexError) return String(e.data);
@@ -114,6 +145,8 @@ export default function SponsorScreen() {
           <Text style={styles.meta}>This offer is paused right now.</Text>
         </Card>
       )}
+
+      <BusinessOffers name={sponsor.business} />
 
       {userId ? (
         <>
