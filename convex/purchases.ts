@@ -3,7 +3,9 @@ import { internalMutation, internalQuery, query } from "./_generated/server";
 
 function toCents(dollars: number) {
   const cents = Math.round(dollars * 100);
-  return Number.isFinite(dollars) && dollars > 0 && Math.abs(dollars * 100 - cents) < 1e-6 ? cents : null;
+  return Number.isFinite(dollars) && dollars > 0 && Number.isSafeInteger(cents) && Math.abs(dollars * 100 - cents) < 1e-6
+    ? cents
+    : null;
 }
 
 export const getPurchase = internalQuery({
@@ -32,7 +34,7 @@ export const createPending = internalMutation({
     quantity: v.number(),
   },
   handler: async (ctx, { userId, experienceId, groupId, quantity }) => {
-    if (!Number.isInteger(quantity) || quantity < 1) throw new ConvexError("Quantity must be a whole number of people");
+    if (!Number.isSafeInteger(quantity) || quantity < 1) throw new ConvexError("Quantity must be a whole number of people");
     const [user, experience] = await Promise.all([ctx.db.get("users", userId), ctx.db.get("experiences", experienceId)]);
     if (!user) throw new ConvexError("User not found");
     if (!experience?.active) throw new ConvexError("This experience isn't for sale");
@@ -43,7 +45,11 @@ export const createPending = internalMutation({
     }
     const unitCents = toCents(experience.pricePerPerson);
     if (unitCents === null) throw new ConvexError("This experience has no valid price");
+    if (quantity > experience.maxGroup || quantity > Math.floor(Number.MAX_SAFE_INTEGER / unitCents)) {
+      throw new ConvexError(`This experience is for up to ${experience.maxGroup} people`);
+    }
     const amount = (unitCents * quantity) / 100;
+    if (toCents(amount) === null) throw new ConvexError("This experience has no valid price");
     return await ctx.db.insert("experiencePurchases", {
       userId,
       experienceId,
@@ -130,6 +136,8 @@ export const markPaid = internalMutation({
     }
     const business = await ctx.db.get("businesses", purchase.businessId);
     if (!business) reason ??= `Business ${purchase.businessId} not found`;
+    const earnedCents = business && expectedCents !== null ? Math.round(business.earned * 100) + expectedCents : null;
+    if (!reason && !Number.isSafeInteger(earnedCents)) reason = "Business earnings would overflow";
     if (reason || !business) {
       reason ??= "Business not found";
       await ctx.db.patch("experiencePurchases", purchase._id, { status: "failed", failureReason: reason });
@@ -143,7 +151,7 @@ export const markPaid = internalMutation({
       failureReason: undefined,
       ...(purchase.whopCheckoutId ? {} : args.whopCheckoutId ? { whopCheckoutId: args.whopCheckoutId } : {}),
     });
-    await ctx.db.patch("businesses", business._id, { earned: business.earned + purchase.amount });
+    await ctx.db.patch("businesses", business._id, { earned: earnedCents! / 100 });
     return { result: "completed" as const };
   },
 });
