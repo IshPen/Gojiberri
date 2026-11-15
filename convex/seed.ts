@@ -63,8 +63,8 @@ const BUSINESSES: { name: string; experiences: { title: string; description: str
   {
     name: "Palace Games",
     experiences: [
-      { title: "Private escape room for 4", description: "60 minutes, one locked room, and a game master cheering you on.", place: "Palace Games", pricePerPerson: 28, minGroup: 4, maxGroup: 8, tags: ["puzzle", "escape-room", "thrilling", "group-friendly"] },
-      { title: "Houdini séance night", description: "A theatrical after-dark puzzle game inside the Palace of Fine Arts.", place: "Palace Games", pricePerPerson: 38, minGroup: 4, maxGroup: 6, tags: ["puzzle", "thrilling", "themed", "date-night"] },
+      { title: "Private escape room for 4", description: "60 minutes, one locked room, and a game master cheering you on.", place: "Palace Games", pricePerPerson: 28, minGroup: 2, maxGroup: 4, tags: ["puzzle", "escape-room", "thrilling", "group-friendly"] },
+      { title: "Houdini séance night", description: "A theatrical after-dark puzzle game inside the Palace of Fine Arts.", place: "Palace Games", pricePerPerson: 38, minGroup: 3, maxGroup: 6, tags: ["puzzle", "thrilling", "themed", "date-night"] },
     ],
   },
   {

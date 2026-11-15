@@ -82,7 +82,15 @@ export const generateSuggestions = internalAction({
     }
 
     const experienceCandidates: Candidate[] = experiences
-      .filter((e) => e.placeId && placeById.has(e.placeId) && e.pricePerPerson * people <= balance)
+      .filter(
+        (e) =>
+          e.placeId &&
+          placeById.has(e.placeId) &&
+          !excluded.has(e.placeId) &&
+          e.minGroup <= people &&
+          people <= e.maxGroup &&
+          e.pricePerPerson * people <= balance,
+      )
       .sort((a, b) => overlap(b.tags, vibes) - overlap(a.tags, vibes) || a.pricePerPerson - b.pricePerPerson)
       .map((e) => ({ kind: "experience", id: e._id, experience: e, place: placeById.get(e.placeId!)! }));
     const placeSlots = Math.max(MAX_PLACES, 3 - experienceCandidates.length);

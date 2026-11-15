@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { makeFunctionReference } from "convex/server";
 import { internalMutation, internalQuery, QueryCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 
@@ -209,14 +210,24 @@ export const potForGroup = internalQuery({
   },
 });
 
-export const isPaymentRecorded = internalQuery({
-  args: { potId: v.id("pots"), whopPaymentId: v.string() },
-  handler: async (ctx, { potId, whopPaymentId }) => {
+// Ishan's funds.ts (I-7), referenced by name so this file deploys on its own.
+const recordContribution = makeFunctionReference<
+  "mutation",
+  { potId: Id<"pots">; userId: Id<"users">; amount: number; whopPaymentId: string },
+  unknown
+>("funds:recordContribution");
+
+// Dedupe and credit in one transaction, so concurrent webhook retries can't double-count.
+export const recordContributionOnce = internalMutation({
+  args: { potId: v.id("pots"), userId: v.id("users"), amount: v.number(), whopPaymentId: v.string() },
+  handler: async (ctx, args) => {
     const transactions = await ctx.db
       .query("transactions")
-      .withIndex("by_pot", (q) => q.eq("potId", potId))
+      .withIndex("by_pot", (q) => q.eq("potId", args.potId))
       .collect();
-    return transactions.some((t) => t.whopPaymentId === whopPaymentId);
+    if (transactions.some((t) => t.whopPaymentId === args.whopPaymentId)) return false;
+    await ctx.runMutation(recordContribution, args);
+    return true;
   },
 });
 

@@ -1,19 +1,11 @@
 "use node";
 
 import { v } from "convex/values";
-import { makeFunctionReference } from "convex/server";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 const WHOP_API = process.env.WHOP_API_BASE ?? "https://sandbox-api.whop.com/api/v1";
-
-// Ishan's funds.ts (I-7), referenced by name so this file deploys on its own.
-const recordContribution = makeFunctionReference<
-  "mutation",
-  { potId: Id<"pots">; userId: Id<"users">; amount: number; whopPaymentId: string },
-  unknown
->("funds:recordContribution");
 
 async function whopPost<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${WHOP_API}${path}`, {
@@ -142,14 +134,11 @@ export const handleEvent = internalAction({
     console.log(`Whop event ${event?.type}`, metadata);
     if (event?.type !== "payment.succeeded" || metadata.kind !== "contribution") return null;
 
-    const potId = metadata.potId as Id<"pots">;
     const whopPaymentId = String(payment.id);
-    if (await ctx.runQuery(internal.context.isPaymentRecorded, { potId, whopPaymentId })) return null;
-
     const amount = Number(metadata.amount ?? payment.subtotal ?? payment.total);
     if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Payment ${whopPaymentId} has no amount`);
-    await ctx.runMutation(recordContribution, {
-      potId,
+    await ctx.runMutation(internal.context.recordContributionOnce, {
+      potId: metadata.potId as Id<"pots">,
       userId: metadata.userId as Id<"users">,
       amount,
       whopPaymentId,

@@ -86,7 +86,12 @@ export const chargeCard = mutation({
         .withIndex("by_plan", (q) => q.eq("planId", planId))
         .collect()
     ).filter((vote) => vote.confirmed).length;
-    if (confirmed === 0) throw new Error("Nobody has confirmed yet");
+    if (confirmed < group.memberIds.length && Date.now() < plan.confirmBy) {
+      throw new Error("Wait until everyone confirms or the confirm deadline passes");
+    }
+    if (confirmed < experience.minGroup || confirmed > experience.maxGroup) {
+      throw new Error(`${experience.title} needs ${experience.minGroup}-${experience.maxGroup} people, ${confirmed} confirmed`);
+    }
     const amount = experience.pricePerPerson * confirmed;
 
     const spent = await ctx.runMutation(spend, { potId: pot._id, amount, experienceId, planId });
