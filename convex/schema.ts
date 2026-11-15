@@ -208,7 +208,7 @@ export default defineSchema({
     redeemedAt: v.optional(v.number()),
   })
     .index("by_token", ["token"])
-    .index("by_business", ["businessId"])
-    .index("by_sponsor", ["sponsorId"])
-    .index("by_user_and_ref", ["userId", "refId"]),
+    .index("by_business_and_status_and_redeemedAt", ["businessId", "status", "redeemedAt"])
+    .index("by_sponsor_and_status_and_redeemedAt", ["sponsorId", "status", "redeemedAt"])
+    .index("by_user_and_ref_and_status", ["userId", "refId", "status"]),
 });

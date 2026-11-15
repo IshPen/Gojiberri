@@ -132,7 +132,7 @@ export default function SponsorScreen() {
           {formatPriceLevel(sponsor.priceLevel)} · {sponsor.tags.join(" · ")}
         </Text>
       </Card>
-      <Button testID="show-qr-offer" label="Show QR for this offer" icon="📱" variant="secondary" onPress={() => router.push(`/redeem/offer/${sponsor._id}`)} />
+      {USE_MOCK ? null : <Button testID="show-qr-offer" label="Show QR for this offer" icon="📱" variant="secondary" onPress={() => router.push(`/redeem/offer/${sponsor._id}`)} />}
 
       <SectionHeader title="Your rewards" />
       <Card testID="sponsor-balance" tone="muted" style={styles.row}>

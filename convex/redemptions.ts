@@ -6,6 +6,7 @@ const CODE_TTL_MS = 10 * 60 * 1000;
 const TOKEN_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const TOKEN_LENGTH = 8;
 const CODE_PREFIX = "GOJI";
+const MAX_COUNTED = 1000;
 
 const kindValidator = v.union(v.literal("offer"), v.literal("reward"), v.literal("experience"));
 type Kind = "offer" | "reward" | "experience";
@@ -37,9 +38,9 @@ async function crewsOf(ctx: QueryCtx, userId: Id<"users">) {
 async function usedCount(ctx: QueryCtx, userId: Id<"users">, refId: string) {
   const rows = await ctx.db
     .query("redemptions")
-    .withIndex("by_user_and_ref", (q) => q.eq("userId", userId).eq("refId", refId))
+    .withIndex("by_user_and_ref_and_status", (q) => q.eq("userId", userId).eq("refId", refId).eq("status", "redeemed"))
     .take(100);
-  return rows.filter((r) => r.status === "redeemed").length;
+  return rows.length;
 }
 
 // Throws a ConvexError with a user-facing reason when the student isn't entitled to the item right now.
@@ -83,9 +84,16 @@ async function resolveItem(ctx: QueryCtx, userId: Id<"users">, kind: Kind, refId
         .withIndex("by_pot", (q) => q.eq("potId", pot._id))
         .order("desc")
         .take(500)
-    ).filter((t) => t.type === "spend" && t.status === "completed" && t.experienceId === experience._id);
-    if (spends.length > 0) payingCrew ??= crew;
-    paid += spends.length;
+    ).filter((t) => t.type === "spend" && t.status === "completed" && t.experienceId === experience._id && t.planId);
+    for (const spend of spends) {
+      const vote = await ctx.db
+        .query("votes")
+        .withIndex("by_plan_user", (q) => q.eq("planId", spend.planId!).eq("userId", userId))
+        .first();
+      if (!vote?.confirmed) continue;
+      payingCrew ??= crew;
+      paid++;
+    }
   }
   if (paid === 0) throw new ConvexError("Your crew hasn't paid for this experience yet");
   if ((await usedCount(ctx, userId, refId)) >= paid) throw new ConvexError("This experience was already redeemed");
@@ -99,12 +107,10 @@ async function resolveItem(ctx: QueryCtx, userId: Id<"users">, kind: Kind, refId
 }
 
 async function expireIssued(ctx: MutationCtx, userId: Id<"users">, refId: string) {
-  const rows = await ctx.db
+  for await (const row of ctx.db
     .query("redemptions")
-    .withIndex("by_user_and_ref", (q) => q.eq("userId", userId).eq("refId", refId))
-    .take(100);
-  for (const row of rows) {
-    if (row.status === "issued") await ctx.db.patch("redemptions", row._id, { status: "expired" });
+    .withIndex("by_user_and_ref_and_status", (q) => q.eq("userId", userId).eq("refId", refId).eq("status", "issued"))) {
+    await ctx.db.patch("redemptions", row._id, { status: "expired" });
   }
 }
 
@@ -193,10 +199,17 @@ export const listRedemptions = query({
   handler: async (ctx, { businessId }) => {
     const sponsorId = ctx.db.normalizeId("sponsors", businessId);
     const ownBusinessId = ctx.db.normalizeId("businesses", businessId);
-    const rows = sponsorId
-      ? await ctx.db.query("redemptions").withIndex("by_sponsor", (q) => q.eq("sponsorId", sponsorId)).order("desc").take(500)
-      : await ctx.db.query("redemptions").withIndex("by_business", (q) => q.eq("businessId", ownBusinessId ?? undefined)).order("desc").take(500);
-    const redeemed = rows.filter((r) => r.status === "redeemed").sort((a, b) => (b.redeemedAt ?? 0) - (a.redeemedAt ?? 0));
+    const redeemed = sponsorId
+      ? await ctx.db
+          .query("redemptions")
+          .withIndex("by_sponsor_and_status_and_redeemedAt", (q) => q.eq("sponsorId", sponsorId).eq("status", "redeemed"))
+          .order("desc")
+          .take(MAX_COUNTED)
+      : await ctx.db
+          .query("redemptions")
+          .withIndex("by_business_and_status_and_redeemedAt", (q) => q.eq("businessId", ownBusinessId ?? undefined).eq("status", "redeemed"))
+          .order("desc")
+          .take(MAX_COUNTED);
     const count = (kind: Kind) => redeemed.filter((r) => r.kind === kind).length;
     const recent = await Promise.all(
       redeemed.slice(0, 20).map(async (r) => {
