@@ -2,6 +2,8 @@ import { StyleSheet, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { BerryMark, Card, Screen, Subtitle, Title } from "../components/ui";
 import { brand, colors, emoji, spacing, type } from "../constants/theme";
+import { clearBusinessAccount } from "../lib/businessSession";
+import { clearUserId } from "../lib/session";
 
 const ROLES = [
   { id: "student", glyph: "🎓", title: "Continue as a student", body: "Plan outings with your crew, earn Gojis and claim local deals.", href: "/onboarding/school" },
@@ -10,6 +12,10 @@ const ROLES = [
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const choose = async (role: (typeof ROLES)[number]["id"], href: (typeof ROLES)[number]["href"]) => {
+    await (role === "student" ? clearBusinessAccount() : clearUserId());
+    router.push(href);
+  };
   return (
     <Screen testID="welcome-screen">
       <Stack.Screen options={{ headerShown: false }} />
@@ -21,7 +27,7 @@ export default function WelcomeScreen() {
         <Subtitle style={styles.center}>How are you using it today?</Subtitle>
       </View>
       {ROLES.map((r) => (
-        <Card key={r.id} testID={`role-${r.id}`} tone={r.id === "student" ? "accent" : "default"} accessibilityLabel={r.title} onPress={() => router.push(r.href)} style={styles.card}>
+        <Card key={r.id} testID={`role-${r.id}`} tone={r.id === "student" ? "accent" : "default"} accessibilityLabel={r.title} onPress={() => choose(r.id, r.href)} style={styles.card}>
           <Text style={styles.glyph}>{r.glyph}</Text>
           <View style={{ flex: 1, gap: spacing.xs }}>
             <Text style={type.heading}>{r.title}</Text>
