@@ -1,6 +1,6 @@
 import { mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Id, TableNames } from "./_generated/dataModel";
+import { Id } from "./_generated/dataModel";
 import { priceRange } from "./pricing";
 import { travelEstimate } from "./places";
 
@@ -69,19 +69,14 @@ const PAST_PLANS: { daysAgo: number; places: string[]; why: string; ratings: [nu
   { daysAgo: 7, places: ["Musée Mécanique", "Urban Putt", "Castro Theatre"], why: "Retro arcade games for a quirky night.", ratings: [[2, "meh"], [2, "crowded"], [1, "boring"]] },
 ];
 
-const CLEARED_TABLES: TableNames[] = [
-  "pointEvents", "recurrences", "deposits", "rewards", "visits", "photos", "ratings",
-  "soloQuests", "votes", "plans", "sponsors", "places", "groups", "users",
-];
-
 const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
 
 export const seedDemo = mutation({
   args: {},
   handler: async (ctx) => {
-    for (const table of CLEARED_TABLES) {
-      for (const doc of await ctx.db.query(table).collect()) await ctx.db.delete(doc._id);
+    if (await ctx.db.query("places").first()) {
+      throw new Error("Demo data already exists. Run demo:resetDemo first, then seed again.");
     }
 
     const placeIds = new Map<string, Id<"places">>();

@@ -6,7 +6,7 @@ The full spec lives in [SPEC.md](./SPEC.md). This page covers what the G-tasks a
 
 | File | What it does |
 | --- | --- |
-| `convex/seed.ts` | `seedDemo` wipes the demo tables, then inserts 30 SF places, Uma/Ishan/Gauri, the group "Hack Crew" (invite code `HACK42`), 4 past plans with ratings, 3 sponsors and their promo codes, and schedules the Supermemory writes |
+| `convex/seed.ts` | `seedDemo` refuses to run if places already exist (clear them with `demo.resetDemo` first). Otherwise it inserts 30 SF places, Uma/Ishan/Gauri, the group "Hack Crew" (invite code `HACK42`), 4 past plans with ratings, 3 sponsors and their promo codes, and schedules the Supermemory writes |
 | `data/thisOrThat.ts` | `THIS_OR_THAT`: 15 pairs of `{ category, a: { label, emoji }, b: { label, emoji } }` |
 | `convex/pricing.ts` | `priceRange`, `fitsBudget`, `formatRange` (plain helpers, importable from the app too) |
 | `convex/places.ts` | `listCandidates` (iQ), plus the `travelEstimate` and `rideShareLink` helpers |
@@ -17,7 +17,7 @@ The full spec lives in [SPEC.md](./SPEC.md). This page covers what the G-tasks a
 | `convex/whop.ts` | `createSponsorCheckout`, `createDeposit`, `handleEvent`, `refundDeposit`, `refundForCheckin` |
 | `convex/keiki.ts` | `handleMessage`, `sendMessage`, `announceLock` |
 | `convex/context.ts` | Internal queries and mutations that the `"use node"` actions above use to read and write the database |
-| `convex/llm.ts` | OpenAI JSON and text helpers |
+| `convex/llm.ts` | OpenAI JSON and text helpers (plain `fetch`, so they work in any runtime) |
 
 ## Ishan: hooks to call from your files
 
@@ -26,6 +26,7 @@ The full spec lives in [SPEC.md](./SPEC.md). This page covers what the G-tasks a
 - `ratings.submitRating` → `internal.memory.rememberRating, { ratingId }`
 - When a plan locks (in `castVote` and on the auto-lock at confirmBy) → `internal.keiki.announceLock, { planId }`. It does nothing if the group has no linked chat
 - `photos.savePhoto` on a plan check-in → `internal.whop.refundForCheckin, { planId, userId }`
+- Keiki only acts on "plan" and "vote" when the chat sender's name exactly matches one member's Sidequest name
 - `reminders.dropUnconfirmed` → `ctx.runMutation(internal.context.forfeitDeposits, { planId, userIds })`
 - `http.ts` `/whop/webhook` → `internal.whop.handleEvent, { event }`, passing the parsed JSON body. `/keiki/webhook` → `internal.keiki.handleMessage, { chatId, sender, text }`
 - `crons.ts` → `internal.solo.assignAll`. `demo.assignSoloNow` can schedule `internal.solo.pickSoloQuest, { userId }`
@@ -36,7 +37,7 @@ The G files reference `internal.plans.saveOptions`, `internal.points.award`, `ap
 ## Uma: notes for the screens
 
 - Swipe: `api.memory.rememberSwipe({ userId, chosen: a.label, rejected: b.label, category })`
-- Home: `api.solo.getToday({ userId })` returns `{ quest, place, sponsor, streak }` or `null`. Sponsored cards come from `api.sponsors.listActive`
+- Home: `api.solo.getToday({ userId, date })` returns `{ quest, place, sponsor, streak }` or `null`. Pass `date` as the phone's `YYYY-MM-DD` so the query moves to the new day at midnight; without it, the server's PT date is used. `solo.complete` only accepts today's quest. Sponsored cards come from `api.sponsors.listActive`
 - Profile: `api.memory.getMyProfile({ userId })` returns `string[]`
 - Camera with `?questId=`: `api.solo.complete({ userId, questId, storageId })` returns `{ photoId, streak }`
 - `whop.createDeposit` and `whop.createSponsorCheckout` return a URL. Open it with `expo-web-browser`
@@ -60,4 +61,4 @@ Set these on every dev deployment with `npx convex env set`:
 
 ## Demo
 
-`npx convex run seed:seedDemo` resets and seeds everything. Supermemory processes memories in the background, so seed a minute before you demo suggestions.
+`npx convex run seed:seedDemo` seeds an empty deployment. Supermemory processes memories in the background, so seed a minute before you demo suggestions.

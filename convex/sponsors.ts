@@ -52,17 +52,11 @@ export const redeemReward = mutation({
       reward = pool.find((r) => r.sponsorId === sponsorId && r.redeemedAt === undefined);
     }
 
-    const now = Date.now();
-    let code: string;
-    if (reward) {
-      code = reward.code;
-      await ctx.db.patch("rewards", reward._id, { userId, redeemedAt: now });
-    } else {
-      code = `SQ-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-      await ctx.db.insert("rewards", { sponsorId, userId, code, redeemedAt: now });
-    }
+    if (!reward) throw new Error(`${sponsor.business} is out of rewards right now`);
+
+    await ctx.db.patch("rewards", reward._id, { userId, redeemedAt: Date.now() });
     await ctx.db.patch("users", userId, { diamonds: user.diamonds - sponsor.rewardCost });
-    return { code, offer: sponsor.offer, business: sponsor.business };
+    return { code: reward.code, offer: sponsor.offer, business: sponsor.business };
   },
 });
 

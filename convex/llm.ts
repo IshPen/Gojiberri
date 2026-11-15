@@ -1,30 +1,32 @@
-import OpenAI from "openai";
-
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
 
-function client() {
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 25_000, maxRetries: 1 });
+type Message = { role: "system" | "user"; content: string };
+
+async function complete(messages: Message[], json: boolean): Promise<string> {
+  const res = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages,
+      ...(json ? { response_format: { type: "json_object" } } : {}),
+    }),
+    signal: AbortSignal.timeout(25_000),
+  });
+  if (!res.ok) throw new Error(`OpenAI request failed (${res.status}): ${await res.text()}`);
+  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  return data.choices?.[0]?.message?.content?.trim() ?? "";
 }
 
 export async function chatJSON<T>(system: string, user: unknown): Promise<T> {
-  const res = await client().chat.completions.create({
-    model: MODEL,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: typeof user === "string" ? user : JSON.stringify(user) },
-    ],
-  });
-  return JSON.parse(res.choices[0]?.message?.content ?? "") as T;
+  const content = typeof user === "string" ? user : JSON.stringify(user);
+  return JSON.parse(await complete([{ role: "system", content: system }, { role: "user", content }], true)) as T;
 }
 
 export async function chatText(system: string, user: string): Promise<string> {
-  const res = await client().chat.completions.create({
-    model: MODEL,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-  });
-  return res.choices[0]?.message?.content?.trim() ?? "";
+  return await complete([{ role: "system", content: system }, { role: "user", content: user }], false);
 }

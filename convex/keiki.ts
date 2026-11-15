@@ -44,7 +44,7 @@ function targetDay(word: string | undefined): string | null {
 
 async function pickWindow(ctx: ActionCtx, groupId: Id<"groups">, dayWord: string | undefined) {
   const day = targetDay(dayWord);
-  const from = day ? ptTime(day, 10) : Date.now();
+  const from = day ? Math.max(ptTime(day, 10), Date.now()) : Date.now();
   const to = day ? ptTime(day, 22) : Date.now() + 7 * 24 * 60 * 60 * 1000;
   const windows: { start: number; end: number }[] = await ctx.runQuery(api.availability.findFreeWindows, {
     groupId,
@@ -52,9 +52,7 @@ async function pickWindow(ctx: ActionCtx, groupId: Id<"groups">, dayWord: string
     to,
     minHours: 2,
   });
-  if (windows.length > 0) return windows[0];
-  const fallbackDay = day ?? targetDay("friday")!;
-  return { start: ptTime(fallbackDay, 18), end: ptTime(fallbackDay, 22) };
+  return windows[0] ?? null;
 }
 
 async function waitForOptions(ctx: ActionCtx, planId: Id<"plans">) {
@@ -102,15 +100,22 @@ export const handleMessage = internalAction({
 
     const { group, members } = linked;
     const senderName = sender.trim().toLowerCase();
-    const member =
-      members.find((m) => m.name.toLowerCase() === senderName) ??
-      members.find((m) => senderName.startsWith(m.name.toLowerCase().split(" ")[0])) ??
-      members.find((m) => m._id === group.ownerId)!;
+    const matches = members.filter((m) => m.name.trim().toLowerCase() === senderName);
     const [command, arg] = text.trim().split(/\s+/);
+    const isAction = ["plan", "vote"].includes(command.toLowerCase());
+    if (isAction && matches.length !== 1) {
+      await reply(`I can't tell who "${sender}" is in ${group.name}. Use the same name as your Sidequest profile.`);
+      return null;
+    }
+    const member = matches[0] ?? members.find((m) => m._id === group.ownerId)!;
 
     switch (command.toLowerCase()) {
       case "plan": {
         const window = await pickWindow(ctx, group._id, arg);
+        if (!window) {
+          await reply(`Nobody's free together${arg ? ` ${arg}` : " this week"} for 2+ hours. Try another day.`);
+          return null;
+        }
         const planId: Id<"plans"> = await ctx.runMutation(api.plans.createPlan, {
           userId: member._id,
           groupId: group._id,

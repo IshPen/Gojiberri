@@ -56,17 +56,15 @@ export const createSponsorCheckout = action({
 export const createDeposit = action({
   args: { userId: v.id("users"), planId: v.id("plans") },
   handler: async (ctx, { userId, planId }): Promise<string> => {
-    const existing = await ctx.runQuery(internal.context.findDeposit, { planId, userId });
-    if (existing?.status === "held") throw new Error("Your deposit is already held for this plan");
-    if (existing?.status === "pending" && existing.checkoutUrl) return existing.checkoutUrl;
+    const deposit = await ctx.runMutation(internal.context.reserveDeposit, { planId, userId });
+    if (deposit.status !== "pending") throw new Error(`Your deposit for this plan is already ${deposit.status}`);
+    if (deposit.checkoutUrl) return deposit.checkoutUrl;
 
-    const depositId: Id<"deposits"> =
-      existing?._id ?? (await ctx.runMutation(internal.context.createDeposit, { planId, userId }));
     const checkoutUrl = await createCheckout("Sidequest $5 flake deposit", DEPOSIT_AMOUNT, {
       kind: "deposit",
-      depositId,
+      depositId: deposit._id,
     });
-    await ctx.runMutation(internal.context.updateDeposit, { depositId, checkoutUrl, status: "pending" });
+    await ctx.runMutation(internal.context.updateDeposit, { depositId: deposit._id, checkoutUrl });
     return checkoutUrl;
   },
 });
@@ -80,11 +78,12 @@ export const handleEvent = internalAction({
     console.log(`Whop event ${type}`, metadata);
 
     if (type === "payment.succeeded" && metadata.kind === "deposit" && metadata.depositId) {
-      await ctx.runMutation(internal.context.updateDeposit, {
-        depositId: metadata.depositId as Id<"deposits">,
+      const depositId = metadata.depositId as Id<"deposits">;
+      const { refundNow } = await ctx.runMutation(internal.context.markDepositHeld, {
+        depositId,
         whopPaymentId: payment.id,
-        status: "held",
       });
+      if (refundNow) await ctx.runAction(internal.whop.refundDeposit, { depositId });
     }
     return null;
   },

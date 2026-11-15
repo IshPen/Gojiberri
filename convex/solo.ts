@@ -17,11 +17,12 @@ function questLine(raw: unknown, place: Doc<"places">): string {
 }
 
 export const getToday = query({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
+  args: { userId: v.id("users"), date: v.optional(v.string()) },
+  handler: async (ctx, { userId, date }) => {
+    const day = date ?? dayInPT(Date.now());
     const quest = await ctx.db
       .query("soloQuests")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", dayInPT(Date.now())))
+      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", day))
       .first();
     if (!quest) return null;
     const [place, sponsor, user] = await Promise.all([
@@ -112,6 +113,7 @@ export const complete = mutation({
     if (!quest || quest.userId !== userId) throw new Error("Quest not found");
     if (!user) throw new Error("User not found");
     if (quest.status === "done") throw new Error("Quest already completed");
+    if (quest.date !== dayInPT(Date.now())) throw new Error("This quest has expired");
 
     const photoId = await ctx.db.insert("photos", { userId, questId, storageId });
     await ctx.db.patch("soloQuests", questId, { status: "done" });

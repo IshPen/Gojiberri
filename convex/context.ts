@@ -201,19 +201,39 @@ export const findDeposit = internalQuery({
   },
 });
 
-export const createDeposit = internalMutation({
+export const reserveDeposit = internalMutation({
   args: { planId: v.id("plans"), userId: v.id("users") },
-  handler: (ctx, args) => ctx.db.insert("deposits", { ...args, status: "pending" }),
+  handler: async (ctx, { planId, userId }) => {
+    const deposits = await ctx.db
+      .query("deposits")
+      .withIndex("by_plan", (q) => q.eq("planId", planId))
+      .collect();
+    const existing = deposits.find((d) => d.userId === userId);
+    if (existing) return existing;
+    const depositId = await ctx.db.insert("deposits", { planId, userId, status: "pending" });
+    return (await ctx.db.get("deposits", depositId))!;
+  },
+});
+
+export const markDepositHeld = internalMutation({
+  args: { depositId: v.id("deposits"), whopPaymentId: v.string() },
+  handler: async (ctx, { depositId, whopPaymentId }) => {
+    const deposit = await ctx.db.get("deposits", depositId);
+    if (!deposit || deposit.status !== "pending") return { refundNow: false };
+    await ctx.db.patch("deposits", depositId, { status: "held", whopPaymentId });
+    const photos = await ctx.db
+      .query("photos")
+      .withIndex("by_plan", (q) => q.eq("planId", deposit.planId))
+      .collect();
+    return { refundNow: photos.some((p) => p.userId === deposit.userId) };
+  },
 });
 
 export const updateDeposit = internalMutation({
   args: {
     depositId: v.id("deposits"),
     checkoutUrl: v.optional(v.string()),
-    whopPaymentId: v.optional(v.string()),
-    status: v.optional(
-      v.union(v.literal("pending"), v.literal("held"), v.literal("refunded"), v.literal("forfeited")),
-    ),
+    status: v.optional(v.literal("refunded")),
   },
   handler: async (ctx, { depositId, ...patch }) => {
     const fields = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
