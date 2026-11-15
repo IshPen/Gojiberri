@@ -73,7 +73,7 @@ export const weeklyPrizes = internalMutation({
       await ctx.scheduler.runAfter(0, internal.notifications.send, {
         userIds: top.map((u) => u._id),
         title: "Weekly leaderboard prize",
-        body: "You finished top 3 this week. +1 diamond!",
+        body: "You finished top 3 this week. +1 free reward!",
         data: { screen: "leaderboard" },
       });
     }

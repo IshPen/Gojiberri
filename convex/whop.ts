@@ -6,10 +6,8 @@ import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 const WHOP_API = process.env.WHOP_API_BASE ?? "https://sandbox-api.whop.com/api/v1";
-const DEPOSIT_AMOUNT = 5;
-const SPONSOR_PACK_VISITS = 25;
 
-async function whopFetch<T>(path: string, body: unknown): Promise<T> {
+async function whopPost<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${WHOP_API}${path}`, {
     method: "POST",
     headers: {
@@ -23,89 +21,128 @@ async function whopFetch<T>(path: string, body: unknown): Promise<T> {
   return JSON.parse(text) as T;
 }
 
-async function createCheckout(title: string, price: number, metadata: Record<string, string>): Promise<string> {
-  const config = await whopFetch<{ purchase_url: string | null }>("/checkout_configurations", {
-    mode: "payment",
-    metadata,
-    variant: {
-      account_id: process.env.WHOP_COMPANY_ID,
-      product_id: process.env.WHOP_PRODUCT_ID,
-      title,
-      billing_type: "one_time",
-      currency: "usd",
-      initial_price: price,
-    },
-  });
-  if (!config.purchase_url) throw new Error("Whop did not return a checkout URL");
-  return config.purchase_url;
-}
+export const createContributionCheckout = action({
+  args: { userId: v.id("users"), groupId: v.id("groups"), amount: v.number() },
+  handler: async (ctx, { userId, groupId, amount }): Promise<string> => {
+    if (amount < 1) throw new Error("Chip in at least $1");
+    const found = await ctx.runQuery(internal.context.potForGroup, { groupId });
+    if (!found) throw new Error("This group doesn't have a fund yet");
+    const config = await whopPost<{ purchase_url: string | null }>("/checkout_configurations", {
+      mode: "payment",
+      metadata: { kind: "contribution", potId: found.pot._id, userId, amount: String(amount) },
+      variant: {
+        account_id: process.env.WHOP_COMPANY_ID,
+        product_id: process.env.WHOP_PRODUCT_ID,
+        title: `${found.group.name} fun fund`.slice(0, 30),
+        billing_type: "one_time",
+        currency: "usd",
+        initial_price: amount,
+      },
+    });
+    if (!config.purchase_url) throw new Error("Whop did not return a checkout URL");
+    return config.purchase_url;
+  },
+});
 
 export const createSponsorCheckout = action({
   args: { sponsorId: v.id("sponsors") },
   handler: async (ctx, { sponsorId }): Promise<string> => {
     const sponsor = await ctx.runQuery(internal.context.getSponsor, { sponsorId });
     if (!sponsor) throw new Error("Sponsor not found");
-    return await createCheckout(
-      `Sponsored quest pack: ${sponsor.business}`,
-      sponsor.payPerVisit * SPONSOR_PACK_VISITS,
-      { kind: "sponsor_pack", sponsorId },
-    );
+    const config = await whopPost<{ purchase_url: string | null }>("/checkout_configurations", {
+      mode: "payment",
+      metadata: { kind: "sponsor_pack", sponsorId },
+      variant: {
+        account_id: process.env.WHOP_COMPANY_ID,
+        product_id: process.env.WHOP_PRODUCT_ID,
+        title: "Sponsored quest pack",
+        billing_type: "one_time",
+        currency: "usd",
+        initial_price: sponsor.payPerVisit * 25,
+      },
+    });
+    if (!config.purchase_url) throw new Error("Whop did not return a checkout URL");
+    return config.purchase_url;
   },
 });
 
-export const createDeposit = action({
-  args: { userId: v.id("users"), planId: v.id("plans") },
-  handler: async (ctx, { userId, planId }): Promise<string> => {
-    const deposit = await ctx.runMutation(internal.context.reserveDeposit, { planId, userId });
-    if (deposit.status !== "pending") throw new Error(`Your deposit for this plan is already ${deposit.status}`);
-    if (deposit.checkoutUrl) return deposit.checkoutUrl;
+export const createExperienceProduct = internalAction({
+  args: { experienceId: v.id("experiences") },
+  handler: async (ctx, { experienceId }): Promise<null> => {
+    const found = await ctx.runQuery(internal.context.experienceWithBusiness, { experienceId });
+    if (!found) return null;
+    const { experience, business } = found;
+    try {
+      const product = await whopPost<{ id: string }>("/products", {
+        account_id: process.env.WHOP_COMPANY_ID,
+        title: experience.title.slice(0, 80),
+        description: `${experience.description} Hosted by ${business?.name ?? "a local business"}.`.slice(0, 1500),
+        metadata: { experienceId },
+      });
+      const plan = await whopPost<{ id: string }>("/variants", {
+        account_id: process.env.WHOP_COMPANY_ID,
+        product_id: product.id,
+        billing_type: "one_time",
+        currency: "usd",
+        initial_price: experience.pricePerPerson,
+        metadata: { experienceId },
+      });
+      await ctx.runMutation(internal.context.saveExperienceWhopIds, {
+        experienceId,
+        whopProductId: product.id,
+        whopPlanId: plan.id,
+      });
+    } catch (err) {
+      console.warn(`Whop product for ${experience.title} not created`, err);
+    }
+    return null;
+  },
+});
 
-    const checkoutUrl = await createCheckout("Gojiberri $5 flake deposit", DEPOSIT_AMOUNT, {
-      kind: "deposit",
-      depositId: deposit._id,
-    });
-    await ctx.runMutation(internal.context.updateDeposit, { depositId: deposit._id, checkoutUrl });
-    return checkoutUrl;
+export const transferToBusiness = internalAction({
+  args: { transactionId: v.id("transactions") },
+  handler: async (ctx, { transactionId }): Promise<null> => {
+    const found = await ctx.runQuery(internal.context.transferContext, { transactionId });
+    if (!found) return null;
+    const { transaction, business } = found;
+    try {
+      if (!business?.whopAccountId) throw new Error(`${business?.name ?? "Business"} has no Whop account`);
+      const transfer = await whopPost<{ id: string }>("/transfers", {
+        type: "balance",
+        origin_id: process.env.WHOP_COMPANY_ID,
+        destination_id: business.whopAccountId,
+        amount: transaction.amount,
+        currency: "usd",
+        idempotence_key: transactionId,
+        notes: `Gojiberri booking for ${business.name}`,
+        metadata: { transactionId },
+      });
+      await ctx.runMutation(internal.context.noteTransaction, { transactionId, note: `whop transfer ${transfer.id}` });
+    } catch (err) {
+      console.warn("Whop transfer refused, keeping the ledger entry", err);
+      await ctx.runMutation(internal.context.noteTransaction, { transactionId, note: "ledger-only" });
+    }
+    return null;
   },
 });
 
 export const handleEvent = internalAction({
   args: { event: v.any() },
   handler: async (ctx, { event }): Promise<null> => {
-    const type: string | undefined = event?.type;
     const payment = event?.data;
     const metadata: Record<string, string> = payment?.metadata ?? {};
-    console.log(`Whop event ${type}`, metadata);
+    console.log(`Whop event ${event?.type}`, metadata);
+    if (event?.type !== "payment.succeeded" || metadata.kind !== "contribution") return null;
 
-    if (type === "payment.succeeded" && metadata.kind === "deposit" && metadata.depositId) {
-      const depositId = metadata.depositId as Id<"deposits">;
-      const { refundNow } = await ctx.runMutation(internal.context.markDepositHeld, {
-        depositId,
-        whopPaymentId: payment.id,
-      });
-      if (refundNow) await ctx.runAction(internal.whop.refundDeposit, { depositId });
-    }
-    return null;
-  },
-});
-
-export const refundDeposit = internalAction({
-  args: { depositId: v.id("deposits") },
-  handler: async (ctx, { depositId }): Promise<null> => {
-    const deposit = await ctx.runQuery(internal.context.getDeposit, { depositId });
-    if (!deposit || deposit.status !== "held" || !deposit.whopPaymentId) return null;
-    await whopFetch(`/payments/${deposit.whopPaymentId}/refund`, {});
-    await ctx.runMutation(internal.context.updateDeposit, { depositId, status: "refunded" });
-    return null;
-  },
-});
-
-// Ishan: schedule from photos.savePhoto after a plan check-in.
-export const refundForCheckin = internalAction({
-  args: { planId: v.id("plans"), userId: v.id("users") },
-  handler: async (ctx, { planId, userId }): Promise<null> => {
-    const deposit = await ctx.runQuery(internal.context.findDeposit, { planId, userId });
-    if (deposit) await ctx.runAction(internal.whop.refundDeposit, { depositId: deposit._id });
+    const whopPaymentId = String(payment.id);
+    const amount = Number(metadata.amount ?? payment.subtotal ?? payment.total);
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Payment ${whopPaymentId} has no amount`);
+    await ctx.runMutation(internal.context.recordContributionOnce, {
+      potId: metadata.potId as Id<"pots">,
+      userId: metadata.userId as Id<"users">,
+      amount,
+      whopPaymentId,
+    });
     return null;
   },
 });

@@ -32,9 +32,9 @@ const statsRef = makeFunctionReference<"query", { sponsorId: Id<"sponsors"> }, S
 const checkoutRef = makeFunctionReference<"action", { sponsorId: Id<"sponsors"> }, string>("whop:createSponsorCheckout");
 
 const MOCK_SPONSORS: Sponsor[] = [
-  { _id: "sp1" as Id<"sponsors">, business: "Ritual Coffee Roasters", offer: "Free pastry with any drink", placeId: "pl1" as Id<"places">, priceLevel: 2, tags: ["coffee"], rewardCost: 3, payPerVisit: 2.5, active: true },
-  { _id: "sp2" as Id<"sponsors">, business: "Smitten Ice Cream", offer: "Buy one scoop, get one free", placeId: "pl2" as Id<"places">, priceLevel: 1, tags: ["dessert"], rewardCost: 2, payPerVisit: 1.5, active: true },
-  { _id: "sp3" as Id<"sponsors">, business: "Flour + Water Pizzeria", offer: "15% off your table", placeId: "pl3" as Id<"places">, priceLevel: 3, tags: ["dinner"], rewardCost: 8, payPerVisit: 6, active: true },
+  { _id: "sp1" as Id<"sponsors">, business: "Ritual Coffee Roasters", offer: "Free pastry with any drink", placeId: "pl1" as Id<"places">, priceLevel: 2, tags: ["coffee"], rewardCost: 1, payPerVisit: 2.5, active: true },
+  { _id: "sp2" as Id<"sponsors">, business: "Smitten Ice Cream", offer: "Buy one scoop, get one free", placeId: "pl2" as Id<"places">, priceLevel: 1, tags: ["dessert"], rewardCost: 1, payPerVisit: 1.5, active: true },
+  { _id: "sp3" as Id<"sponsors">, business: "Flour + Water Pizzeria", offer: "15% off your table", placeId: "pl3" as Id<"places">, priceLevel: 3, tags: ["dinner"], rewardCost: 1, payPerVisit: 6, active: true },
 ];
 const MOCK_STATS: Record<string, Stats> = {
   sp1: { visits: 42, earned: 105 },

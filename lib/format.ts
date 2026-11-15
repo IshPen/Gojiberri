@@ -54,6 +54,6 @@ export function formatGojis(points: number): string {
   return `${points.toLocaleString()} ${points === 1 ? brand.pointsSingular : brand.points}`;
 }
 
-export function formatGoldenGojis(diamonds: number): string {
-  return `${diamonds.toLocaleString()} ${diamonds === 1 ? brand.diamondsSingular : brand.diamonds}`;
+export function formatRewards(count: number): string {
+  return `${count.toLocaleString()} ${count === 1 ? brand.rewardSingular : brand.rewards}`;
 }
