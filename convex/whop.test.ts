@@ -253,6 +253,134 @@ describe("experience fulfillment", () => {
   });
 });
 
+describe("purchase money invariants", () => {
+  it.each([25.504, 1e-10, 0, -1, NaN, Infinity, Number.MAX_VALUE, 1e14])(
+    "rejects invalid or unsafe unit price %s before checkout", async (pricePerPerson) => {
+      const { t, ids } = await fixture();
+      await t.run((ctx) => ctx.db.patch("experiences", ids.experienceId, { pricePerPerson }));
+      await expect(t.mutation(internal.purchases.createPending, {
+        userId: ids.userId, experienceId: ids.experienceId, quantity: 1,
+      })).rejects.toThrow();
+      expect(await t.run((ctx) => ctx.db.query("experiencePurchases").collect())).toHaveLength(1);
+    },
+  );
+
+  it.each([0, 1.5, Number.MAX_SAFE_INTEGER + 1, 1e308, Math.floor(Number.MAX_SAFE_INTEGER / 2550) + 1])(
+    "rejects invalid quantity or overflowing total %s before checkout", async (quantity) => {
+      const { t, ids } = await fixture();
+      await t.run((ctx) => ctx.db.patch("experiences", ids.experienceId, { maxGroup: Number.MAX_SAFE_INTEGER }));
+      await expect(t.mutation(internal.purchases.createPending, {
+        userId: ids.userId, experienceId: ids.experienceId, quantity,
+      })).rejects.toThrow();
+      expect(await t.run((ctx) => ctx.db.query("experiencePurchases").collect())).toHaveLength(1);
+    },
+  );
+
+  it("allows the maximum group quantity and rejects a larger purchase", async () => {
+    const { t, ids } = await fixture();
+    const purchaseId = await t.mutation(internal.purchases.createPending, {
+      userId: ids.userId, experienceId: ids.experienceId, quantity: 4,
+    });
+    expect((await t.query(internal.purchases.getPurchase, { purchaseId }))?.amount).toBe(102);
+    await expect(t.mutation(internal.purchases.createPending, {
+      userId: ids.userId, experienceId: ids.experienceId, quantity: 5,
+    })).rejects.toThrow();
+  });
+
+  it("completes $25.50 times three once, after rejecting a one-cent underpayment", async () => {
+    const { t, ids, event, state } = await fixture();
+    const purchaseId = await t.mutation(internal.purchases.createPending, {
+      userId: ids.userId, experienceId: ids.experienceId, quantity: 3,
+    });
+    await t.mutation(internal.purchases.attachCheckout, {
+      purchaseId, whopCheckoutId: "ch_three", checkoutUrl: "https://example.test/synthetic",
+    });
+    const payment = (amount: string) => ({ ...event, data: { ...event.data,
+      metadata: { kind: "experience", purchaseId }, checkout_configuration_id: "ch_three",
+      subtotal: money(amount), total: money(amount),
+      line_items: [{ variant_id: "plan_fixture", quantity: 3, subtotal: money(amount) }],
+    } });
+    await t.action(internal.whop.handleEvent, { event: payment("76.49") });
+    expect((await t.query(internal.purchases.getPurchase, { purchaseId }))?.status).toBe("failed");
+    expect((await state()).business?.earned).toBe(7);
+    await t.action(internal.whop.handleEvent, { event: payment("76.50") });
+    const completed = await t.query(internal.purchases.getPurchase, { purchaseId });
+    expect(completed).toMatchObject({ amount: 76.5, quantity: 3, status: "completed" });
+    await t.action(internal.whop.handleEvent, { event: payment("76.50") });
+    expect(await t.query(internal.purchases.getPurchase, { purchaseId })).toEqual(completed);
+    expect((await state()).business?.earned).toBe(83.5);
+    expect((await state()).transactions).toEqual([]);
+  });
+
+  it.each([25.504, 1e-10, 1e14, Infinity])("refuses invalid legacy snapshot amount %s without reserving payment", async (amount) => {
+    const { t, ids, state } = await fixture();
+    await t.run((ctx) => ctx.db.patch("experiencePurchases", ids.purchaseId, { amount }));
+    const result = await t.mutation(internal.purchases.markPaid, {
+      purchaseId: ids.purchaseId, whopPaymentId: "pay_fixture", amount,
+      currency: "usd", whopCheckoutId: "ch_fixture", whopPlanId: "plan_fixture",
+    });
+    expect(result.result).toBe("failed");
+    const after = await state();
+    expect(after.purchase?.whopPaymentId).toBeUndefined();
+    expect(after.purchase?.completedAt).toBeUndefined();
+    expect(after.business?.earned).toBe(7);
+  });
+
+  it("does not accept a $25.50 native webhook for a legacy $25.504 purchase", async () => {
+    const { t, ids, event, state } = await fixture();
+    await t.run((ctx) => ctx.db.patch("experiencePurchases", ids.purchaseId, { amount: 25.504 }));
+    await t.action(internal.whop.handleEvent, { event });
+    expect((await state()).purchase?.status).toBe("failed");
+    expect((await state()).purchase?.whopPaymentId).toBeUndefined();
+    expect((await state()).business?.earned).toBe(7);
+  });
+
+  it("refuses earnings addition that exceeds the safe-integer cents bound", async () => {
+    const { t, ids, event, state } = await fixture();
+    const earned = 90_071_992_547_400;
+    await t.run((ctx) => ctx.db.patch("businesses", ids.businessId, { earned }));
+    await t.action(internal.whop.handleEvent, { event });
+    const after = await state();
+    expect(after.purchase?.status).toBe("failed");
+    expect(after.purchase?.whopPaymentId).toBeUndefined();
+    expect(after.purchase?.completedAt).toBeUndefined();
+    expect(after.business?.earned).toBe(earned);
+    expect(after.transactions).toEqual([]);
+  });
+
+  it("accepts zero existing earnings", async () => {
+    const { t, ids, event, state } = await fixture();
+    await t.run((ctx) => ctx.db.patch("businesses", ids.businessId, { earned: 0 }));
+    await t.action(internal.whop.handleEvent, { event });
+    expect((await state()).purchase?.status).toBe("completed");
+    expect((await state()).business?.earned).toBe(25.5);
+  });
+
+  it.each([-1, 25.504, NaN, Infinity])("rejects invalid existing earnings %s without reserving payment", async (earned) => {
+    const { t, ids, event, state } = await fixture();
+    await t.run((ctx) => ctx.db.patch("businesses", ids.businessId, { earned }));
+    await t.action(internal.whop.handleEvent, { event });
+    const after = await state();
+    expect(after.purchase?.status).toBe("failed");
+    expect(after.purchase?.whopPaymentId).toBeUndefined();
+    expect(after.business?.earned).toBe(earned);
+  });
+
+  it("adds valid earnings in cents without accumulating fractional-cent artifacts", async () => {
+    const { t, ids, event, state } = await fixture();
+    await t.run(async (ctx) => {
+      await ctx.db.patch("experiencePurchases", ids.purchaseId, { amount: 0.2 });
+      await ctx.db.patch("businesses", ids.businessId, { earned: 0.1 });
+    });
+    await t.action(internal.whop.handleEvent, { event: { ...event, data: { ...event.data,
+      subtotal: money("0.20"), total: money("0.20"),
+      line_items: [{ variant_id: "plan_fixture", quantity: 1, subtotal: money("0.20") }],
+    } } });
+    expect((await state()).purchase?.status).toBe("completed");
+    expect((await state()).business?.earned).toBe(0.3);
+  });
+});
+
 describe("raw-body signature guard", () => {
   it.each(["not-a-timestamp", "NaN", "Infinity", "1800000000.1", "1e9", "", "1799999399", "1800000601"])(
     "rejects signed invalid/expired timestamp %s before fulfillment", async (timestamp) => {
