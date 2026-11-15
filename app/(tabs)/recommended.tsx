@@ -82,9 +82,9 @@ export default function RecommendedScreen() {
 
   const why = (matched: string[]) => (matched.length > 0 ? `You like ${matched[0]}` : "Something new");
 
-  const planWith = (title: string) => {
+  const planWith = (experienceId: string) => {
     if (!crew) return router.push("/group/new");
-    router.push({ pathname: "/group/[groupId]", params: { groupId: crew._id, pick: title } });
+    router.push({ pathname: "/group/[groupId]", params: { groupId: crew._id, pick: experienceId } });
   };
 
   const gap = ranks && ranks.crewRank && ranks.crewRank > 1 ? Math.round(((ranks.leaderAvg ?? 0) - (ranks.crewAvg ?? 0)) * 10) / 10 : null;
@@ -179,7 +179,7 @@ export default function RecommendedScreen() {
               testID={`pick-plan-${i}`}
               label={crew ? `Plan with ${crew.name}` : "Start a crew"}
               variant={i === 0 && !nextPlan ? "primary" : "secondary"}
-              onPress={() => planWith(e.title)}
+              onPress={() => planWith(e._id)}
             />
           </Card>
         ))

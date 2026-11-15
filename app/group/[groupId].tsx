@@ -49,6 +49,7 @@ export default function GroupScreen() {
   const school = user?.homeArea ?? null;
   const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
   const createPlan = useMutation(api.plans.createPlan);
+  const picked = useQuery(api.experiences.getExperience, pick ? { experienceId: pick as Id<"experiences"> } : "skip");
 
   const planOuting = async () => {
     if (selected === null || !windows) return;
@@ -59,7 +60,12 @@ export default function GroupScreen() {
     setPlanning(true);
     setPlanError(null);
     try {
-      const planId = await createPlan({ userId: userId as Id<"users">, groupId: gid, window: windows[selected] });
+      const planId = await createPlan({
+        userId: userId as Id<"users">,
+        groupId: gid,
+        window: windows[selected],
+        seedExperienceId: picked ? picked._id : undefined,
+      });
       router.push(`/plan/${planId}`);
     } catch (e) {
       setPlanError(e instanceof Error ? e.message : "Couldn't ask for suggestions. Try again.");
@@ -150,10 +156,10 @@ export default function GroupScreen() {
         </Text>
       </Text>
 
-      {pick ? (
+      {picked ? (
         <Card testID="group-pick-banner" tone="accent" style={styles.pickBanner}>
           <Text testID="group-pick-title" style={styles.planTitle} numberOfLines={1}>
-            {pick}
+            {picked.title}
           </Text>
           <Text style={styles.planWindow}>Pick a time, then your crew votes.</Text>
         </Card>
