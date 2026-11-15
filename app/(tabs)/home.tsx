@@ -16,7 +16,7 @@ const USE_MOCK = true;
 
 type User = { _id: Id<"users">; name: string; points: number; diamonds: number; streak: number; vibes: string[]; homeArea: string; budgetMax: number };
 type TodayQuest = {
-  quest: { _id: Id<"soloQuests">; userId: Id<"users">; date: string; placeId: Id<"places">; prompt: string; status: "open" | "done" | "skipped" };
+  quest: { _id: Id<"soloQuests">; userId: Id<"users">; date: string; placeId: Id<"places">; prompt: string; status: "open" | "verifying" | "done" | "skipped" };
   place: { _id: Id<"places">; name: string; area: string; category: string; priceLevel: number };
 } | null;
 type UpcomingPlan = { _id: Id<"plans">; groupName: string; title: string; window: { start: number; end: number } };
@@ -125,7 +125,7 @@ export default function HomeScreen() {
           area={today.place.area}
           priceLevel={today.place.priceLevel}
           streak={user?.streak ?? 0}
-          done={today.quest.status === "done"}
+          status={today.quest.status}
           onCheckIn={() => router.push(`/camera?questId=${today.quest._id}`)}
         />
       )}

@@ -13,7 +13,8 @@
         "NSCalendarsUsageDescription": "Gojiberri reads when you're busy so plans fit everyone's free time.",
         "NSCalendarsFullAccessUsageDescription": "Gojiberri reads when you're busy so plans fit everyone's free time, and adds locked plans to your calendar.",
         "NSCameraUsageDescription": "Gojiberri uses the camera for photo check-ins.",
-        "NSPhotoLibraryUsageDescription": "Gojiberri lets you pick a photo for your check-in."
+        "NSPhotoLibraryUsageDescription": "Gojiberri lets you pick a photo for your check-in.",
+        "NSLocationWhenInUseUsageDescription": "Gojiberri checks you are at the quest spot when you check in."
       }
     },
     "android": {
@@ -26,7 +27,9 @@
       "permissions": [
         "READ_CALENDAR",
         "WRITE_CALENDAR",
-        "CAMERA"
+        "CAMERA",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
       ]
     },
     "web": {

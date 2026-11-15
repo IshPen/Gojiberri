@@ -9,14 +9,14 @@ type Props = {
   area: string;
   priceLevel: number;
   streak: number;
-  done: boolean;
+  status: "open" | "verifying" | "done" | "skipped";
   reward?: number;
   onCheckIn: () => void;
 };
 
-export default function QuestCard({ prompt, placeName, area, priceLevel, streak, done, reward = 25, onCheckIn }: Props) {
+export default function QuestCard({ prompt, placeName, area, priceLevel, streak, status, reward = 25, onCheckIn }: Props) {
   return (
-    <Card testID="quest-card" tone={done ? "success" : "accent"} style={styles.card}>
+    <Card testID="quest-card" tone={status === "done" ? "success" : status === "skipped" ? "muted" : "accent"} style={styles.card}>
       <View style={styles.topRow}>
         <Text style={styles.kicker}>TODAY'S QUEST</Text>
         <Text testID="quest-streak" style={styles.streak}>
@@ -41,9 +41,17 @@ export default function QuestCard({ prompt, placeName, area, priceLevel, streak,
           </Text>
         </View>
       </View>
-      {done ? (
+      {status === "done" ? (
         <View testID="quest-done" style={styles.done}>
           <Text style={styles.doneText}>✅ Quest complete! See you tomorrow.</Text>
+        </View>
+      ) : status === "verifying" ? (
+        <View testID="quest-verifying" style={styles.done}>
+          <Text style={styles.pendingText}>🔍 Checking your photo…</Text>
+        </View>
+      ) : status === "skipped" ? (
+        <View testID="quest-closed" style={styles.done}>
+          <Text style={styles.pendingText}>Check-in not accepted. New quest tomorrow.</Text>
         </View>
       ) : (
         <Button testID="quest-checkin" label="Check in with a photo" icon="📸" onPress={onCheckIn} />
@@ -64,4 +72,5 @@ const styles = StyleSheet.create({
   metaText: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.text },
   done: { backgroundColor: colors.card, borderRadius: radius.pill, minHeight: 54, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.lg },
   doneText: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.success },
+  pendingText: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.textMuted, textAlign: "center" },
 });
