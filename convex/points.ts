@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, query, MutationCtx, QueryCtx } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { addDays, localDate, localTime, weekday } from "./time";
 
@@ -14,6 +14,11 @@ export const POINTS = {
 } as const;
 export const STREAK_BONUS = 30;
 export const POINTS_PER_DIAMOND = 500;
+export const REJECT_COST = 10;
+
+export function lifetimeGojis(user: Doc<"users">) {
+  return user.points + (user.gojisSpent ?? 0);
+}
 
 const reasonValidator = v.union(
   v.literal("checkin"),
@@ -31,11 +36,30 @@ export async function awardPoints(
   const user = await ctx.db.get("users", userId);
   if (!user) throw new Error("User not found");
   const total = user.points + points;
+  const earned = lifetimeGojis(user);
   const newDiamonds =
-    Math.floor(total / POINTS_PER_DIAMOND) - Math.floor(user.points / POINTS_PER_DIAMOND);
+    Math.floor((earned + points) / POINTS_PER_DIAMOND) - Math.floor(earned / POINTS_PER_DIAMOND);
   await ctx.db.patch("users", userId, { points: total, diamonds: user.diamonds + newDiamonds });
   await ctx.db.insert("pointEvents", { userId, reason, points, ...source });
   return { points: total, diamondsEarned: newDiamonds };
+}
+
+export async function spendGojis(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  reason: "reject_spend",
+  amount: number,
+  source: { planId?: Id<"plans">; groupId?: Id<"groups"> } = {},
+) {
+  const balance = user.points - amount;
+  await ctx.db.patch("users", user._id, { points: balance, gojisSpent: (user.gojisSpent ?? 0) + amount });
+  await ctx.db.insert("pointEvents", { userId: user._id, reason, points: -amount, ...source });
+  return balance;
+}
+
+async function topByLifetime(ctx: QueryCtx, limit: number) {
+  const users = await ctx.db.query("users").take(1000);
+  return users.sort((a, b) => lifetimeGojis(b) - lifetimeGojis(a)).slice(0, limit);
 }
 
 export const award = internalMutation({
@@ -53,16 +77,12 @@ export const award = internalMutation({
 export const leaderboard = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
-    const users = await ctx.db
-      .query("users")
-      .withIndex("by_points")
-      .order("desc")
-      .take(Math.min(limit ?? 20, 100));
+    const users = await topByLifetime(ctx, Math.min(limit ?? 20, 100));
     return users.map((u) => ({
       _id: u._id,
       name: u.name,
       avatarUrl: u.avatarUrl,
-      points: u.points,
+      points: lifetimeGojis(u),
       diamonds: u.diamonds,
       streak: u.streak,
     }));
@@ -72,7 +92,7 @@ export const leaderboard = query({
 export const weeklyPrizes = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const top = await ctx.db.query("users").withIndex("by_points").order("desc").take(3);
+    const top = await topByLifetime(ctx, 3);
     for (const user of top) {
       await ctx.db.patch("users", user._id, { diamonds: user.diamonds + 1 });
     }
