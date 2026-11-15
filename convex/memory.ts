@@ -53,7 +53,8 @@ export const rememberSwipe = action({
     rejected: v.string(),
     category: v.string(),
   },
-  handler: async (_ctx, { userId, chosen, rejected, category }) => {
+  handler: async (ctx, { userId, chosen, rejected, category }) => {
+    await ctx.runMutation(internal.taste.recordSwipe, { userId, chosen, rejected, category });
     await remember(userTag(userId), `Prefers ${chosen} over ${rejected} (${category}).`);
     return null;
   },

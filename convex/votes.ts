@@ -110,6 +110,7 @@ export const rejectOptions = mutation({
     );
     const members = group.memberIds.length;
     const result = { ok: true as const, rejects: rejectedBy.length, members, gojisSpent, balance };
+    await ctx.scheduler.runAfter(0, internal.taste.rebuild, { userId });
     if (rejectedBy.length * 2 <= members) {
       await ctx.db.patch("plans", planId, {
         rejectedBy,

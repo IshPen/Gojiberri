@@ -224,6 +224,27 @@ export default defineSchema({
     groupId: v.optional(v.id("groups")),
   }).index("by_user", ["userId"]),
 
+  swipes: defineTable({                  // onboarding this-or-that picks, mirrored from Supermemory
+    userId: v.id("users"),
+    chosen: v.string(),                  // label of the picked side
+    rejected: v.string(),                // label of the other side
+    category: v.string(),
+    chosenTags: v.array(v.string()),
+    rejectedTags: v.array(v.string()),
+    at: v.number(),
+  }).index("by_user", ["userId"]),
+
+  tasteProfiles: defineTable({           // deterministic, rebuilt by taste.rebuild
+    userId: v.id("users"),
+    tagWeights: v.record(v.string(), v.number()), // each in [-5, 5]
+    dislikedTags: v.array(v.string()),   // weight <= -2
+    dietConstraints: v.array(v.string()),
+    categoryCounts: v.record(v.string(), v.number()),
+    lastCategoryAt: v.record(v.string(), v.number()), // ms epoch of the latest check-in per category
+    budgetMax: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   // [FUND] direct experience checkout via Whop, independent of pots
   experiencePurchases: defineTable({
     userId: v.id("users"),
