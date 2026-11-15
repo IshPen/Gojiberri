@@ -134,7 +134,7 @@ export default function ProfileScreen() {
             <Card testID="profile-gojis" style={styles.stat}>
               <Text style={styles.statEmoji}>{brand.pointsEmoji}</Text>
               <Text style={styles.statValue}>{user.points.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>{brand.points}</Text>
+              <Text style={styles.statLabel}>Your {brand.points}</Text>
             </Card>
             <Card testID="profile-rewards-ready" style={styles.stat}>
               <Text style={styles.statEmoji}>{brand.rewardEmoji}</Text>

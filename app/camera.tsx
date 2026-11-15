@@ -14,8 +14,7 @@ import { mockDelay, useMockQuery } from "../lib/mock";
 import { useUserId } from "../lib/session";
 
 const USE_MOCK = false;
-// HOME-35 changes photos.savePhoto to return { photoId, total, items }. Until it deploys, a plan check-in shows this demo breakdown; flip to false once it lands.
-const BREAKDOWN_MOCK = true;
+
 
 // TODO(convex): swap to api.photos.generateUploadUrl once it lands
 const generateUploadUrlRef = makeFunctionReference<"mutation", Record<string, never>, string>("photos:generateUploadUrl");
@@ -29,14 +28,8 @@ const savePhotoRef = makeFunctionReference<
 const MOCK_PLAN = { title: "Boba run at Asha Tea House", groupId: "mock_hack_crew" as Id<"groups"> };
 
 const PHOTO_POINTS = 50;
-const MOCK_BREAKDOWN: GojiBreakdownData = {
-  total: 90,
-  items: [
-    { reason: "checkin", points: 50, label: "Check-in" },
-    { reason: "novel_bonus", points: 25, label: "Tried something new" },
-    { reason: "regular_bonus", points: 15, label: "Regular meetup" },
-  ],
-};
+// Until HOME-35 deploys, savePhoto returns a bare id after awarding the base check-in.
+const BASE_BREAKDOWN: GojiBreakdownData = { total: PHOTO_POINTS, items: [{ reason: "checkin", points: PHOTO_POINTS, label: "Check-in" }] };
 
 type Picked = { uri: string; mimeType: string };
 
@@ -136,7 +129,7 @@ export default function CameraScreen() {
         planId: planId ? (planId as Id<"plans">) : undefined,
         caption: caption.trim() || undefined,
       });
-      setGojis(typeof saved === "object" ? saved : BREAKDOWN_MOCK && planId ? MOCK_BREAKDOWN : null);
+      setGojis(typeof saved === "object" ? saved : planId ? BASE_BREAKDOWN : null);
       setDone(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed. Please try again.");

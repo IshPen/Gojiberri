@@ -3,6 +3,7 @@ import { useAction, useQuery } from "convex/react";
 import { useRouter, type ErrorBoundaryProps } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import GojiChip, { useGojiPreviews } from "../../components/GojiChip";
 import PointsPill from "../../components/PointsPill";
 import { SchoolHeader } from "../../components/SchoolBadge";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
@@ -12,7 +13,6 @@ import { formatWindow } from "../../lib/format";
 import { useUserId } from "../../lib/session";
 
 const MAX_PICKS = 4;
-const NOVEL_BONUS = 25;
 
 export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
   return (
@@ -43,21 +43,6 @@ export default function RecommendedScreen() {
 
   useEffect(loadKnows, [loadKnows]);
 
-  if (loading) {
-    return (
-      <Screen>
-        <LoadingState testID="home-loading" />
-      </Screen>
-    );
-  }
-  if (!userId) {
-    return (
-      <Screen>
-        <ErrorState testID="home-error" message="Join your school first to get picks." onRetry={() => router.replace("/onboarding/school")} />
-      </Screen>
-    );
-  }
-
   const crew = groups?.[Math.min(crewIndex, groups.length - 1)];
   const nextPlan = plans?.find((p) => p.status === "voting" || p.status === "locked");
   const vibes = new Set((user?.vibes ?? []).map((v) => v.toLowerCase()));
@@ -74,6 +59,26 @@ export default function RecommendedScreen() {
     })
     .sort((a, b) => b.score - a.score || a.e.pricePerPerson - b.e.pricePerPerson)
     .slice(0, MAX_PICKS);
+
+  const previews = useGojiPreviews(
+    userId,
+    picks.map(({ e, matched }) => ({ ideaKey: `exp:${e._id}`, novel: matched.length === 0 })),
+  );
+
+  if (loading) {
+    return (
+      <Screen>
+        <LoadingState testID="home-loading" />
+      </Screen>
+    );
+  }
+  if (!userId) {
+    return (
+      <Screen>
+        <ErrorState testID="home-error" message="Join your school first to get picks." onRetry={() => router.replace("/onboarding/school")} />
+      </Screen>
+    );
+  }
 
   const why = (matched: string[], fits: boolean) => {
     const vibe = matched.length > 0 ? `You swiped for ${matched.slice(0, 2).join(" + ")}` : "Something outside your usual vibes";
@@ -170,17 +175,13 @@ export default function RecommendedScreen() {
                 <Text style={styles.priceText}>${e.pricePerPerson}/person</Text>
               </View>
             </View>
-            {matched.length === 0 && vibes.size > 0 ? (
-              <View testID={`pick-novel-${i}`} style={styles.novel}>
-                <Text style={styles.novelText}>🧭 New for you · +{NOVEL_BONUS} {brand.points} if you try it</Text>
-              </View>
-            ) : null}
             <Text testID={`pick-title-${i}`} style={styles.title}>
               {e.title}
             </Text>
             <Text testID={`pick-why-${i}`} style={styles.muted}>
               ✨ {why(matched, fits)}
             </Text>
+            <GojiChip testID={`pick-gojis-${i}`} preview={previews.get(`exp:${e._id}`)} />
             <Button
               testID={`pick-plan-${i}`}
               label={crew ? `Plan this with ${crew.name}` : "Start a crew to plan this"}
@@ -223,7 +224,5 @@ const styles = StyleSheet.create({
   rankText: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text },
   rankSub: { fontSize: font.size.sm, color: colors.textMuted },
   price: { backgroundColor: colors.successSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  novel: { alignSelf: "flex-start", backgroundColor: colors.warningSoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  novelText: { fontSize: font.size.xs, fontWeight: font.weight.heavy, color: colors.text },
   priceText: { fontSize: font.size.xs, fontWeight: font.weight.heavy, color: colors.success },
 });
