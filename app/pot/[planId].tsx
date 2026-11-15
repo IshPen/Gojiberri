@@ -312,7 +312,8 @@ export default function PotScreen() {
       <SectionHeader title="Who's chipped in" testID="pot-contributors-title" />
       {contributors.length === 0 ? (
         <EmptyState testID="pot-contributors-empty" emoji="🫙" title="No chip-ins yet" body="Be the first to put money in the pot." />
-      ) : (
+      ) : null}
+      {contributors.length + waitingOn.length > 0 ? (
         <View testID="pot-contributors" style={{ gap: spacing.sm }}>
           {contributors.map((c, i) => (
             <Card key={c.key} testID={`pot-contributor-${i}`} style={styles.row}>
@@ -340,7 +341,7 @@ export default function PotScreen() {
             </View>
           ))}
         </View>
-      )}
+      ) : null}
 
       {showConfetti ? <ConfettiCannon testID="pot-confetti" count={140} origin={{ x: -10, y: 0 }} fadeOut autoStart /> : null}
     </Screen>
