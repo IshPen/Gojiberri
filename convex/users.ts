@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery, mutation, query } from "./_generated/server";
+import { external, scheduleExternal } from "./refs";
 
 const timeBlock = v.object({ start: v.number(), end: v.number() });
 
@@ -27,7 +28,7 @@ export const createUser = mutation({
 export const getUser = query({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
-    return await ctx.db.get(userId);
+    return await ctx.db.get("users", userId);
   },
 });
 
@@ -40,7 +41,8 @@ export const updatePreferences = mutation({
     vibes: v.array(v.string()),
   },
   handler: async (ctx, { userId, ...prefs }) => {
-    await ctx.db.patch(userId, { ...prefs, onboarded: true });
+    await ctx.db.patch("users", userId, { ...prefs, onboarded: true });
+    await scheduleExternal(ctx, external.rememberPreferences, { userId });
     return null;
   },
 });
@@ -48,7 +50,7 @@ export const updatePreferences = mutation({
 export const setBusyBlocks = mutation({
   args: { userId: v.id("users"), blocks: v.array(timeBlock) },
   handler: async (ctx, { userId, blocks }) => {
-    await ctx.db.patch(userId, { busyBlocks: blocks.slice(0, 500) });
+    await ctx.db.patch("users", userId, { busyBlocks: blocks.slice(0, 500) });
     return null;
   },
 });
@@ -56,7 +58,7 @@ export const setBusyBlocks = mutation({
 export const setPushToken = mutation({
   args: { userId: v.id("users"), token: v.string() },
   handler: async (ctx, { userId, token }) => {
-    await ctx.db.patch(userId, { pushToken: token });
+    await ctx.db.patch("users", userId, { pushToken: token });
     return null;
   },
 });
@@ -64,14 +66,14 @@ export const setPushToken = mutation({
 export const getInternal = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
-    return await ctx.db.get(userId);
+    return await ctx.db.get("users", userId);
   },
 });
 
 export const getMany = internalQuery({
   args: { userIds: v.array(v.id("users")) },
   handler: async (ctx, { userIds }) => {
-    const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
+    const users = await Promise.all(userIds.map((id) => ctx.db.get("users", id)));
     return users.filter((u) => u !== null);
   },
 });

@@ -11,7 +11,7 @@ function randomCode() {
 }
 
 export async function withMembers(ctx: QueryCtx, group: Doc<"groups">) {
-  const members = await Promise.all(group.memberIds.map((id) => ctx.db.get(id)));
+  const members = await Promise.all(group.memberIds.map((id) => ctx.db.get("users", id)));
   return {
     ...group,
     members: members
@@ -23,7 +23,7 @@ export async function withMembers(ctx: QueryCtx, group: Doc<"groups">) {
 export const createGroup = mutation({
   args: { userId: v.id("users"), name: v.string() },
   handler: async (ctx, { userId, name }) => {
-    const user = await ctx.db.get(userId);
+    const user = await ctx.db.get("users", userId);
     if (!user) throw new ConvexError("User not found");
     let inviteCode = randomCode();
     while (
@@ -54,7 +54,7 @@ export const joinGroup = mutation({
       .unique();
     if (!group) throw new ConvexError("Invalid invite code");
     if (!group.memberIds.includes(userId)) {
-      await ctx.db.patch(group._id, { memberIds: [...group.memberIds, userId] });
+      await ctx.db.patch("groups", group._id, { memberIds: [...group.memberIds, userId] });
     }
     return group._id;
   },
@@ -72,7 +72,7 @@ export const getMyGroups = query({
 export const getGroup = query({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
-    const group = await ctx.db.get(groupId);
+    const group = await ctx.db.get("groups", groupId);
     return group ? await withMembers(ctx, group) : null;
   },
 });
@@ -80,7 +80,7 @@ export const getGroup = query({
 export const getInternal = internalQuery({
   args: { groupId: v.id("groups") },
   handler: async (ctx, { groupId }) => {
-    return await ctx.db.get(groupId);
+    return await ctx.db.get("groups", groupId);
   },
 });
 
@@ -101,7 +101,7 @@ export const linkChatByCode = internalMutation({
       .withIndex("by_inviteCode", (q) => q.eq("inviteCode", inviteCode.toUpperCase()))
       .unique();
     if (!group) return null;
-    await ctx.db.patch(group._id, { keikiChatId: chatId });
+    await ctx.db.patch("groups", group._id, { keikiChatId: chatId });
     return group.name;
   },
 });
