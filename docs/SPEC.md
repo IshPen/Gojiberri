@@ -2,6 +2,8 @@
 
 Nov 15, 2026 · @Gauri Todur
 
+> **Update 11:50: Whop pivot.** Sidequest is now **the shared fun fund for friend groups**. Members chip in each month through Whop, Sidequest suggests experiences that local businesses sell, and the group pays with one group card backed by the pot. The **Whop card is mocked**, because Whop doesn't verify card access on weekends. Businesses list and sell experiences through a portal. **Keiki and the $5 flake deposit are cut.** New pieces are marked **\[FUND\]**.
+
 ## How to use this doc
 
 **Each agent task gets three pastes:** the context block below, the sections the task touches (usually the schema in section 4 and the matching part of the API contract in section 5), and one task prompt from section 8. Agents build the right thing when they can see the whole contract.
@@ -186,6 +188,7 @@ export default defineSchema({
       costMax: v.number(),
       why: v.string(),
       travel: v.optional(v.string()),    // "12 min by transit"
+      experienceId: v.optional(v.id("experiences")), // [FUND]
       sponsorId: v.optional(v.id("sponsors")),
     })),
     winningIndex: v.optional(v.number()),
@@ -266,6 +269,58 @@ export default defineSchema({
     active: v.boolean(),
   }).index("by_nextRun", ["nextRun"]),
 
+  // [FUND] experiences that businesses sell
+  experiences: defineTable({
+    businessId: v.id("businesses"),
+    title: v.string(),                   // "Private escape room for 4"
+    description: v.string(),
+    placeId: v.optional(v.id("places")),
+    pricePerPerson: v.number(),          // $
+    minGroup: v.number(),
+    maxGroup: v.number(),
+    tags: v.array(v.string()),
+    imageUrl: v.optional(v.string()),
+    whopProductId: v.optional(v.string()),
+    whopPlanId: v.optional(v.string()),
+    active: v.boolean(),
+  }).index("by_business", ["businessId"]),
+
+  // [FUND] local businesses
+  businesses: defineTable({
+    name: v.string(),
+    whopAccountId: v.optional(v.string()),
+    earned: v.number(),                  // $ total sales
+  }),
+
+  // [FUND] one pot per group
+  pots: defineTable({
+    groupId: v.id("groups"),
+    balance: v.number(),                 // $ available
+    monthlyContribution: v.number(),     // $ per member per month
+    whopPlanId: v.optional(v.string()),
+  }).index("by_group", ["groupId"]),
+
+  // [FUND] ledger: every $ in and out of a pot
+  transactions: defineTable({
+    potId: v.id("pots"),
+    type: v.union(v.literal("contribution"), v.literal("spend"), v.literal("refund")),
+    amount: v.number(),
+    userId: v.optional(v.id("users")),
+    experienceId: v.optional(v.id("experiences")),
+    planId: v.optional(v.id("plans")),
+    whopPaymentId: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("completed"), v.literal("failed")),
+    note: v.optional(v.string()),
+  }).index("by_pot", ["potId"]),
+
+  // [FUND] MOCK Whop group card until card issuing is verified
+  cards: defineTable({
+    groupId: v.id("groups"),
+    last4: v.string(),
+    status: v.union(v.literal("mock-active"), v.literal("active"), v.literal("frozen")),
+    whopCardId: v.optional(v.string()),
+  }).index("by_group", ["groupId"]),
+
   pointEvents: defineTable({             // audit log for points
     userId: v.id("users"),
     reason: v.union(v.literal("checkin"), v.literal("solo"), v.literal("confirm"), v.literal("rate")),
@@ -334,6 +389,28 @@ export default defineSchema({
 | keiki.ts | `sendMessage` | iA | chatId, text | POST to the Keiki API | G |
 | seed.ts | `seedDemo` | M |  | 30 SF places, 3 users, 1 group, 4 past plans with ratings, 3 sponsors | G |
 
+### &#91;FUND\] Additions to the contract
+
+| File | Function | Type | Args | Returns / does | Owner |
+| --- | --- | --- | --- | --- | --- |
+| funds.ts | `createPot` | M | groupId, monthlyContribution | potId. Also runs `cards.issueCard` | I |
+| funds.ts | `getPot` | Q | groupId | {balance, monthlyContribution, paidThisMonth\[userIds\], transactions\[\] newest first} | I |
+| funds.ts | `recordContribution` | iM | potId, userId, amount, whopPaymentId | A completed contribution. balance += amount | I |
+| funds.ts | `spend` | iM | potId, amount, experienceId, planId | Throws if balance < amount. Adds a spend transaction, balance -= amount, business.earned += amount | I |
+| experiences.ts | `listExperiences` | Q | maxPerPerson?, tags? | Active experiences, cheapest first | I |
+| experiences.ts | `getExperience` | Q | experienceId | Experience + business name | I |
+| experiences.ts | `createExperience` | M | businessId, title, description, pricePerPerson, minGroup, maxGroup, tags | experienceId. Schedules `whop.createExperienceProduct` | I |
+| businesses.ts | `businessStats` | Q | businessId | {bookings, earned, recentSales\[\]} | I |
+| whop.ts | `createContributionCheckout` | A | userId, groupId, amount | Whop checkout URL with metadata {potId, userId} | G |
+| whop.ts | `createExperienceProduct` | iA | experienceId | Creates a Whop product and plan, saves their ids | G |
+| whop.ts | `transferToBusiness` | iA | transactionId | Whop transfer to the business account. If the sandbox refuses, keep the ledger entry and note "ledger-only" | G |
+| whop.ts | `handleEvent` | iA | event | A successful payment with metadata calls `funds.recordContribution` | G |
+| cards.ts | `issueCard` | iM | groupId | **MOCK:** random last4, status "mock-active" | G |
+| cards.ts | `getCard` | Q | groupId | Card + limit (= pot balance) | G |
+| cards.ts | `chargeCard` | M | userId, groupId, planId | **MOCK:** amount = experience price × confirmed members. Runs `funds.spend`, then schedules `whop.transferToBusiness`. Later, only the internals change for the real card API | G |
+
+`generateSuggestions` now picks from **experiences** first. It keeps only those where price × member count ≤ pot balance, plus 1 free or cheap place as a backup.
+
 ## Screens and navigation
 
 **Flow:** first launch → onboarding (name → swipes → preferences) → tabs. Home is the daily hook, and a group's page is where plans start. Every screen reads live data with `useQuery`, so votes, photos and points update without a refresh.
@@ -356,6 +433,18 @@ export default defineSchema({
 | Profile | `/(tabs)/profile` | Points, diamonds, streak, rewards, "What Sidequest knows about you" | `users.getUser`, `memory.getMyProfile` |
 | Sponsor | `/sponsor/[sponsorId]` | The offer, diamond cost, Redeem, then the promo code | `sponsors.redeemReward` |
 | Sponsor dashboard | `/sponsor-dashboard` | Demo: verified visits, $ earned, a "Fund more quests" Whop checkout | `sponsors.stats`, `whop.createSponsorCheckout` |
+
+### &#91;FUND\] New screens
+
+| Screen | Route | Shows | Calls |
+| --- | --- | --- | --- |
+| Group Fund | `/fund/[groupId]` | Big pot balance, monthly amount, who has chipped in this month, a **Chip in** button, the transaction list | `funds.getPot`, `whop.createContributionCheckout` (opened with `expo-web-browser`) |
+| Group Card | `/card/[groupId]` | Card visual (group name, •••• last4, small "demo card" label), limit = pot, **Tap to pay** for the locked plan, receipt | `cards.getCard`, `cards.chargeCard` |
+| Explore | `/(tabs)/explore` | Experiences from local businesses, filterable by price per person | `experiences.listExperiences` |
+| Experience detail | `/experience/[experienceId]` | Photo, price per person, group size, business, "Suggest to my group" | `experiences.getExperience` |
+| Business portal | `/business` | "List an experience" form, my listings, bookings and earnings | `experiences.createExperience`, `businesses.businessStats` |
+
+Also, the group home shows the pot balance and links to the Fund and Card screens. Option cards show the total from the pot ("$48 from your $60 pot"). A locked plan shows **Pay with group card**.
 
 **Look and feel:** one accent color, big rounded cards, large tap targets, haptics on vote and lock (`expo-haptics`), and confetti when a plan locks (`react-native-confetti-cannon`).
 
@@ -438,6 +527,22 @@ Upload with `generateUploadUrl`, POST the file, then call `savePhoto`. `getGroup
 
 The only rule is `first-friday-monthly`. `runDue` creates the next plan with a window of 6-10pm on the next first Friday, opens voting 7 days ahead, and sets `nextRun` to the following month.
 
+### &#91;FUND\] Group fund, experiences and card (this replaces the Whop and Keiki specs below)
+
+**Money flow:** members chip in through Whop checkout. The webhook adds each payment to the pot. The group votes on an experience and taps **Pay with group card**. The pot pays the business, and the business portal shows the sale.
+
+1. **Create a pot.** When a group is created, `funds.createPot` runs with $20 per member per month and issues the mock card.
+2. **Chip in.** `whop.createContributionCheckout` creates a Whop sandbox checkout for $20, with metadata `{potId, userId}`. The app opens it with `expo-web-browser`. The Whop webhook goes to `/whop/webhook` (Convex HTTP), then `whop.handleEvent`, then `funds.recordContribution`. The pot balance updates live on every phone.
+   - **Demo fallback:** a "Simulate payment" button in `demo.ts` calls `recordContribution` directly, in case the webhook is slow.
+3. **Suggest.** Experiences are filtered so that price × members ≤ pot balance, then ranked with memories as before. The "why" line can mention the pot: "Fits your $60 pot with $12 to spare."
+4. **Vote and lock.** Unchanged.
+5. **Pay.** On the Card screen, **Tap to pay** calls `cards.chargeCard`, which runs `funds.spend` and then `whop.transferToBusiness`. The receipt shows the business, the amount and the new balance.
+6. **Business side.** A business lists an experience in `/business`. `createExperience` then calls `whop.createExperienceProduct`, which creates a Whop product and plan. `businessStats` shows bookings and earnings.
+
+**The card is a mock, but everything around it is real.** `cards.ts` has the same function shape a real Whop card integration would have (issue, get, charge). Only the inside of `issueCard` and `chargeCard` changes once Whop verifies card access. The UI labels it a demo card.
+
+**Seed data:** 3 businesses with 6–8 experiences (escape room for 4 at $28 per person, pottery night at $35, karaoke room at $15, sunset kayak at $40, a food tour at $25). The demo group starts with a $0 pot so it can be funded live on stage.
+
 ### Whop (`convex/whop.ts`)
 
 - Use the **sandbox** API (`https://sandbox-api.whop.com/api/v1`) with a Bearer `WHOP_API_KEY`, called from actions only.
@@ -491,3 +596,16 @@ The only rule is `first-friday-monthly`. `runDue` creates the next plan with a w
 - [ ] **U-6 Home, rate, leaderboard, profile:** "Build app/(tabs)/home.tsx (QuestCard, upcoming plans, sponsored card), app/rate/\[targetId\].tsx (StarRating + vibe), app/(tabs)/leaderboard.tsx and app/(tabs)/profile.tsx per the screens table."
 - [ ] **U-7 Sponsor screens (after 3:30):** "Build app/sponsor/\[sponsorId\].tsx and app/sponsor-dashboard.tsx per the screens table. Open Whop checkout URLs with expo-web-browser."
 - [ ] **U-8 Revyl tests (4:30):** Write 3 natural-language tests: (1) onboard → create group → copy invite code; (2) open plan → vote → confirm → see the lock banner; (3) take photo → see it in the story → points go up. Run them on iOS and Android.
+
+### &#91;FUND\] New tasks (do these before any task marked cut)
+
+**Cut:** G-8 (Keiki) and the deposit parts of G-7. G-6 shrinks to `listActive` only.
+
+- [ ] **I-7 Fund ledger (Ishan):** "Create convex/funds.ts, convex/experiences.ts and convex/businesses.ts per the \[FUND\] contract rows. funds.spend must throw if the balance is too low, and must update pots.balance and businesses.earned in the same mutation. Make groups.createGroup call funds.createPot with monthlyContribution 20. Add demo.simulateContribution(groupId, userId, amount)."
+- [ ] **G-9 Whop money (Gauri):** "Create convex/whop.ts with "use node". Use the Whop sandbox API at https://sandbox-api.whop.com/api/v1 with Bearer WHOP\_API\_KEY. Implement createContributionCheckout (a checkout configuration for a $amount one-time plan with metadata potId and userId, returning its URL), createExperienceProduct, transferToBusiness (on API error, mark the note ledger-only and don't throw) and handleEvent (on payment success, call internal.funds.recordContribution with the metadata). Check the Whop docs for exact request bodies. Also update convex/http.ts route /whop/webhook to verify WHOP\_WEBHOOK\_SECRET and call handleEvent."
+- [ ] **G-10 Mock card (Gauri):** "Create convex/cards.ts with issueCard (internal mutation: random 4-digit last4, status mock-active), getCard (query: card + limit = pot balance) and chargeCard (mutation: amount = experience.pricePerPerson × confirmed members of the plan, calls internal.funds.spend, then schedules internal.whop.transferToBusiness). Keep the function shapes so the real Whop card API can replace the internals."
+- [ ] **G-11 Suggestions on the pot (Gauri):** "Update convex/suggest.ts: load the group's pot, then choose candidates from active experiences where pricePerPerson × members ≤ balance, plus at most 1 cheap place. Set options\[\].experienceId, costMin = costMax = pricePerPerson. The why line can mention the pot."
+- [ ] **G-12 Seed experiences (Gauri):** "Update convex/seed.ts: add 3 businesses and 7 experiences (realistic SF prices, tags, minGroup/maxGroup) and a pot at $0 for the demo group."
+- [ ] **U-9 Fund + card screens (Uma):** "Build app/fund/\[groupId\].tsx and app/card/\[groupId\].tsx per the \[FUND\] screens table. The card is a styled gradient card with the group name, •••• last4 and the balance. Tap to pay shows a receipt sheet. Add the pot balance and links to app/group/\[groupId\].tsx, and a Pay with group card button on a locked plan."
+- [ ] **U-10 Explore + business portal (Uma):** "Build app/(tabs)/explore.tsx, app/experience/\[experienceId\].tsx and app/business.tsx per the \[FUND\] screens table."
+- [ ] **Revyl test 4 (Uma):** chip in → the pot balance goes up → vote and lock → tap to pay → the balance goes down and a receipt shows.

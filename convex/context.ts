@@ -58,6 +58,11 @@ export const listUserIds = internalQuery({
   handler: async (ctx) => (await ctx.db.query("users").collect()).map((u) => u._id),
 });
 
+export const getPlace = internalQuery({
+  args: { placeId: v.id("places") },
+  handler: (ctx, { placeId }) => ctx.db.get("places", placeId),
+});
+
 export const getSponsor = internalQuery({
   args: { sponsorId: v.id("sponsors") },
   handler: (ctx, { sponsorId }) => ctx.db.get("sponsors", sponsorId),
@@ -103,7 +108,12 @@ export const planContext = internalQuery({
       const avg = ratings.reduce((sum, r) => sum + r.stars, 0) / ratings.length;
       if (avg <= 2) lowRatedPlaceIds.add(placeId);
     }
-    return { plan, group, members, lowRatedPlaceIds: [...lowRatedPlaceIds] };
+    const pot = await ctx.db
+      .query("pots")
+      .withIndex("by_group", (q) => q.eq("groupId", group._id))
+      .first();
+    const experiences = (await ctx.db.query("experiences").collect()).filter((e) => e.active);
+    return { plan, group, members, lowRatedPlaceIds: [...lowRatedPlaceIds], pot, experiences };
   },
 });
 
@@ -185,74 +195,62 @@ export const insertSoloQuest = internalMutation({
   },
 });
 
-export const getDeposit = internalQuery({
-  args: { depositId: v.id("deposits") },
-  handler: (ctx, { depositId }) => ctx.db.get("deposits", depositId),
+export const potForGroup = internalQuery({
+  args: { groupId: v.id("groups") },
+  handler: async (ctx, { groupId }) => {
+    const [group, pot] = await Promise.all([
+      ctx.db.get("groups", groupId),
+      ctx.db
+        .query("pots")
+        .withIndex("by_group", (q) => q.eq("groupId", groupId))
+        .first(),
+    ]);
+    return group && pot ? { group, pot } : null;
+  },
 });
 
-export const findDeposit = internalQuery({
-  args: { planId: v.id("plans"), userId: v.id("users") },
-  handler: async (ctx, { planId, userId }) => {
-    const deposits = await ctx.db
-      .query("deposits")
-      .withIndex("by_plan", (q) => q.eq("planId", planId))
+export const isPaymentRecorded = internalQuery({
+  args: { potId: v.id("pots"), whopPaymentId: v.string() },
+  handler: async (ctx, { potId, whopPaymentId }) => {
+    const transactions = await ctx.db
+      .query("transactions")
+      .withIndex("by_pot", (q) => q.eq("potId", potId))
       .collect();
-    return deposits.find((d) => d.userId === userId) ?? null;
+    return transactions.some((t) => t.whopPaymentId === whopPaymentId);
   },
 });
 
-export const reserveDeposit = internalMutation({
-  args: { planId: v.id("plans"), userId: v.id("users") },
-  handler: async (ctx, { planId, userId }) => {
-    const deposits = await ctx.db
-      .query("deposits")
-      .withIndex("by_plan", (q) => q.eq("planId", planId))
-      .collect();
-    const existing = deposits.find((d) => d.userId === userId);
-    if (existing) return existing;
-    const depositId = await ctx.db.insert("deposits", { planId, userId, status: "pending" });
-    return (await ctx.db.get("deposits", depositId))!;
+export const experienceWithBusiness = internalQuery({
+  args: { experienceId: v.id("experiences") },
+  handler: async (ctx, { experienceId }) => {
+    const experience = await ctx.db.get("experiences", experienceId);
+    if (!experience) return null;
+    return { experience, business: await ctx.db.get("businesses", experience.businessId) };
   },
 });
 
-export const markDepositHeld = internalMutation({
-  args: { depositId: v.id("deposits"), whopPaymentId: v.string() },
-  handler: async (ctx, { depositId, whopPaymentId }) => {
-    const deposit = await ctx.db.get("deposits", depositId);
-    if (!deposit || deposit.status !== "pending") return { refundNow: false };
-    await ctx.db.patch("deposits", depositId, { status: "held", whopPaymentId });
-    const photos = await ctx.db
-      .query("photos")
-      .withIndex("by_plan", (q) => q.eq("planId", deposit.planId))
-      .collect();
-    return { refundNow: photos.some((p) => p.userId === deposit.userId) };
+export const saveExperienceWhopIds = internalMutation({
+  args: { experienceId: v.id("experiences"), whopProductId: v.string(), whopPlanId: v.string() },
+  handler: async (ctx, { experienceId, ...ids }) => {
+    await ctx.db.patch("experiences", experienceId, ids);
   },
 });
 
-export const updateDeposit = internalMutation({
-  args: {
-    depositId: v.id("deposits"),
-    checkoutUrl: v.optional(v.string()),
-    status: v.optional(v.literal("refunded")),
-  },
-  handler: async (ctx, { depositId, ...patch }) => {
-    const fields = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
-    await ctx.db.patch("deposits", depositId, fields);
+export const transferContext = internalQuery({
+  args: { transactionId: v.id("transactions") },
+  handler: async (ctx, { transactionId }) => {
+    const transaction = await ctx.db.get("transactions", transactionId);
+    if (!transaction?.experienceId) return null;
+    const experience = await ctx.db.get("experiences", transaction.experienceId);
+    const business = experience ? await ctx.db.get("businesses", experience.businessId) : null;
+    return { transaction, business };
   },
 });
 
-// Ishan: call from reminders.dropUnconfirmed to forfeit the deposits of dropped users.
-export const forfeitDeposits = internalMutation({
-  args: { planId: v.id("plans"), userIds: v.array(v.id("users")) },
-  handler: async (ctx, { planId, userIds }) => {
-    const dropped = new Set(userIds);
-    const deposits = await ctx.db
-      .query("deposits")
-      .withIndex("by_plan", (q) => q.eq("planId", planId))
-      .collect();
-    for (const d of deposits) {
-      if (dropped.has(d.userId) && d.status === "held") await ctx.db.patch("deposits", d._id, { status: "forfeited" });
-    }
+export const noteTransaction = internalMutation({
+  args: { transactionId: v.id("transactions"), note: v.string() },
+  handler: async (ctx, { transactionId, note }) => {
+    await ctx.db.patch("transactions", transactionId, { note });
   },
 });
 

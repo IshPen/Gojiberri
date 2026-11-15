@@ -3,25 +3,28 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Doc, Id } from "./_generated/dataModel";
+import { Doc } from "./_generated/dataModel";
 import { chatJSON } from "./llm";
 import { priceRange } from "./pricing";
 import { travelEstimate } from "./places";
 
-const SYSTEM_PROMPT = `You plan outings for a friend group. Pick exactly 3 places from CANDIDATES that this
-group will love, that fit EVERY member's budget and diet, and that suit the time WINDOW.
+const SYSTEM_PROMPT = `You plan outings for a friend group that shares a fun fund (POT).
+Pick exactly 3 picks from CANDIDATES that this group will love and that suit the time WINDOW.
+Experiences are paid from the POT and already fit it; prefer them. Places are free or cheap backups.
 Use MEMORIES to personalize. Each "why" is one sentence (max 18 words) that cites a
-specific memory, e.g. "You rated the escape room 5 stars, so here's a puzzle bar."
-If SPONSOR is provided and fits, you may use it as one of the 3.
-Return ONLY JSON: {"options":[{"placeId":"...","title":"...","why":"..."}]}`;
+specific memory or the pot, e.g. "You rated the escape room 5 stars, and it fits your $60 pot with $12 to spare."
+Return ONLY JSON: {"options":[{"id":"...","title":"...","why":"..."}]}`;
 
 const FALLBACK_WHY = "Matches your crew's vibe.";
-const MAX_CANDIDATES = 25;
+const MAX_PLACES = 1;
 
-type Pick = { placeId: Id<"places">; title: string; why: string };
+type Candidate =
+  | { kind: "experience"; id: string; experience: Doc<"experiences">; place: Doc<"places"> }
+  | { kind: "place"; id: string; place: Doc<"places"> };
+type Pick = { candidate: Candidate; title: string; why: string };
 
-function tagOverlap(place: Doc<"places">, vibes: Set<string>) {
-  return place.tags.filter((t) => vibes.has(t.toLowerCase())).length;
+function overlap(tags: string[], vibes: Set<string>) {
+  return tags.filter((t) => vibes.has(t.toLowerCase())).length;
 }
 
 function mostCommon(values: string[]): string {
@@ -30,53 +33,68 @@ function mostCommon(values: string[]): string {
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
 }
 
-function validPicks(raw: unknown, allowed: Map<string, Doc<"places">>): Pick[] | null {
+function validPicks(raw: unknown, allowed: Map<string, Candidate>): Pick[] | null {
   const options = (raw as { options?: unknown })?.options;
   if (!Array.isArray(options)) return null;
   const seen = new Set<string>();
   const picks: Pick[] = [];
   for (const option of options) {
-    const { placeId, title, why } = (option ?? {}) as Record<string, unknown>;
-    if (typeof placeId !== "string" || !allowed.has(placeId) || seen.has(placeId)) continue;
-    seen.add(placeId);
+    const { id, title, why } = (option ?? {}) as Record<string, unknown>;
+    if (typeof id !== "string" || !allowed.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    const candidate = allowed.get(id)!;
+    const fallbackTitle = candidate.kind === "experience" ? candidate.experience.title : candidate.place.name;
     picks.push({
-      placeId: placeId as Id<"places">,
-      title: typeof title === "string" && title.trim() ? title.trim() : allowed.get(placeId)!.name,
+      candidate,
+      title: typeof title === "string" && title.trim() ? title.trim() : fallbackTitle,
       why: typeof why === "string" && why.trim() ? why.trim() : FALLBACK_WHY,
     });
   }
-  return picks.length === 3 ? picks : null;
+  return picks.length === Math.min(3, allowed.size) ? picks : null;
 }
 
 export const generateSuggestions = internalAction({
   args: { planId: v.id("plans") },
   handler: async (ctx, { planId }): Promise<null> => {
-    const { plan, group, members, lowRatedPlaceIds } = await ctx.runQuery(internal.context.planContext, { planId });
+    const { plan, group, members, lowRatedPlaceIds, pot, experiences } = await ctx.runQuery(
+      internal.context.planContext,
+      { planId },
+    );
 
+    const balance = pot?.balance ?? 0;
+    const people = Math.max(1, members.length);
     const budgetCap = Math.min(...members.map((m) => m.budgetMax));
     const diets = [...new Set(members.flatMap((m) => m.diet))];
     const vibes = new Set(members.flatMap((m) => m.vibes.map((t) => t.toLowerCase())));
     const homeArea = mostCommon(members.map((m) => m.homeArea));
-
     const excluded = new Set<string>(lowRatedPlaceIds);
-    const candidates = (
-      await ctx.runQuery(internal.places.listCandidates, {
-        budgetMax: budgetCap,
-        areas: members.map((m) => m.homeArea),
-      })
-    )
-      .filter((p) => !excluded.has(p._id))
-      .sort((a, b) => tagOverlap(b, vibes) - tagOverlap(a, vibes));
 
-    const [memories, sponsor] = await Promise.all([
-      ctx.runAction(internal.memory.getGroupContext, { groupId: group._id }),
-      ctx.runQuery(internal.sponsors.pickSponsored, { budgetMax: budgetCap, tags: [...vibes] }),
-    ]);
+    const places = await ctx.runQuery(internal.places.listCandidates, {
+      budgetMax: budgetCap,
+      areas: members.map((m) => m.homeArea),
+    });
+    const placeById = new Map(places.map((p) => [p._id as string, p]));
+    for (const e of experiences) {
+      if (e.placeId && !placeById.has(e.placeId)) {
+        const place = await ctx.runQuery(internal.context.getPlace, { placeId: e.placeId });
+        if (place) placeById.set(place._id, place);
+      }
+    }
 
-    const shortlist = candidates.slice(0, MAX_CANDIDATES);
-    const sponsorPlace = sponsor ? candidates.find((p) => p._id === sponsor.placeId) : undefined;
-    if (sponsorPlace && !shortlist.includes(sponsorPlace)) shortlist.push(sponsorPlace);
-    const allowed = new Map(shortlist.map((p) => [p._id as string, p]));
+    const experienceCandidates: Candidate[] = experiences
+      .filter((e) => e.placeId && placeById.has(e.placeId) && e.pricePerPerson * people <= balance)
+      .sort((a, b) => overlap(b.tags, vibes) - overlap(a.tags, vibes) || a.pricePerPerson - b.pricePerPerson)
+      .map((e) => ({ kind: "experience", id: e._id, experience: e, place: placeById.get(e.placeId!)! }));
+    const placeSlots = Math.max(MAX_PLACES, 3 - experienceCandidates.length);
+    const placeCandidates: Candidate[] = places
+      .filter((p) => p.priceLevel === 1 && !excluded.has(p._id))
+      .sort((a, b) => overlap(b.tags, vibes) - overlap(a.tags, vibes))
+      .slice(0, placeSlots + 2)
+      .map((p) => ({ kind: "place", id: p._id, place: p }));
+    const candidates = [...experienceCandidates.slice(0, 12), ...placeCandidates];
+    const allowed = new Map(candidates.map((c) => [c.id, c]));
+
+    const memories = await ctx.runAction(internal.memory.getGroupContext, { groupId: group._id });
 
     let picks: Pick[] | null = null;
     try {
@@ -86,45 +104,56 @@ export const generateSuggestions = internalAction({
           end: new Date(plan.window.end).toISOString(),
           timezone: "America/Los_Angeles",
         },
-        BUDGET_CAP: budgetCap,
+        POT: { balance, members: people },
         DIETS: diets,
-        CANDIDATES: shortlist.map((p) => ({
-          id: p._id,
-          name: p.name,
-          area: p.area,
-          category: p.category,
-          priceLevel: p.priceLevel,
-          tags: p.tags,
-        })),
+        MAX_PLACES: placeSlots,
+        CANDIDATES: candidates.map((c) =>
+          c.kind === "experience"
+            ? {
+                id: c.id,
+                kind: "experience",
+                title: c.experience.title,
+                description: c.experience.description,
+                pricePerPerson: c.experience.pricePerPerson,
+                groupTotal: c.experience.pricePerPerson * people,
+                leftInPot: balance - c.experience.pricePerPerson * people,
+                tags: c.experience.tags,
+                area: c.place.area,
+              }
+            : { id: c.id, kind: "place", name: c.place.name, area: c.place.area, category: c.place.category, tags: c.place.tags },
+        ),
         MEMORIES: memories,
-        SPONSOR:
-          sponsor && sponsorPlace
-            ? { placeId: sponsor.placeId, business: sponsor.business, offer: sponsor.offer }
-            : null,
       });
       picks = validPicks(raw, allowed);
+      if (picks && picks.filter((p) => p.candidate.kind === "place").length > placeSlots) picks = null;
       if (!picks) console.warn("LLM returned unusable options, using fallback", raw);
     } catch (err) {
       console.warn("LLM call failed, using fallback", err);
     }
 
-    picks ??= shortlist.slice(0, 3).map((p) => ({ placeId: p._id, title: p.name, why: FALLBACK_WHY }));
+    picks ??= [
+      ...experienceCandidates.slice(0, 3 - Math.min(placeSlots, placeCandidates.length, 1)),
+      ...placeCandidates,
+    ]
+      .slice(0, 3)
+      .map((candidate) => ({
+        candidate,
+        title: candidate.kind === "experience" ? candidate.experience.title : candidate.place.name,
+        why:
+          candidate.kind === "experience"
+            ? `Fits your $${balance} pot with $${balance - candidate.experience.pricePerPerson * people} to spare.`
+            : FALLBACK_WHY,
+      }));
 
-    let sponsorUsed = false;
-    const options = picks.map((pick) => {
-      const place = allowed.get(pick.placeId)!;
+    const options = picks.map(({ candidate, title, why }) => {
+      const place = candidate.place;
+      const base = { placeId: place._id, title, why, travel: travelEstimate(homeArea, place) };
+      if (candidate.kind === "experience") {
+        const price = candidate.experience.pricePerPerson;
+        return { ...base, costMin: price, costMax: price, experienceId: candidate.experience._id };
+      }
       const { min, max } = priceRange(place.priceLevel);
-      const isSponsored = !sponsorUsed && sponsor !== null && sponsor.placeId === pick.placeId;
-      if (isSponsored) sponsorUsed = true;
-      return {
-        placeId: pick.placeId,
-        title: pick.title,
-        costMin: min,
-        costMax: max,
-        why: pick.why,
-        travel: travelEstimate(homeArea, place),
-        ...(isSponsored ? { sponsorId: sponsor!._id } : {}),
-      };
+      return { ...base, costMin: min, costMax: max };
     });
 
     await ctx.runMutation(internal.plans.saveOptions, { planId, options });

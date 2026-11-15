@@ -46,6 +46,10 @@ const PLACES: PlaceSeed[] = [
   { name: "SFMOMA", area: "SoMa", category: "arts", priceLevel: 2, tags: ["arts", "museum", "modern", "rainy-day"], lat: 37.7857, lng: -122.4011, durationMins: 120, bookingUrl: "https://www.sfmoma.org" },
   { name: "Exploratorium", area: "Embarcadero", category: "arts", priceLevel: 3, tags: ["nerdy", "interactive", "science", "group-friendly"], lat: 37.8017, lng: -122.3973, durationMins: 150, bookingUrl: "https://www.exploratorium.edu" },
   { name: "Castro Theatre", area: "Castro", category: "arts", priceLevel: 2, tags: ["film", "classic", "retro", "cozy"], lat: 37.762, lng: -122.4348, durationMins: 150, bookingUrl: "https://thecastro.com" },
+  { name: "Sharon Art Studio", area: "Golden Gate Park", category: "arts", priceLevel: 2, tags: ["arts", "creative", "cozy", "hands-on"], lat: 37.7686, lng: -122.4573, durationMins: 120, bookingUrl: "https://www.sharonartstudio.org" },
+  { name: "Pandora Karaoke", area: "Tenderloin", category: "activity", priceLevel: 1, tags: ["karaoke", "lively", "music", "late-night"], lat: 37.7841, lng: -122.4094, durationMins: 120 },
+  { name: "City Kayak", area: "SoMa", category: "outdoors", priceLevel: 3, tags: ["active", "outdoors", "views", "sunset"], lat: 37.7787, lng: -122.3876, durationMins: 120, bookingUrl: "https://www.citykayak.com" },
+  { name: "Dragon Gate", area: "Chinatown", category: "food", priceLevel: 1, tags: ["food", "walking", "classic", "group-friendly"], lat: 37.7908, lng: -122.4058, durationMins: 150 },
   { name: "Cobb's Comedy Club", area: "North Beach", category: "arts", priceLevel: 2, tags: ["comedy", "lively", "date-night"], lat: 37.8036, lng: -122.4136, durationMins: 120, bookingUrl: "https://www.cobbscomedy.com" },
 ];
 
@@ -53,6 +57,31 @@ const USERS = [
   { name: "Uma", avatarUrl: "🦊", budgetMax: 20, homeArea: "Mission", diet: ["vegetarian"], vibes: ["cozy", "outdoors", "arts"], points: 340, diamonds: 1, streak: 2 },
   { name: "Ishan", avatarUrl: "🐙", budgetMax: 30, homeArea: "Hayes Valley", diet: [], vibes: ["active", "games", "nerdy"], points: 420, diamonds: 1, streak: 1 },
   { name: "Gauri", avatarUrl: "🦄", budgetMax: 40, homeArea: "SoMa", diet: [], vibes: ["lively", "cocktails", "puzzle"], points: 480, diamonds: 2, streak: 3 },
+];
+
+const BUSINESSES: { name: string; experiences: { title: string; description: string; place: string; pricePerPerson: number; minGroup: number; maxGroup: number; tags: string[] }[] }[] = [
+  {
+    name: "Palace Games",
+    experiences: [
+      { title: "Private escape room for 4", description: "60 minutes, one locked room, and a game master cheering you on.", place: "Palace Games", pricePerPerson: 28, minGroup: 4, maxGroup: 8, tags: ["puzzle", "escape-room", "thrilling", "group-friendly"] },
+      { title: "Houdini séance night", description: "A theatrical after-dark puzzle game inside the Palace of Fine Arts.", place: "Palace Games", pricePerPerson: 38, minGroup: 4, maxGroup: 6, tags: ["puzzle", "thrilling", "themed", "date-night"] },
+    ],
+  },
+  {
+    name: "SF Makers Collective",
+    experiences: [
+      { title: "Pottery night", description: "Throw your own mug on the wheel. Clay, glazing and firing included.", place: "Sharon Art Studio", pricePerPerson: 35, minGroup: 2, maxGroup: 8, tags: ["arts", "creative", "cozy", "hands-on"] },
+      { title: "Private karaoke room", description: "Two hours in your own room with a song list of 50,000 tracks.", place: "Pandora Karaoke", pricePerPerson: 15, minGroup: 3, maxGroup: 10, tags: ["karaoke", "lively", "music", "group-friendly"] },
+      { title: "Mini golf and a round", description: "18 SF-themed holes at Urban Putt, plus one drink each.", place: "Urban Putt", pricePerPerson: 22, minGroup: 2, maxGroup: 8, tags: ["games", "quirky", "lively", "group-friendly"] },
+    ],
+  },
+  {
+    name: "Bay Adventures",
+    experiences: [
+      { title: "Sunset kayak on the Bay", description: "A guided two-hour paddle past the Bay Bridge at golden hour.", place: "City Kayak", pricePerPerson: 40, minGroup: 2, maxGroup: 6, tags: ["active", "outdoors", "views", "sunset"] },
+      { title: "Chinatown food tour", description: "Dumplings, egg tarts and fortune cookies on a guided walk.", place: "Dragon Gate", pricePerPerson: 25, minGroup: 2, maxGroup: 10, tags: ["food", "walking", "classic", "group-friendly"] },
+    ],
+  },
 ];
 
 const SPONSORS = [
@@ -99,6 +128,18 @@ export const seedDemo = mutation({
       ownerId: userIds[1],
       memberIds: userIds,
     });
+
+    await ctx.db.insert("pots", { groupId, balance: 0, monthlyContribution: 20 });
+    await ctx.runMutation(internal.cards.issueCard, { groupId });
+
+    const businessIds: Id<"businesses">[] = [];
+    for (const business of BUSINESSES) {
+      const businessId = await ctx.db.insert("businesses", { name: business.name, earned: 0 });
+      businessIds.push(businessId);
+      for (const { place, ...experience } of business.experiences) {
+        await ctx.db.insert("experiences", { ...experience, businessId, placeId: placeIds.get(place)!, active: true });
+      }
+    }
 
     const sponsorIds: Id<"sponsors">[] = [];
     for (const [i, s] of SPONSORS.entries()) {
@@ -155,6 +196,6 @@ export const seedDemo = mutation({
       await ctx.scheduler.runAfter(0, internal.memory.rememberRating, { ratingId });
     }
 
-    return { userIds, groupId, sponsorIds, inviteCode: "HACK42", places: PLACES.length };
+    return { userIds, groupId, sponsorIds, businessIds, inviteCode: "HACK42", places: PLACES.length };
   },
 });
