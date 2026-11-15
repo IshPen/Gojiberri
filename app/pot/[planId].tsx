@@ -64,7 +64,7 @@ export default function PotScreen() {
 
   const members = plan?.group.members ?? [];
   const shares = SPLIT_MOCK ? (pot ? mockPotShares(members, pot.transactions) : pot) : liveShares;
-  const split: PlanSplit | null | undefined = !experienceId
+  const split: PlanSplit | null | undefined = !experienceId || pot === null
     ? null
     : !SPLIT_MOCK
       ? liveSplit
