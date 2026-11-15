@@ -39,6 +39,7 @@ import type * as recurrences from "../recurrences.js";
 import type * as redemptions from "../redemptions.js";
 import type * as refs from "../refs.js";
 import type * as reminders from "../reminders.js";
+import type * as rerank from "../rerank.js";
 import type * as seed from "../seed.js";
 import type * as sponsors from "../sponsors.js";
 import type * as suggest from "../suggest.js";
@@ -87,6 +88,7 @@ declare const fullApi: ApiFromModules<{
   redemptions: typeof redemptions;
   refs: typeof refs;
   reminders: typeof reminders;
+  rerank: typeof rerank;
   seed: typeof seed;
   sponsors: typeof sponsors;
   suggest: typeof suggest;

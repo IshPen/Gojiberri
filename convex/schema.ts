@@ -245,6 +245,14 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
+  rerankCache: defineTable({            // LLM rerank of the For You top 10, per user per day
+    userId: v.id("users"),
+    day: v.string(),                     // YYYY-MM-DD, America/Los_Angeles
+    groupId: v.optional(v.id("groups")),
+    result: v.array(v.object({ key: v.string(), rank: v.number(), reason: v.union(v.string(), v.null()) })),
+    createdAt: v.number(),
+  }).index("by_user_day", ["userId", "day"]),
+
   // [FUND] direct experience checkout via Whop, independent of pots
   experiencePurchases: defineTable({
     userId: v.id("users"),
