@@ -16,7 +16,8 @@ function mockCheckoutPage(checkout: Doc<"whopMockCheckouts">) {
   const paid = checkout.status === "paid";
   const amount = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(checkout.amount);
   const contribution = checkout.kind === "contribution";
-  const title = paid ? "You're all set" : contribution ? "Chip in to your crew" : "Complete your booking";
+  const sponsor = checkout.kind === "sponsor";
+  const title = paid ? "You're all set" : contribution ? "Chip in to your crew" : sponsor ? "Fund more quests" : "Complete your booking";
   return new Response(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title} · Goji</title><style>
@@ -29,10 +30,10 @@ h2{font-size:18px;line-height:1.4;margin:6px 0 18px;overflow-wrap:anywhere}.row{
 button{font:inherit;font-size:17px;font-weight:750;width:100%;border:0;border-radius:14px;padding:18px 12px;background:#285c3e;color:#fff;cursor:pointer;min-height:56px}button:focus-visible{outline:3px solid #e77850;outline-offset:3px}
 .success{padding:16px;background:#e7efdf;border-radius:14px;font-weight:650;line-height:1.5}.foot{margin-top:28px;font-size:12px;color:#798174;text-align:center}
 </style></head><body><main><div class="brand">goji<span class="dot">.</span></div><h1>${title}</h1>
-<p>${paid ? "Your payment is recorded." : contribution ? "Review your contribution, then confirm." : "Review your order, then confirm."}</p>
-<section class="card"><div class="label">${contribution ? "Chip in to" : "Experience from"}</div>
+<p>${paid ? "Your payment is recorded." : contribution ? "Review your contribution, then confirm." : sponsor ? "Review your quest pack, then confirm." : "Review your order, then confirm."}</p>
+<section class="card"><div class="label">${contribution ? "Chip in to" : sponsor ? "Sponsored quest pack for" : "Experience from"}</div>
 <h2>${escapeHtml(checkout.title)}</h2><div class="row"><span>${paid ? "Paid" : "Total"} (USD)</span><div class="amount">${amount}</div></div></section>
-${paid ? '<div class="success">Return to the app to see your updated ' + (contribution ? "fund balance." : "purchase status.") + '</div>' : `<form action="/whop/mock-pay" method="post"><input type="hidden" name="token" value="${escapeHtml(checkout.token)}"><button type="submit">Pay ${amount}</button></form>`}
+${paid ? '<div class="success">Return to the app to see your updated ' + (contribution ? "fund balance." : sponsor ? "sponsorship." : "purchase status.") + '</div>' : `<form action="/whop/mock-pay" method="post"><input type="hidden" name="token" value="${escapeHtml(checkout.token)}"><button type="submit">Pay ${amount}</button></form>`}
 <div class="foot">Simulated checkout · no real payment is made</div></main></body></html>`, {
     headers: {
       "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "same-origin",
