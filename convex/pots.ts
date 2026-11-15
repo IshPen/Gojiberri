@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, MutationCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 const SPONSOR_CHIP_IN = 10;
@@ -46,7 +46,7 @@ export const onPlanLocked = internalMutation({
     if (!potId) {
       potId = await ctx.db.insert("pots", { groupId: plan.groupId, balance: 0, monthlyContribution: 20 });
       try {
-        await ctx.runMutation(internal.cards.issueCard, { groupId: plan.groupId });
+        await ctx.runMutation(api.cards.issueCard, { groupId: plan.groupId });
       } catch (e) {
         console.warn("Skipped issuing the group card:", String(e));
       }

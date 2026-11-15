@@ -1,5 +1,5 @@
 import { mutation } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { priceRange } from "./pricing";
 import { travelEstimate } from "./places";
@@ -305,7 +305,7 @@ export const seedDemo = mutation({
       status: "completed",
       note: POT.sponsorChipIn.business,
     });
-    await ctx.runMutation(internal.cards.issueCard, { groupId });
+    await ctx.runMutation(api.cards.issueCard, { groupId });
 
     for (const userId of userIds.values()) {
       await ctx.scheduler.runAfter(0, internal.memory.rememberPreferences, { userId });

@@ -432,6 +432,23 @@ describe("raw-body signature guard", () => {
   });
 });
 
+describe("mock group card", () => {
+  it("issues one demo card per existing group from the public mutation", async () => {
+    const { t, ids } = await fixture();
+    const first = await t.mutation(api.cards.issueCard, { groupId: ids.groupId });
+    expect(await t.mutation(api.cards.issueCard, { groupId: ids.groupId })).toBe(first);
+    const view = await t.query(api.cards.getCard, { groupId: ids.groupId });
+    expect(view).toMatchObject({ card: { status: "mock-active" }, limit: 40 });
+    expect(view!.card.last4).toMatch(/^\d{4}$/);
+    const orphan = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("groups", { name: "Gone", inviteCode: "GONE00", ownerId: ids.userId, memberIds: [] });
+      await ctx.db.delete("groups", id);
+      return id;
+    });
+    await expect(t.mutation(api.cards.issueCard, { groupId: orphan })).rejects.toThrow("Group not found");
+  });
+});
+
 describe("explicit Whop demo mode", () => {
   const pay = (t: Awaited<ReturnType<typeof fixture>>["t"], token: string, extra = "") => t.fetch("/whop/mock-pay", {
     method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: `token=${token}${extra}`,
@@ -518,6 +535,22 @@ describe("explicit Whop demo mode", () => {
     expect((await state()).business?.earned).toBe(32.5);
     expect((await state()).pot?.balance).toBe(40);
     expect((await state()).transactions).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("accepts any positive cent-exact top-up and rejects zero or fractional cents", async () => {
+    vi.stubEnv("WHOP_MOCK", "true");
+    const { t, ids, state } = await fixture();
+    for (const amount of [0, 0.004, 1.005, -1]) {
+      await expect(t.action(api.whop.createContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount })).rejects.toThrow("dollars and cents");
+    }
+    for (const amount of [0.01, 0.07, 12.34]) {
+      const token = tokenFrom(await t.action(api.whop.createContributionCheckout, { userId: ids.userId, groupId: ids.groupId, amount }));
+      expect((await pay(t, token)).status).toBe(200);
+    }
+    const after = await state();
+    expect(after.transactions.map((tx) => tx.amount)).toEqual([0.01, 0.07, 12.34]);
+    expect(Math.round(after.pot!.balance * 100)).toBe(5242);
     expect(fetch).not.toHaveBeenCalled();
   });
 
