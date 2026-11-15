@@ -1,7 +1,6 @@
 import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useMutation, useQuery } from "convex/react";
-import ConfettiCannon from "react-native-confetti-cannon";
 import * as Haptics from "expo-haptics";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -9,12 +8,13 @@ import { Animated, Linking, StyleSheet, Text, View } from "react-native";
 import GojiChip, { GojiDetails, useGojiPreviews } from "./GojiChip";
 import OptionCard from "./OptionCard";
 import { Button, Card, ErrorState, LoadingState, Screen, Subtitle, Title } from "./ui";
-import { colors, font, motion, radius, spacing, emoji as emojiSize } from "../constants/theme";
+import { colors, font, radius, spacing, emoji as emojiSize } from "../constants/theme";
 import { createInvite } from "../lib/calendar";
 import { formatCountdown, formatWindow } from "../lib/format";
 import { mockDelay, useMockQuery } from "../lib/mock";
 import { useUserId } from "../lib/session";
 import { cleanTitle } from "../lib/format";
+import BerryBurst from "./BerryBurst";
 
 const USE_MOCK = false;
 
@@ -502,7 +502,7 @@ export default function PlanPanel({ planId, inline = false }: { planId: string; 
             onPress={() => router.push({ pathname: "/camera", params: { planId: pid, groupId: plan.groupId } })}
           />
           <View style={styles.links}>
-            <Button testID="plan-pot-link" label="Crew pot" variant="ghost" onPress={() => router.push(`/pot/${pid}`)} />
+            <Button testID="plan-pot-link" label="Crew basket" variant="ghost" onPress={() => router.push(`/pot/${pid}`)} />
             {winnerPlace?.bookingUrl ? (
               <Button testID="booking-link" label="Book it" variant="ghost" onPress={() => Linking.openURL(winnerPlace.bookingUrl as string).catch(() => {})} />
             ) : null}
@@ -510,7 +510,7 @@ export default function PlanPanel({ planId, inline = false }: { planId: string; 
         </View>
       ) : null}
 
-      {showConfetti ? <ConfettiCannon testID="confetti" count={120} origin={{ x: -10, y: 0 }} colors={motion.confettiColors} fallSpeed={2600} fadeOut autoStart /> : null}
+      {showConfetti ? <BerryBurst testID="confetti" count={32} /> : null}
     </PlanWrap>
   );
 }

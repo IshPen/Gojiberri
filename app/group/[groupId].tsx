@@ -131,7 +131,7 @@ export default function GroupScreen() {
       {plans === undefined ? (
         <LoadingState label="Loading plans…" testID="plans-loading" />
       ) : upcoming.length === 0 ? (
-        <EmptyState testID="plans-empty" emoji="🗓️" title="No plans yet" body={`Pick an outing on For You and your crew votes. Check in together to earn ${brand.points}.`} />
+        <EmptyState testID="plans-empty" emoji="🍓" title="No plans yet" body={`Pick an outing on For You and your crew votes. Check in together to earn ${brand.points}.`} />
       ) : (
         upcoming.map(renderPlan)
       )}
@@ -146,8 +146,8 @@ export default function GroupScreen() {
       {potPlan ? (
         <Card testID="pot-link" tone="muted" onPress={() => router.push(`/pot/${potPlan._id}`)} style={styles.planCard}>
           <View style={styles.planInfo}>
-            <Text style={styles.planTitle}>💳 Crew pot</Text>
-            <Text style={styles.planWindow}>Chip in together and pay with your crew card</Text>
+            <Text style={styles.planTitle}>🧺 Crew basket</Text>
+            <Text style={styles.planWindow}>Add berries together and pay with your crew card</Text>
           </View>
           <Text style={styles.windowCheck}>›</Text>
         </Card>

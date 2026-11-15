@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
+import Basket from "./Basket";
 import { colors, font, radius, shadow, spacing, type } from "../constants/theme";
 
 type WhopCardProps = {
@@ -11,15 +12,13 @@ type WhopCardProps = {
   testID?: string;
 };
 
-const RING_SIZE = 76;
-const RING_WIDTH = 7;
 
 export default function WhopCard({ crewName, balance, goal, last4, limit, spent, testID = "whop-card" }: WhopCardProps) {
   const ready = !!last4 && (spent !== undefined || (goal > 0 && balance >= goal));
   const progress = goal > 0 ? Math.min(balance / goal, 1) : 0;
 
   return (
-    <View testID={testID} accessibilityLabel={ready ? `Group card ending in ${last4}` : `Pot funding, ${Math.round(progress * 100)} percent`} style={styles.card}>
+    <View testID={testID} accessibilityLabel={ready ? `Group card ending in ${last4}` : `Basket ${Math.round(progress * 100)} percent full`} style={styles.card}>
       <View style={[styles.blob, styles.blobAccent]} />
       <View style={[styles.blob, styles.blobOrange]} />
       <View style={[styles.blob, styles.blobGold]} />
@@ -50,9 +49,9 @@ export default function WhopCard({ crewName, balance, goal, last4, limit, spent,
         </View>
       ) : (
         <View testID={`${testID}-funding`} style={styles.fundingRow}>
-          <ProgressRing progress={progress} testID={`${testID}-ring`} />
+          <Basket progress={progress} size={76} testID={`${testID}-ring`} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.fundingLabel}>Funding</Text>
+            <Text style={styles.fundingLabel}>Berries in the basket</Text>
             <Text testID={`${testID}-funding-amount`} style={styles.fundingAmount}>
               ${formatDollars(balance)} <Text style={styles.fundingGoal}>/ ${formatDollars(goal)}</Text>
             </Text>
@@ -71,25 +70,6 @@ export default function WhopCard({ crewName, balance, goal, last4, limit, spent,
           <Text style={styles.limitText}>spend limit ${formatDollars(limit ?? balance)}</Text>
         </View>
       </View>
-    </View>
-  );
-}
-
-function ProgressRing({ progress, testID }: { progress: number; testID: string }) {
-  const right = -135 + Math.min(progress, 0.5) * 360;
-  const left = 45 + Math.max(progress - 0.5, 0) * 360;
-  return (
-    <View testID={testID} style={ring.box}>
-      <View style={ring.track} />
-      <View style={[ring.half, { left: RING_SIZE / 2 }]}>
-        <View style={[ring.arc, { left: -RING_SIZE / 2, transform: [{ rotate: `${right}deg` }] }]} />
-      </View>
-      <View style={[ring.half, { left: 0 }]}>
-        <View style={[ring.arc, { left: 0, transform: [{ rotate: `${left}deg` }] }]} />
-      </View>
-      <Text testID={`${testID}-percent`} style={ring.label}>
-        {Math.round(progress * 100)}%
-      </Text>
     </View>
   );
 }
@@ -152,27 +132,3 @@ const styles = StyleSheet.create({
   limitText: { color: colors.onInk, fontSize: font.size.xs, fontWeight: font.weight.bold },
 });
 
-const ring = StyleSheet.create({
-  box: { width: RING_SIZE, height: RING_SIZE, alignItems: "center", justifyContent: "center" },
-  track: {
-    position: "absolute",
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderRadius: RING_SIZE / 2,
-    borderWidth: RING_WIDTH,
-    borderColor: colors.inkSoft,
-  },
-  half: { position: "absolute", top: 0, width: RING_SIZE / 2, height: RING_SIZE, overflow: "hidden" },
-  arc: {
-    position: "absolute",
-    top: 0,
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderRadius: RING_SIZE / 2,
-    borderWidth: RING_WIDTH,
-    borderColor: "transparent",
-    borderTopColor: colors.gold,
-    borderRightColor: colors.gold,
-  },
-  label: { color: colors.onInk, fontSize: font.size.md, fontWeight: font.weight.heavy },
-});

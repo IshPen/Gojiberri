@@ -5,25 +5,26 @@ import { Stack, useLocalSearchParams, type ErrorBoundaryProps } from "expo-route
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import ConfettiCannon from "react-native-confetti-cannon";
 import SponsoredBadge from "../../components/SponsoredBadge";
 import WhopCard from "../../components/WhopCard";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
-import { colors, font, motion, radius, spacing, type } from "../../constants/theme";
+import { colors, font, radius, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../../lib/errors";
 import { avatarFor } from "../../lib/avatar";
 import { useUserId } from "../../lib/session";
 import { formatDollars, type PlanSplit } from "../../lib/split";
 import { cleanTitle } from "../../lib/format";
+import Basket from "../../components/Basket";
+import BerryBurst from "../../components/BerryBurst";
 
 const DEFAULT_PER_MEMBER = 20;
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
     <Screen testID="pot-screen">
-      <Stack.Screen options={{ title: "Crew pot" }} />
-      <ErrorState testID="pot-error" message={error.message || "We couldn't load this pot."} onRetry={retry} />
+      <Stack.Screen options={{ title: "Crew basket" }} />
+      <ErrorState testID="pot-error" message={error.message || "We couldn't load this basket."} onRetry={retry} />
     </Screen>
   );
 }
@@ -112,7 +113,7 @@ export default function PotScreen() {
       setReceipt(`Paid ${formatDollars(r.amount)} to ${r.business || r.experience} with card •••• ${r.last4}.`);
     });
 
-  const header = <Stack.Screen options={{ title: "Crew pot" }} />;
+  const header = <Stack.Screen options={{ title: "Crew basket" }} />;
 
   if (plan === undefined || (plan && (pot === undefined || cardView === undefined || shares === undefined || split === undefined))) {
     return (
@@ -142,9 +143,9 @@ export default function PotScreen() {
           testID="pot-empty"
           actionTestID="pot-start-button"
           emoji="🫙"
-          title="Start a crew pot"
+          title="Start a crew basket"
           body="Everyone keeps their own share inside it. It only pays for experiences, split evenly between whoever's going."
-          actionLabel={busy === "start" ? "Starting…" : "Start a pot"}
+          actionLabel={busy === "start" ? "Starting…" : "Start a basket"}
           onAction={busy ? undefined : () => run("start", async () => void (await createPot({ groupId: plan.groupId, monthlyContribution: DEFAULT_PER_MEMBER })))}
         />
         {actionError ? <ActionError message={actionError} /> : null}
@@ -163,12 +164,13 @@ export default function PotScreen() {
       <Title testID="pot-title">{crewName}</Title>
 
       <Card testID="pot-share-card" style={styles.shareCard}>
-        <Text style={type.eyebrow}>Your share</Text>
+        <Basket testID="pot-basket" size={88} progress={pot.balance / Math.max(split?.total || chipAmount * Math.max(shares?.length ?? 1, 1), 1)} />
+        <Text style={type.eyebrow}>Your share of the basket</Text>
         <Text testID="pot-my-share" style={styles.shareValue}>
           {formatDollars(myShare)}
         </Text>
         <Text style={styles.muted}>
-          {formatDollars(pot.balance)} in the pot. Leftovers stay yours and roll over.
+          {formatDollars(pot.balance)} of berries in the basket. Leftovers stay yours and roll over.
         </Text>
       </Card>
 
@@ -186,7 +188,7 @@ export default function PotScreen() {
         />
       ) : winner ? (
         <Card testID="pot-not-experience" tone="muted">
-          <Text style={styles.muted}>{cleanTitle(winner.title)} isn't a bookable experience, so the pot isn't charged. Everyone pays their own way.</Text>
+          <Text style={styles.muted}>{cleanTitle(winner.title)} isn't a bookable experience, so the basket isn't charged. Everyone pays their own way.</Text>
         </Card>
       ) : null}
 
@@ -207,7 +209,7 @@ export default function PotScreen() {
 
       <Button
         testID="pot-chip-in-button"
-        label={`Add ${formatDollars(chipAmount)} to my share`}
+        label={`Add ${formatDollars(chipAmount)} of berries`}
         variant={split && !split.charged ? "secondary" : "primary"}
         loading={busy === "chip"}
         disabled={!!busy}
@@ -232,7 +234,7 @@ export default function PotScreen() {
 
       <SectionHeader title="Chip-ins" testID="pot-contributors-title" />
       {chipIns.length + sponsors.length === 0 ? (
-        <EmptyState testID="pot-contributors-empty" emoji="🫙" title="No chip-ins yet" body="Add to your share and the crew can book its first experience." />
+        <EmptyState testID="pot-contributors-empty" emoji="🧺" title="No berries yet" body="Add to your share and the crew can book its first experience." />
       ) : (
         <View testID="pot-contributors" style={styles.list}>
           {chipIns.map((s, i) => (
@@ -262,7 +264,7 @@ export default function PotScreen() {
         </View>
       )}
 
-      {receipt ? <ConfettiCannon testID="pot-confetti" count={140} origin={{ x: -10, y: 0 }} colors={motion.confettiColors} fallSpeed={2600} fadeOut autoStart /> : null}
+      {receipt ? <BerryBurst testID="pot-confetti" count={36} /> : null}
     </Screen>
   );
 }
@@ -325,19 +327,19 @@ function SplitCard({
         <>
           {mine && mine.shortBy > 0 ? (
             <>
-              <Button testID="pot-top-up" label={`Top up ${formatDollars(mine.shortBy)}`} loading={busy === "topup"} disabled={!!busy} onPress={() => onTopUp(mine.shortBy)} />
+              <Button testID="pot-top-up" label={`Top up the basket ${formatDollars(mine.shortBy)}`} loading={busy === "topup"} disabled={!!busy} onPress={() => onTopUp(mine.shortBy)} />
                           </>
           ) : null}
           <Button
             testID="pot-pay"
-            label="Pay for the experience"
+            label="Pay from the basket"
             variant={mine && mine.shortBy > 0 ? "secondary" : "primary"}
             loading={busy === "pay"}
             disabled={!!busy || !split.allCovered}
             onPress={onPay}
           />
           {estimated ? (
-            <Text testID="pot-split-confirm-hint" style={[styles.muted, { textAlign: "center" }]}>Ask your crew to confirm they're going. The pot pays once everyone's in.</Text>
+            <Text testID="pot-split-confirm-hint" style={[styles.muted, { textAlign: "center" }]}>Ask your crew to confirm they're going. The basket pays once everyone's in.</Text>
           ) : !split.allCovered ? (
             <Text style={[styles.muted, { textAlign: "center" }]}>Unlocks once everyone's covered.</Text>
           ) : null}
