@@ -160,7 +160,7 @@ export function sendDeal(businessName: string, offerId: string) {
 
 export function saveRule(businessName: string, rule: Pick<MockRule, "amount" | "monthlyBudget" | "active">) {
   if (!(rule.amount >= 0.01)) throw new Error("Chip-in must be at least $0.01");
-  if (rule.monthlyBudget < rule.amount) throw new Error("Monthly budget must cover at least one chip-in");
+  if (!Number.isFinite(rule.monthlyBudget) || rule.monthlyBudget < rule.amount) throw new Error("Monthly budget must cover at least one chip-in");
   const existing = state.rules[businessName];
   set({ rules: { ...state.rules, [businessName]: { ...(existing ?? { businessName, spentThisMonth: 0, chipIns: [] }), ...rule } } });
 }
