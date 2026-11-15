@@ -1,7 +1,8 @@
 import { v } from "convex/values";
-import { internalMutation, query, MutationCtx } from "./_generated/server";
+import { internalMutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
+import { addDays, localDate, localTime, weekday } from "./time";
 
 export const POINTS = { checkin: 50, solo: 25, confirm: 15, rate: 10 } as const;
 export const POINTS_PER_DIAMOND = 500;
@@ -71,5 +72,111 @@ export const weeklyPrizes = internalMutation({
       });
     }
     return null;
+  },
+});
+
+export function weekStartPT(now: number): number {
+  const today = localDate(now);
+  return localTime(addDays(today, -((weekday(today) + 6) % 7)), 0);
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+async function weeklyStandings(ctx: QueryCtx) {
+  const since = weekStartPT(Date.now());
+  const [users, groups, events] = await Promise.all([
+    ctx.db.query("users").collect(),
+    ctx.db.query("groups").collect(),
+    ctx.db
+      .query("pointEvents")
+      .withIndex("by_creation_time", (q) => q.gte("_creationTime", since))
+      .collect(),
+  ]);
+
+  const weekly = new Map<Id<"users">, number>();
+  for (const e of events) weekly.set(e.userId, (weekly.get(e.userId) ?? 0) + e.points);
+  const schoolOf = new Map(users.map((u) => [u._id, u.homeArea]));
+
+  const crews = groups
+    .map((g) => {
+      const members = g.memberIds.filter((id) => schoolOf.has(id));
+      const total = members.reduce((sum, id) => sum + (weekly.get(id) ?? 0), 0);
+      const counts = new Map<string, number>();
+      for (const id of members) {
+        const school = schoolOf.get(id)!;
+        counts.set(school, (counts.get(school) ?? 0) + 1);
+      }
+      let school = "";
+      for (const [s, c] of counts) {
+        if (c > (counts.get(school) ?? 0) || (c === counts.get(school) && s < school)) school = s;
+      }
+      return {
+        groupId: g._id,
+        name: g.name,
+        school,
+        rawAvg: members.length ? total / members.length : 0,
+        memberCount: members.length,
+      };
+    })
+    .filter((c) => c.memberCount > 0)
+    .sort((a, b) => b.rawAvg - a.rawAvg || a.name.localeCompare(b.name));
+
+  const bySchool = new Map<string, { total: number; userCount: number }>();
+  for (const u of users) {
+    if (!u.homeArea) continue;
+    const entry = bySchool.get(u.homeArea) ?? { total: 0, userCount: 0 };
+    entry.total += weekly.get(u._id) ?? 0;
+    entry.userCount += 1;
+    bySchool.set(u.homeArea, entry);
+  }
+  const schools = [...bySchool]
+    .map(([school, { total, userCount }]) => ({ school, rawAvg: total / userCount, userCount }))
+    .sort((a, b) => b.rawAvg - a.rawAvg || a.school.localeCompare(b.school));
+
+  return { crews, schools };
+}
+
+export const groupLeaderboard = query({
+  args: { school: v.optional(v.string()), limit: v.number() },
+  handler: async (ctx, { school, limit }) => {
+    const { crews } = await weeklyStandings(ctx);
+    return crews
+      .filter((c) => school === undefined || c.school === school)
+      .slice(0, limit)
+      .map(({ rawAvg, ...c }) => ({ ...c, avgPoints: round1(rawAvg) }));
+  },
+});
+
+export const schoolLeaderboard = query({
+  args: { limit: v.number() },
+  handler: async (ctx, { limit }) => {
+    const { schools } = await weeklyStandings(ctx);
+    return schools.slice(0, limit).map(({ rawAvg, ...s }) => ({ ...s, avgPoints: round1(rawAvg) }));
+  },
+});
+
+export const myRanks = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const user = await ctx.db.get("users", userId);
+    if (!user) return null;
+    const { crews, schools } = await weeklyStandings(ctx);
+    const schoolIndex = schools.findIndex((s) => s.school === user.homeArea);
+    const myGroupIds = new Set(
+      (await ctx.db.query("groups").collect())
+        .filter((g) => g.memberIds.includes(userId))
+        .map((g) => g._id),
+    );
+    const crew = crews.find((c) => myGroupIds.has(c.groupId));
+    const rivals = crew ? crews.filter((c) => c.school === crew.school) : [];
+    return {
+      crewRank: crew ? rivals.indexOf(crew) + 1 : null,
+      crewName: crew?.name ?? null,
+      crewAvg: crew ? round1(crew.rawAvg) : null,
+      leaderName: rivals[0]?.name ?? null,
+      leaderAvg: rivals[0] ? round1(rivals[0].rawAvg) : null,
+      schoolRank: schoolIndex >= 0 ? schoolIndex + 1 : null,
+      school: user.homeArea,
+    };
   },
 });
