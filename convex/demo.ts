@@ -7,7 +7,7 @@ function requireDemo() {
 }
 import { internal } from "./_generated/api";
 import { external, scheduleExternal } from "./refs";
-import { TableNames } from "./_generated/dataModel";
+import { Id, TableNames } from "./_generated/dataModel";
 
 export const sendRatingNow = mutation({
   args: { planId: v.id("plans") },
@@ -57,7 +57,31 @@ export const assignSoloNow = mutation({
   },
 });
 
+export const simulateContribution = mutation({
+  args: { groupId: v.id("groups"), userId: v.id("users"), amount: v.number() },
+  handler: async (ctx, { groupId, userId, amount }): Promise<{ transactionId: Id<"transactions">; balance: number }> => {
+    requireDemo();
+    const pot = await ctx.db
+      .query("pots")
+      .withIndex("by_group", (q) => q.eq("groupId", groupId))
+      .first();
+    if (!pot) throw new ConvexError("This group doesn't have a fund yet");
+    const transactionId: Id<"transactions"> = await ctx.runMutation(internal.funds.recordContribution, {
+      potId: pot._id,
+      userId,
+      amount,
+      whopPaymentId: `sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    });
+    return { transactionId, balance: (await ctx.db.get("pots", pot._id))!.balance };
+  },
+});
+
 const DEMO_TABLES: TableNames[] = [
+  "transactions",
+  "cards",
+  "pots",
+  "experiences",
+  "businesses",
   "votes",
   "ratings",
   "photos",

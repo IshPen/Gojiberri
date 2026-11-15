@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query, QueryCtx } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
+import { createPotForGroup } from "./funds";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -40,6 +41,7 @@ export const createGroup = mutation({
       ownerId: userId,
       memberIds: [userId],
     });
+    await createPotForGroup(ctx, groupId, 20);
     return { groupId, inviteCode };
   },
 });
