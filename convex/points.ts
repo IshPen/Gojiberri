@@ -18,6 +18,7 @@ export async function awardPoints(
   ctx: MutationCtx,
   userId: Id<"users">,
   reason: keyof typeof POINTS,
+  source: { planId?: Id<"plans">; groupId?: Id<"groups"> } = {},
 ) {
   const user = await ctx.db.get("users", userId);
   if (!user) throw new Error("User not found");
@@ -26,14 +27,19 @@ export async function awardPoints(
   const newDiamonds =
     Math.floor(total / POINTS_PER_DIAMOND) - Math.floor(user.points / POINTS_PER_DIAMOND);
   await ctx.db.patch("users", userId, { points: total, diamonds: user.diamonds + newDiamonds });
-  await ctx.db.insert("pointEvents", { userId, reason, points });
+  await ctx.db.insert("pointEvents", { userId, reason, points, ...source });
   return { points: total, diamondsEarned: newDiamonds };
 }
 
 export const award = internalMutation({
-  args: { userId: v.id("users"), reason: reasonValidator },
-  handler: async (ctx, { userId, reason }) => {
-    return await awardPoints(ctx, userId, reason);
+  args: {
+    userId: v.id("users"),
+    reason: reasonValidator,
+    planId: v.optional(v.id("plans")),
+    groupId: v.optional(v.id("groups")),
+  },
+  handler: async (ctx, { userId, reason, planId, groupId }) => {
+    return await awardPoints(ctx, userId, reason, { planId, groupId });
   },
 });
 
@@ -94,15 +100,22 @@ async function weeklyStandings(ctx: QueryCtx) {
   ]);
 
   const weekly = new Map<Id<"users">, number>();
+  const crewPoints = new Map<Id<"groups">, Map<Id<"users">, number>>();
   for (const e of events) {
-    if (e.reason === "checkin") weekly.set(e.userId, (weekly.get(e.userId) ?? 0) + e.points);
+    if (e.reason !== "checkin") continue;
+    weekly.set(e.userId, (weekly.get(e.userId) ?? 0) + e.points);
+    if (!e.groupId) continue;
+    const byUser = crewPoints.get(e.groupId) ?? new Map<Id<"users">, number>();
+    byUser.set(e.userId, (byUser.get(e.userId) ?? 0) + e.points);
+    crewPoints.set(e.groupId, byUser);
   }
   const schoolOf = new Map(users.map((u) => [u._id, u.homeArea]));
 
   const crews = groups
     .map((g) => {
       const members = g.memberIds.filter((id) => schoolOf.has(id));
-      const total = members.reduce((sum, id) => sum + (weekly.get(id) ?? 0), 0);
+      const earned = crewPoints.get(g._id);
+      const total = members.reduce((sum, id) => sum + (earned?.get(id) ?? 0), 0);
       const counts = new Map<string, number>();
       for (const id of members) {
         const school = schoolOf.get(id)!;

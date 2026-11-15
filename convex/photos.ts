@@ -35,8 +35,17 @@ export const savePhoto = mutation({
   handler: async (ctx, args) => {
     const plan = args.planId ? await ctx.db.get("plans", args.planId) : null;
     if (args.planId && !plan) throw new ConvexError("Plan not found");
-    const quest = args.questId ? await ctx.db.get("soloQuests", args.questId) : null;
-    const groupId = args.groupId ?? plan?.groupId;
+    if (plan) {
+      if (plan.status !== "locked") throw new ConvexError("You can only check in to a locked plan");
+      if (args.groupId && args.groupId !== plan.groupId) {
+        throw new ConvexError("This plan belongs to a different crew");
+      }
+      const group = await ctx.db.get("groups", plan.groupId);
+      if (!group?.memberIds.includes(args.userId)) {
+        throw new ConvexError("Only members of this plan's crew can check in");
+      }
+    }
+    const groupId = plan?.groupId ?? args.groupId;
     const alreadyCheckedIn = plan
       ? (
           await ctx.db
@@ -53,20 +62,18 @@ export const savePhoto = mutation({
       storageId: args.storageId,
       caption: args.caption?.trim() || undefined,
     });
-    if (alreadyCheckedIn) return photoId;
-    await awardPoints(ctx, args.userId, "checkin");
+    if (!plan || alreadyCheckedIn) return photoId;
+    await awardPoints(ctx, args.userId, "checkin", { planId: plan._id, groupId: plan.groupId });
 
-    const winner = plan && plan.winningIndex !== undefined ? plan.options[plan.winningIndex] : undefined;
-    await recordSponsorVisit(ctx, winner?.sponsorId ?? quest?.sponsorId, args.userId, photoId);
+    const winner = plan.winningIndex !== undefined ? plan.options[plan.winningIndex] : undefined;
+    await recordSponsorVisit(ctx, winner?.sponsorId, args.userId, photoId);
 
-    if (plan) {
-      const deposits = await ctx.db
-        .query("deposits")
-        .withIndex("by_plan", (q) => q.eq("planId", plan._id))
-        .take(100);
-      const mine = deposits.find((d) => d.userId === args.userId && d.status === "held");
-      if (mine) await scheduleExternal(ctx, external.refundDeposit, { depositId: mine._id });
-    }
+    const deposits = await ctx.db
+      .query("deposits")
+      .withIndex("by_plan", (q) => q.eq("planId", plan._id))
+      .take(100);
+    const mine = deposits.find((d) => d.userId === args.userId && d.status === "held");
+    if (mine) await scheduleExternal(ctx, external.refundDeposit, { depositId: mine._id });
     return photoId;
   },
 });

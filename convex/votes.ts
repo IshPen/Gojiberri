@@ -2,7 +2,6 @@ import { ConvexError, v } from "convex/values";
 import { mutation, MutationCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { awardPoints } from "./points";
 import { formatWhen, MINUTE } from "./time";
 import { isDemoMode } from "./plans";
 import { external, scheduleExternal } from "./refs";
@@ -92,7 +91,6 @@ export const confirmAttendance = mutation({
         confirmed: true,
       });
     }
-    await awardPoints(ctx, userId, "confirm");
-    return { awarded: true };
+    return { awarded: false };
   },
 });
