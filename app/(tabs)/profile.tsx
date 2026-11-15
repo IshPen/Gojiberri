@@ -191,8 +191,8 @@ export default function ProfileScreen() {
         <Button testID="profile-knows-refresh" label="Refresh" variant="secondary" onPress={loadKnows} loading={knowsLoading} />
       </Card>
 
-      <Button testID="sponsor-dashboard-link" label="Sponsor dashboard (demo)" variant="secondary" onPress={() => router.push("/sponsor-dashboard")} />
       <Button testID="sign-out" label="Sign out" variant="danger" onPress={signOut} loading={signingOut} />
+      <Button testID="sponsor-dashboard-link" label="For businesses: sponsor dashboard" variant="ghost" onPress={() => router.push("/sponsor-dashboard")} />
     </Screen>
   );
 }

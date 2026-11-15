@@ -1,21 +1,20 @@
 import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import ConfettiCannon from "react-native-confetti-cannon";
 import * as Haptics from "expo-haptics";
-import { Stack, useLocalSearchParams } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
-import { useEffect, useRef, useState } from "react";
-import { Linking, StyleSheet, Text, View } from "react-native";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Animated, Linking, StyleSheet, Text, View } from "react-native";
 import OptionCard from "../../components/OptionCard";
 import { Button, Card, ErrorState, LoadingState, Screen, Subtitle, Title } from "../../components/ui";
-import { colors, font, radius, spacing } from "../../constants/theme";
+import { brand, colors, font, radius, spacing } from "../../constants/theme";
 import { createInvite } from "../../lib/calendar";
-import { formatCountdown, formatGojis, formatWindow } from "../../lib/format";
+import { formatCountdown, formatWindow } from "../../lib/format";
 import { mockDelay, useMockQuery } from "../../lib/mock";
 import { useUserId } from "../../lib/session";
 
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 type TimeBlock = { start: number; end: number };
 type PlanStatus = "generating" | "voting" | "locked" | "done" | "cancelled";
@@ -44,6 +43,8 @@ type PlanDetail = {
   votes: Vote[];
   counts: number[];
   places: Place[];
+  rejectedBy?: Id<"users">[];
+  regenCount?: number;
 };
 
 // TODO(convex): swap to api.plans.getPlan once it lands
@@ -54,8 +55,20 @@ const getGroupRef = makeFunctionReference<"query", { groupId: Id<"groups"> }, { 
 const castVoteRef = makeFunctionReference<"mutation", { userId: Id<"users">; planId: Id<"plans">; optionIndex: number }, null>("votes:castVote");
 // TODO(convex): swap to api.votes.confirmAttendance once it lands
 const confirmRef = makeFunctionReference<"mutation", { userId: Id<"users">; planId: Id<"plans"> }, null>("votes:confirmAttendance");
-// TODO(convex): swap to api.whop.createDeposit once it lands
-const createDepositRef = makeFunctionReference<"action", { userId: Id<"users">; planId: Id<"plans"> }, string>("whop:createDeposit");
+// HOME-34: votes.rejectOptions, referenced by name until it deploys. Flip REJECT_MOCK once it does.
+type RejectResult =
+  | { ok: true; rejects: number; members: number; regenerated: boolean; regenCount: number; maxed: boolean; generation: number; gojisSpent: 0 | 10; balance: number }
+  | { ok: false; reason: "insufficient_gojis" | "maxed" | "not_voting" | "not_member"; balance: number };
+const REFUSAL: Record<"maxed" | "not_voting" | "not_member", string> = {
+  maxed: "Your crew's passed 3 times. Pick one of these or start a new plan.",
+  not_voting: "Voting on these ideas has closed.",
+  not_member: "Only crew members can pass on these ideas.",
+};
+const rejectRef = makeFunctionReference<"mutation", { userId: Id<"users">; planId: Id<"plans"> }, RejectResult>("votes:rejectOptions");
+const getUserRef = makeFunctionReference<"query", { userId: Id<"users"> }, { points: number } | null>("users:getUser");
+const REJECT_MOCK = true;
+const MAX_REGENS = 3;
+const REJECT_COST = 10;
 
 const ME = "user-uma" as Id<"users">;
 const MOCK_GROUP_ID = "group-hack-crew" as Id<"groups">;
@@ -124,6 +137,7 @@ const mockVote = (planId: string, userId: Id<"users">, optionIndex: number, conf
 });
 
 export default function PlanScreen() {
+  const router = useRouter();
   const { userId } = useUserId();
   const { planId } = useLocalSearchParams<{ planId: string }>();
   const pid = planId as Id<"plans">;
@@ -138,10 +152,15 @@ export default function PlanScreen() {
   const [confirmBy] = useState(() => Date.now() + 5 * 60 * 1000);
   const [now, setNow] = useState(Date.now());
   const [actionError, setActionError] = useState<string | null>(null);
-  const [depositLoading, setDepositLoading] = useState(false);
   const [calendarAdded, setCalendarAdded] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [confirmingReject, setConfirmingReject] = useState(false);
+  const [spentRound, setSpentRound] = useState<number | null>(null);
+  const [mockRejected, setMockRejected] = useState<{ round: number; spent: number } | null>(null);
+  const [freshRound, setFreshRound] = useState<number | null>(null);
   const prevStatus = useRef<PlanStatus | null>(null);
+  const prevRegen = useRef<number | null>(null);
   const inviteCreated = useRef(false);
   const confettiFired = useRef(false);
 
@@ -206,8 +225,6 @@ export default function PlanScreen() {
       }
     : confirmLive;
 
-  const depositLive = useAction(createDepositRef);
-  const createDeposit = USE_MOCK ? (args: { userId: Id<"users">; planId: Id<"plans"> }) => mockDelay("https://whop.com/checkout/gojiberri-flake-deposit", 600) : depositLive;
 
   const status = plan?.status;
   const winningIndex = plan?.winningIndex;
@@ -240,6 +257,41 @@ export default function PlanScreen() {
     }
   };
 
+  const regenCount = plan?.regenCount ?? 0;
+  const myUser = useQuery(getUserRef, userId ? { userId: userId as Id<"users"> } : "skip");
+  const rejectLive = useMutation(rejectRef);
+  const rejectOptions = REJECT_MOCK
+    ? async (): Promise<RejectResult> => {
+        await mockDelay(null, 300);
+        const before = (myUser?.points ?? 0) - (mockRejected?.spent ?? 0);
+        if (before < REJECT_COST) return { ok: false, reason: "insufficient_gojis", balance: before };
+        setMockRejected((m) => ({ round: regenCount, spent: (m?.spent ?? 0) + REJECT_COST }));
+        return { ok: true, rejects: (plan?.rejectedBy?.length ?? 0) + 1, members: total, regenerated: false, regenCount, maxed: false, generation: regenCount, gojisSpent: 10, balance: before - REJECT_COST };
+      }
+    : () => rejectLive({ userId: me, planId: pid });
+  const reject = async () => {
+    setActionError(null);
+    setRejecting(true);
+    try {
+      const result = await rejectOptions();
+      if (result.ok === false) {
+        setActionError(result.reason === "insufficient_gojis" ? `You need ${REJECT_COST} Gojis to pass. You have ${result.balance}.` : REFUSAL[result.reason]);
+      } else if (result.gojisSpent > 0) {
+        setSpentRound(result.regenerated ? null : regenCount);
+      }
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Couldn't pass on these ideas.");
+    } finally {
+      setRejecting(false);
+      setConfirmingReject(false);
+    }
+  };
+
+  useEffect(() => {
+    if (prevRegen.current !== null && regenCount > prevRegen.current) setFreshRound(regenCount);
+    prevRegen.current = regenCount;
+  }, [regenCount]);
+
   const [confirming, setConfirming] = useState(false);
   const confirm = async () => {
     setActionError(null);
@@ -250,19 +302,6 @@ export default function PlanScreen() {
       setActionError(e instanceof Error ? e.message : "Couldn't confirm.");
     } finally {
       setConfirming(false);
-    }
-  };
-
-  const deposit = async () => {
-    setActionError(null);
-    setDepositLoading(true);
-    try {
-      const url = await createDeposit({ userId: me, planId: pid });
-      await WebBrowser.openBrowserAsync(url);
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Couldn't start the deposit.");
-    } finally {
-      setDepositLoading(false);
     }
   };
 
@@ -288,16 +327,25 @@ export default function PlanScreen() {
   const winnerPlace = plan.winningIndex !== undefined ? plan.places[plan.winningIndex] : undefined;
   const locked = plan.status === "locked" || plan.status === "done";
   const votingOpen = plan.status === "voting";
+  const mockPassed = REJECT_MOCK && mockRejected?.round === regenCount && !(plan.rejectedBy ?? []).includes(me);
+  const rejectedBy = mockPassed ? [...(plan.rejectedBy ?? []), me] : plan.rejectedBy ?? [];
+  const iPassed = rejectedBy.includes(me);
+  const balance = myUser ? myUser.points - (REJECT_MOCK ? mockRejected?.spent ?? 0 : 0) : undefined;
+  const canAfford = balance !== undefined && balance >= REJECT_COST;
+  const members = Math.max(total, 1);
+  const needed = Math.floor(members / 2) + 1 - rejectedBy.length;
+  const maxed = regenCount >= MAX_REGENS;
+  const regenerating = plan.status === "generating" && regenCount > 0;
 
   return (
     <Screen testID="plan-screen">
       <Stack.Screen options={{ title: "Plan" }} />
-      <Title testID="plan-title">{plan.status === "generating" ? "Planning…" : "Pick the outing"}</Title>
+      <Title testID="plan-title">{regenerating ? "New ideas on the way" : plan.status === "generating" ? "Planning…" : "Pick the outing"}</Title>
       <Subtitle testID="plan-window">{formatWindow(plan.window)}</Subtitle>
 
       {plan.status === "generating" ? (
         <View testID="plan-generating" style={styles.gap}>
-          <Text style={styles.cooking}>Cooking up 3 ideas…</Text>
+          <Text style={styles.cooking}>{regenerating ? "Your crew passed. Finding 3 new ideas…" : "Cooking up 3 ideas…"}</Text>
           {[0, 1, 2].map((i) => (
             <SkeletonCard key={i} index={i} />
           ))}
@@ -307,7 +355,7 @@ export default function PlanScreen() {
       {plan.status === "cancelled" ? (
         <Card testID="cancelled-banner" tone="muted" style={styles.banner}>
           <Text style={styles.bannerTitle}>This plan was cancelled</Text>
-          <Text style={styles.bannerBody}>Not enough votes came in. Start a new plan from the group page.</Text>
+          <Text style={styles.bannerBody}>Not enough votes came in. Start a new plan from your crew page.</Text>
         </Card>
       ) : null}
 
@@ -334,10 +382,17 @@ export default function PlanScreen() {
         </View>
       ) : null}
 
+      {votingOpen && freshRound === regenCount && regenCount > 0 ? (
+        <Card testID="plan-new-ideas" tone="accent" style={styles.banner}>
+          <Text style={styles.bannerLabelAccent}>New ideas · round {regenCount + 1}</Text>
+          <Text style={styles.bannerBody}>Your crew passed on the last 3, so here are fresh picks.</Text>
+        </Card>
+      ) : null}
+
       {plan.status !== "generating"
         ? plan.options.map((option, i) => (
+            <FadeIn key={`${regenCount}-${option.placeId}`} index={i} animate={freshRound === regenCount}>
             <OptionCard
-              key={option.placeId}
               index={i}
               option={option}
               count={plan.counts[i] ?? 0}
@@ -347,8 +402,49 @@ export default function PlanScreen() {
               disabled={!votingOpen}
               onPress={() => vote(i)}
             />
+            </FadeIn>
           ))
         : null}
+
+      {votingOpen ? (
+        <Card testID="plan-reject-card" tone="muted" style={styles.gap}>
+          <Text testID="plan-reject-count" style={styles.rejectCount}>
+            {rejectedBy.length} of {members} passed
+          </Text>
+          <Text testID="plan-reject-hint" style={styles.bannerBody}>
+            {maxed
+              ? "Your crew's passed 3 times. Pick one of these or start a new plan."
+              : rejectedBy.length === 0
+                ? "None of these? If more than half the crew passes, we'll find 3 new ideas."
+                : `${needed} more and we'll find 3 new ideas.`}
+          </Text>
+          {spentRound === regenCount && iPassed ? (
+            <Text testID="plan-reject-spent" style={styles.spent}>
+              -{REJECT_COST} Gojis · you passed on these
+            </Text>
+          ) : null}
+          {confirmingReject ? (
+            <View testID="plan-reject-confirm-row" style={styles.gap}>
+              <Text style={styles.rejectCount}>Spend {REJECT_COST} Gojis to pass on these ideas?</Text>
+              <Button testID="plan-reject-confirm" label={`Yes, pass (-${REJECT_COST} Gojis)`} loading={rejecting} onPress={reject} />
+              <Button testID="plan-reject-cancel" label="Keep voting" variant="ghost" onPress={() => setConfirmingReject(false)} />
+            </View>
+          ) : iPassed ? null : (
+            <Button
+              testID="plan-reject"
+              label={maxed ? "No more passes on this plan" : !canAfford && balance !== undefined ? `Need ${REJECT_COST} Gojis to pass` : `Not feeling these · ${REJECT_COST} Gojis`}
+              variant="secondary"
+              disabled={maxed || !canAfford}
+              onPress={() => setConfirmingReject(true)}
+            />
+          )}
+          {balance !== undefined ? (
+            <Text testID="plan-goji-balance" style={styles.bonus}>
+              You have {balance} Gojis
+            </Text>
+          ) : null}
+        </Card>
+      ) : null}
 
       {actionError ? <ErrorState testID="plan-action-error" message={actionError} /> : null}
 
@@ -362,11 +458,18 @@ export default function PlanScreen() {
             <>
               <Button testID="confirm-attendance" label="Confirm I'm going" loading={confirming} onPress={confirm} />
               <Text testID="confirm-bonus" style={styles.bonus}>
-                +{formatGojis(15)} if you confirm in time · {Math.max(0, Math.round((plan.confirmBy - now) / 60000))}m left
+                Let your crew know you're in · {Math.max(0, Math.round((plan.confirmBy - now) / 60000))}m left to confirm
               </Text>
             </>
           )}
-          <Button testID="deposit-button" label="$5 flake deposit" variant="secondary" loading={depositLoading} onPress={deposit} />
+          <Button
+            testID="plan-checkin"
+            label={`Check in together to earn ${brand.points}`}
+            icon="📸"
+            variant="secondary"
+            onPress={() => router.push({ pathname: "/camera", params: { planId: pid, groupId: plan.groupId } })}
+          />
+          <Button testID="plan-pot-link" label="Open the crew pot" icon="💳" variant="secondary" onPress={() => router.push(`/pot/${pid}`)} />
           {winnerPlace?.bookingUrl ? (
             <Button testID="booking-link" label="Book it" variant="secondary" onPress={() => Linking.openURL(winnerPlace.bookingUrl as string).catch(() => {})} />
           ) : null}
@@ -376,6 +479,16 @@ export default function PlanScreen() {
       {showConfetti ? <ConfettiCannon testID="confetti" count={120} origin={{ x: -10, y: 0 }} fadeOut autoStart /> : null}
     </Screen>
   );
+}
+
+function FadeIn({ index, animate, children }: { index: number; animate: boolean; children: ReactNode }) {
+  const progress = useRef(new Animated.Value(animate ? 0 : 1)).current;
+  useEffect(() => {
+    if (!animate) return;
+    Animated.timing(progress, { toValue: 1, duration: 350, delay: index * 120, useNativeDriver: true }).start();
+  }, [animate, index, progress]);
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
+  return <Animated.View style={{ opacity: progress, transform: [{ translateY }] }}>{children}</Animated.View>;
 }
 
 function SkeletonCard({ index }: { index: number }) {
@@ -401,6 +514,9 @@ const styles = StyleSheet.create({
   banner: { alignItems: "center", gap: spacing.xs },
   bannerEmoji: { fontSize: 40 },
   bannerLabel: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.success, textTransform: "uppercase" },
+  bannerLabelAccent: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.accentDark, textTransform: "uppercase" },
+  spent: { fontSize: font.size.md, fontWeight: font.weight.heavy, color: colors.danger, textAlign: "center" },
+  rejectCount: { fontSize: font.size.lg, fontWeight: font.weight.heavy, color: colors.text, textAlign: "center" },
   bannerTitle: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.text, textAlign: "center" },
   bannerBody: { fontSize: font.size.md, color: colors.textMuted, textAlign: "center" },
   countdownRow: { alignItems: "center" },

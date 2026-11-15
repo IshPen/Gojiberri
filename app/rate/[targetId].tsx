@@ -37,7 +37,7 @@ export default function RateScreen() {
 
   useEffect(() => {
     if (!done) return;
-    const timer = setTimeout(() => router.replace("/home"), HOME_DELAY_MS);
+    const timer = setTimeout(() => router.replace("/recommended"), HOME_DELAY_MS);
     return () => clearTimeout(timer);
   }, [done, router]);
 
@@ -72,7 +72,7 @@ export default function RateScreen() {
           title="Nothing to rate"
           body="Open this from a finished plan."
           actionLabel="Back home"
-          onAction={() => router.replace("/home")}
+          onAction={() => router.replace("/recommended")}
         />
       </Screen>
     );
@@ -88,7 +88,7 @@ export default function RateScreen() {
           <Subtitle testID="rate-confirmation" style={{ textAlign: "center" }}>
             Saved. Your crew's next plans just got smarter. Heading home…
           </Subtitle>
-          <Button testID="rate-done" label="Back home" onPress={() => router.replace("/home")} style={{ alignSelf: "stretch", marginTop: spacing.lg }} />
+          <Button testID="rate-done" label="Back home" onPress={() => router.replace("/recommended")} style={{ alignSelf: "stretch", marginTop: spacing.lg }} />
         </Card>
       </Screen>
     );
