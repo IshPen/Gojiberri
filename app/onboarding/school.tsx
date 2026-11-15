@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { useQuery } from "convex/react";
+import { useConvex, useQuery } from "convex/react";
 import { BerryMark, Button, ErrorState, Screen, Subtitle } from "../../components/ui";
 import { SchoolCrest, SchoolPicker } from "../../components/SchoolBadge";
 import { brand, colors, font, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { schoolFor } from "../../lib/school";
 import { setUserId } from "../../lib/session";
 
@@ -15,6 +16,7 @@ export default function SchoolScreen() {
   const router = useRouter();
   const [school, setSchool] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const convex = useConvex();
   const schools = useQuery(api.points.schoolLeaderboard, { limit: 20 });
   const crews = useQuery(api.points.groupLeaderboard, { limit: 200 });
 
@@ -75,6 +77,14 @@ export default function SchoolScreen() {
           accessibilityRole="button"
           hitSlop={8}
           onPress={async () => {
+            setError(null);
+            try {
+              const uma = await convex.query(api.users.getUser, { userId: DEMO_UMA_ID as Id<"users"> });
+              if (!uma) throw new Error("missing");
+            } catch {
+              setError("Demo Uma isn't on this backend. Reseed the demo, then try again.");
+              return;
+            }
             await setUserId(DEMO_UMA_ID);
             router.replace("/(tabs)/recommended");
           }}

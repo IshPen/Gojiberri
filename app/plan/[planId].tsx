@@ -155,6 +155,7 @@ export default function PlanScreen() {
   const [now, setNow] = useState(Date.now());
   const [actionError, setActionError] = useState<string | null>(null);
   const [calendarAdded, setCalendarAdded] = useState(false);
+  const [addingToCalendar, setAddingToCalendar] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [openGoji, setOpenGoji] = useState<number | null>(null);
@@ -248,10 +249,12 @@ export default function PlanScreen() {
   const addToCalendar = () => {
     const place = plan && winningIndex !== undefined ? plan.places[winningIndex] : undefined;
     const option = plan && winningIndex !== undefined ? plan.options[winningIndex] : undefined;
-    if (!plan || !option || !place) return;
+    if (!plan || !option || !place || addingToCalendar) return;
+    setAddingToCalendar(true);
     createInvite({ title: option.title, window: plan.window }, { name: place.name, area: place.area, bookingUrl: place.bookingUrl })
       .then((eventId) => setCalendarAdded(!!eventId))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setAddingToCalendar(false));
   };
 
   const vote = async (optionIndex: number) => {
@@ -390,7 +393,7 @@ export default function PlanScreen() {
               Added to calendar ✓
             </Text>
           ) : plan.status === "locked" ? (
-            <Button testID="add-to-calendar" label="Add to calendar" variant="secondary" onPress={addToCalendar} />
+            <Button testID="add-to-calendar" label="Add to calendar" variant="secondary" loading={addingToCalendar} disabled={addingToCalendar} onPress={addToCalendar} />
           ) : null}
         </Card>
       ) : null}
