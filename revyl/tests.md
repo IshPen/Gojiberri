@@ -6,7 +6,7 @@ These are three natural-language tests to run on iOS and Android. Each step name
 
 1. Launch the app fresh (clear app data). The welcome screen shows (`welcome-screen`). Tap `role-student`. The Pick your school screen shows (`school-screen`). Tap `school-chip-stanford`, assert that `school-title` reads "Join the Stanford space", then tap `school-continue`.
 2. The Welcome to the Stanford space screen shows (`name-title`). Type "Uma" into `name-input`, tap `avatar-option-2`, then tap `name-continue`.
-3. On the swipe screen, tap `swipe-option-left` or `swipe-option-right` until the progress bar (`swipe-progress`) completes, or tap `swipe-skip`.
+3. On the This or that? screen, tap `swipe-option-left` or `swipe-option-right`. The school split (`swipe-split`) shows for about a second, then the next pair appears. Repeat for all 5 pairs until the progress bar (`swipe-progress`) completes, or tap `swipe-skip`.
 4. On preferences, assert that `school-joined-name` reads "Repping Stanford", tap `diet-chip-vegetarian` and `vibe-chip-cozy`, then tap `preferences-finish`.
 5. The For You tab is visible (`recommended-screen`, `home-greeting`). Tap `tab-groups` (labelled Crews), then `create-group-button`.
 6. Type "Hack Crew" into `group-name-input` and tap `create-group-submit`.

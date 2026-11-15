@@ -1,6 +1,9 @@
 export type ThisOrThatSide = { label: string; emoji: string };
 export type ThisOrThatPair = { category: string; a: ThisOrThatSide; b: ThisOrThatSide };
 
+// Onboarding asks only these 5: budget, energy, outdoors, nightlife and novelty, the pairs that split students the most.
+export const ONBOARDING_PAIR_INDEXES = [6, 8, 3, 5, 14];
+
 export const THIS_OR_THAT: ThisOrThatPair[] = [
   { category: "drinks", a: { label: "Boba run", emoji: "🧋" }, b: { label: "Campus cafe", emoji: "☕" } },
   { category: "food", a: { label: "$3 tacos", emoji: "🌮" }, b: { label: "Dumplings after lecture", emoji: "🥟" } },
