@@ -13,6 +13,7 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHead
 import { colors, font, motion, radius, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../../lib/errors";
+import { avatarFor } from "../../lib/avatar";
 import { useUserId } from "../../lib/session";
 import { formatDollars, type PlanSplit } from "../../lib/split";
 
@@ -46,7 +47,35 @@ export default function PotScreen() {
   const experienceId = winner?.experienceId;
   const shares = useQuery(api.funds.getPotShares, groupId ? { groupId } : "skip");
   const liveSplit = useQuery(api.funds.getPlanSplit, planId && experienceId ? { planId: pid } : "skip");
-  const split: PlanSplit | null | undefined = !experienceId || pot === null ? null : liveSplit;
+  const rawSplit: PlanSplit | null | undefined = !experienceId || pot === null ? null : liveSplit;
+  const group = useQuery(api.groups.getGroup, groupId ? { groupId } : "skip");
+  const avatarOf = (userId: Id<"users">) => group?.members.find((m) => m._id === userId)?.avatarUrl;
+  const estimated = !!rawSplit && rawSplit.attendees.length === 0 && !rawSplit.charged && !!shares?.length && !!winner && !!pot;
+  const split: PlanSplit | null | undefined = (() => {
+    if (!estimated || !rawSplit || !shares || !winner || !pot) return rawSplit;
+    const n = shares.length;
+    const totalCents = Math.round(winner.costMin * 100) * n;
+    const sponsorCents = Math.min(
+      totalCents,
+      pot.transactions
+        .filter((t) => t.type === "contribution" && t.status === "completed" && !t.userId && t.planId === pid)
+        .reduce((sum, t) => sum + Math.round(t.amount * 100), 0),
+    );
+    const netCents = totalCents - sponsorCents;
+    const baseCents = Math.floor(netCents / n);
+    const extraCents = netCents % n;
+    return {
+      ...rawSplit,
+      total: totalCents / 100,
+      sponsorCredit: sponsorCents / 100,
+      perPerson: (baseCents + (extraCents ? 1 : 0)) / 100,
+      allCovered: false,
+      attendees: shares.map((s, i) => {
+        const share = baseCents + (i < extraCents ? 1 : 0);
+        return { userId: s.userId, name: s.name, balance: s.balance, share: share / 100, shortBy: Math.max(0, share - Math.round(s.balance * 100)) / 100 };
+      }),
+    };
+  })();
 
   const createPot = useMutation(api.funds.createPot);
   const chargeCard = useMutation(api.cards.chargeCard);
@@ -144,6 +173,7 @@ export default function PotScreen() {
       {split ? (
         <SplitCard
           split={split}
+          estimated={estimated}
           me={me}
           day={new Date(plan.window.start).toLocaleDateString(undefined, { weekday: "long" })}
           title={winner?.title ?? "The experience"}
@@ -190,7 +220,7 @@ export default function PotScreen() {
       <View testID="pot-shares" style={styles.list}>
         {(shares ?? []).map((s, i) => (
           <View key={s.userId} testID={`pot-share-${i}`} style={styles.row}>
-            <Avatar name={s.name} />
+            <Avatar name={s.name} avatar={avatarOf(s.userId)} />
             <Text style={[styles.name, { flex: 1 }]} numberOfLines={1}>
               {s.name}
               {s.userId === me ? " (you)" : ""}
@@ -209,7 +239,7 @@ export default function PotScreen() {
         <View testID="pot-contributors" style={styles.list}>
           {chipIns.map((s, i) => (
             <View key={s.userId} testID={`pot-contributor-${i}`} style={styles.row}>
-              <Avatar name={s.name} />
+              <Avatar name={s.name} avatar={avatarOf(s.userId)} />
               <Text testID={`pot-contributor-${i}-name`} style={[styles.name, { flex: 1 }]} numberOfLines={1}>
                 {s.name}
                 {s.userId === me ? " (you)" : ""}
@@ -241,6 +271,7 @@ export default function PotScreen() {
 
 function SplitCard({
   split,
+  estimated,
   me,
   day,
   title,
@@ -250,6 +281,7 @@ function SplitCard({
   onPay,
 }: {
   split: PlanSplit;
+  estimated: boolean;
   me: Id<"users"> | null;
   day: string;
   title: string;
@@ -307,7 +339,11 @@ function SplitCard({
             disabled={!!busy || !split.allCovered}
             onPress={onPay}
           />
-          {!split.allCovered ? <Text style={[styles.muted, { textAlign: "center" }]}>Unlocks once everyone's covered.</Text> : null}
+          {estimated ? (
+            <Text testID="pot-split-confirm-hint" style={[styles.muted, { textAlign: "center" }]}>Ask your crew to confirm they're going. The pot pays once everyone's in.</Text>
+          ) : !split.allCovered ? (
+            <Text style={[styles.muted, { textAlign: "center" }]}>Unlocks once everyone's covered.</Text>
+          ) : null}
         </>
       )}
     </Card>
@@ -322,10 +358,10 @@ function ActionError({ message }: { message: string }) {
   );
 }
 
-function Avatar({ name, sponsor }: { name: string; sponsor?: boolean }) {
+function Avatar({ name, avatar, sponsor }: { name: string; avatar?: string; sponsor?: boolean }) {
   return (
     <View style={[styles.avatar, sponsor && { backgroundColor: colors.warningSoft }]}>
-      <Text style={styles.avatarText}>{sponsor ? name : name.slice(0, 1).toUpperCase()}</Text>
+      <Text style={styles.avatarText}>{sponsor ? name : avatarFor({ name, avatarUrl: avatar })}</Text>
     </View>
   );
 }

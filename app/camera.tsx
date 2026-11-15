@@ -158,7 +158,7 @@ export default function CameraScreen() {
               Checked in: {plan.title}
             </Text>
           ) : null}
-          <Subtitle style={{ textAlign: "center" }}>Nice one. Your {brand.name} crew will see it in the story.</Subtitle>
+          <Subtitle style={{ textAlign: "center" }}>Nice one. Your crew will see it in the story.</Subtitle>
         </Card>
         {storyGroupId ? (
           <Button testID="view-story" label="See group story" variant="secondary" onPress={() => router.replace(`/story/${storyGroupId}`)} />
