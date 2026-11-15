@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { query } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
+import { addDollars } from "./funds";
 
 export const businessStats = query({
   args: { businessId: v.id("businesses") },
@@ -12,9 +13,19 @@ export const businessStats = query({
       .withIndex("by_business", (q) => q.eq("businessId", businessId))
       .collect();
     const titles = new Map<Id<"experiences">, string>(experiences.map((e) => [e._id, e.title]));
-    const sales = (await ctx.db.query("transactions").order("desc").take(2000)).filter(
-      (t) => t.type === "spend" && t.status === "completed" && t.experienceId && titles.has(t.experienceId),
-    );
+    const sales: Doc<"transactions">[] = [];
+    const byPlan = new Map<Id<"plans">, Doc<"transactions">>();
+    for (const t of await ctx.db.query("transactions").order("desc").take(2000)) {
+      if (t.type !== "spend" || t.status !== "completed" || !t.experienceId || !titles.has(t.experienceId)) continue;
+      const sale = t.planId ? byPlan.get(t.planId) : undefined;
+      if (sale) {
+        sale.amount = addDollars(sale.amount, t.amount);
+        continue;
+      }
+      const row = { ...t };
+      if (t.planId) byPlan.set(t.planId, row);
+      sales.push(row);
+    }
     const recentSales = await Promise.all(
       sales.slice(0, 10).map(async (t) => {
         const pot = await ctx.db.get("pots", t.potId);

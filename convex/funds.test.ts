@@ -152,4 +152,31 @@ describe("fair-split pot", () => {
     expect(await t.query(api.funds.getPlanSplit, { planId: ids.planId })).toBeNull();
     await expect(charge()).rejects.toThrow("isn't a bookable experience");
   });
+  it("rounds every balance write to the cent", async () => {
+    const { t, ids, contribute, shares } = await crew();
+    await contribute("Ana", 10.11);
+    await contribute("Ben", 10.11);
+    await contribute("Cy", 12.12);
+    expect((await t.run((ctx) => ctx.db.get("pots", ids.potId)))!.balance).toBe(32.34);
+    expect((await shares()).Ana.balance).toBe(10.11);
+  });
+
+  it("counts one split charge as one booking and one admission per attendee", async () => {
+    const { t, ids, contribute, sponsor, charge } = await crew({ price: 25 });
+    await contribute("Ana", 50);
+    await contribute("Ben", 50);
+    await sponsor(10);
+    await charge();
+    const experienceId = (await t.query(api.funds.getPlanSplit, { planId: ids.planId }))!.experienceId;
+
+    const stats = await t.query(api.businesses.businessStats, { businessId: ids.businessId });
+    expect(stats.bookings).toBe(1);
+    expect(stats.recentSales.map((s) => s.amount)).toEqual([50]);
+
+    const code = await t.mutation(api.redemptions.createRedemptionCode, { userId: ids.users.Ana, kind: "experience", refId: experienceId });
+    expect(await t.mutation(api.redemptions.redeemCode, { code: code.code, businessId: ids.businessId })).toMatchObject({ valid: true });
+    await expect(
+      t.mutation(api.redemptions.createRedemptionCode, { userId: ids.users.Ana, kind: "experience", refId: experienceId }),
+    ).rejects.toThrow("already redeemed");
+  });
 });

@@ -78,7 +78,7 @@ export const recordContribution = internalMutation({
       whopPaymentId,
       status: "completed",
     });
-    await ctx.db.patch("pots", potId, { balance: pot.balance + amount });
+    await ctx.db.patch("pots", potId, { balance: addDollars(pot.balance, amount) });
     return transactionId;
   },
 });
@@ -86,6 +86,8 @@ export const recordContribution = internalMutation({
 type Ledger = Doc<"transactions">[];
 
 const toCents = (dollars: number) => Math.round(dollars * 100);
+
+export const addDollars = (a: number, b: number) => (toCents(a) + toCents(b)) / 100;
 
 function shareCents(ledger: Ledger, userId: Id<"users">) {
   let contributed = 0;
@@ -242,7 +244,7 @@ export async function debitShares(
       }),
     );
   }
-  await ctx.db.patch("pots", pot._id, { balance: (toCents(pot.balance) - toCents(split.total)) / 100 });
-  await ctx.db.patch("businesses", business._id, { earned: business.earned + split.total });
+  await ctx.db.patch("pots", pot._id, { balance: addDollars(pot.balance, -split.total) });
+  await ctx.db.patch("businesses", business._id, { earned: addDollars(business.earned, split.total) });
   return transactionIds;
 }
