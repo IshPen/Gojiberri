@@ -9,6 +9,7 @@ import DemoPaymentLabel from "../../components/DemoPaymentLabel";
 import SponsoredBadge from "../../components/SponsoredBadge";
 import { Button, Card, Chip, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Subtitle, Title } from "../../components/ui";
 import { colors, font, radius, spacing, emoji as emojiSize } from "../../constants/theme";
+import { friendlyError } from "../../lib/errors";
 import { experienceEmoji, groupSize } from "../../lib/experiences";
 import { useUserId } from "../../lib/session";
 
@@ -63,11 +64,6 @@ const chargeCardRef = makeFunctionReference<
 >("cards:chargeCard");
 
 const WHOP_EXPERIENCE_CHECKOUT_LIVE = true;
-
-function errorText(e: unknown) {
-  const message = e instanceof Error ? e.message : String(e);
-  return message.replace(/^.*Uncaught (?:Convex)?Error: /s, "").split("\n")[0];
-}
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
@@ -142,7 +138,7 @@ export default function ExperienceDetailScreen() {
       setCheckoutOpened(true);
       await WebBrowser.openBrowserAsync(url);
     } catch (e) {
-      setBuyError(errorText(e));
+      setBuyError(friendlyError(e));
     } finally {
       setBuying(false);
     }
@@ -155,7 +151,7 @@ export default function ExperienceDetailScreen() {
     try {
       setReceipt(await chargeCard({ userId: userId as Id<"users">, groupId: crew.groupId, planId: crew.lockedPlanId }));
     } catch (e) {
-      setPayError(errorText(e));
+      setPayError(friendlyError(e));
     } finally {
       setPaying(false);
     }
@@ -218,7 +214,7 @@ export default function ExperienceDetailScreen() {
 
       <SectionHeader title="Buy with Whop" testID="experience-whop-header" />
       <Card testID="experience-whop-card">
-        <Text style={styles.meta}>Pay ${experience.pricePerPerson} for your spot with Whop checkout (sandbox, no real money).</Text>
+        <Text style={styles.meta}>Pay ${experience.pricePerPerson} for your spot with Whop checkout (demo, no real money).</Text>
         {WHOP_EXPERIENCE_CHECKOUT_LIVE ? (
           <>
             <Button
