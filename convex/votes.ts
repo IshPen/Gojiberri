@@ -4,10 +4,12 @@ import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { awardPoints } from "./points";
 import { formatWhen, MINUTE } from "./time";
+import { isDemoMode } from "./plans";
 import { external, scheduleExternal } from "./refs";
 
 export async function lockPlan(ctx: MutationCtx, plan: Doc<"plans">, winningIndex: number) {
-  const confirmBy = Math.max(plan.confirmBy, Date.now() + 5 * MINUTE);
+  const extended = Math.max(plan.confirmBy, Date.now() + 5 * MINUTE);
+  const confirmBy = isDemoMode() ? extended : Math.min(extended, plan.window.start);
   await ctx.db.patch("plans", plan._id, { status: "locked", winningIndex, confirmBy });
   await ctx.scheduler.runAfter(0, internal.reminders.scheduleForPlan, { planId: plan._id });
   const group = await ctx.db.get("groups", plan.groupId);
@@ -79,6 +81,7 @@ export const confirmAttendance = mutation({
       .withIndex("by_plan_user", (q) => q.eq("planId", planId).eq("userId", userId))
       .unique();
     if (existing?.confirmed) return { awarded: false };
+    if (Date.now() > plan.confirmBy) throw new ConvexError("The confirmation deadline has passed");
     if (existing) {
       await ctx.db.patch("votes", existing._id, { confirmed: true });
     } else {
@@ -89,10 +92,7 @@ export const confirmAttendance = mutation({
         confirmed: true,
       });
     }
-    if (Date.now() <= plan.confirmBy) {
-      await awardPoints(ctx, userId, "confirm");
-      return { awarded: true };
-    }
-    return { awarded: false };
+    await awardPoints(ctx, userId, "confirm");
+    return { awarded: true };
   },
 });

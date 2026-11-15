@@ -59,7 +59,10 @@ export const saveOptions = internalMutation({
     const now = Date.now();
     const confirmBy = isDemoMode()
       ? now + 5 * MINUTE
-      : Math.max(now + HOUR, Math.min(now + 24 * HOUR, plan.window.start - 2 * HOUR));
+      : Math.min(
+          plan.window.start,
+          Math.max(now + 15 * MINUTE, Math.min(now + 24 * HOUR, plan.window.start - 2 * HOUR)),
+        );
     await ctx.db.patch("plans", planId, { options, status: "voting", confirmBy });
     const group = await ctx.db.get("groups", plan.groupId);
     await ctx.scheduler.runAfter(0, internal.notifications.send, {

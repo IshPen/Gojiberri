@@ -15,12 +15,18 @@ export const submitRating = mutation({
     if (!planId === !questId) throw new ConvexError("Rate either a plan or a quest");
     const clamped = Math.min(5, Math.max(1, Math.round(stars)));
     const word = vibe.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
-    const mine = await ctx.db
-      .query("ratings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .order("desc")
-      .take(200);
-    const existing = mine.find((r) => (planId ? r.planId === planId : r.questId === questId));
+    const candidates = planId
+      ? await ctx.db
+          .query("ratings")
+          .withIndex("by_plan", (q) => q.eq("planId", planId))
+          .take(200)
+      : await ctx.db
+          .query("ratings")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .take(5000);
+    const existing = candidates.find(
+      (r) => r.userId === userId && (planId ? r.planId === planId : r.questId === questId),
+    );
     let ratingId;
     if (existing) {
       await ctx.db.patch("ratings", existing._id, { stars: clamped, vibe: word });

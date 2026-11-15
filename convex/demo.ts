@@ -1,5 +1,10 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation } from "./_generated/server";
+import { isDemoMode } from "./plans";
+
+function requireDemo() {
+  if (!isDemoMode()) throw new ConvexError("Demo triggers are disabled (DEMO_MODE=false)");
+}
 import { internal } from "./_generated/api";
 import { external, scheduleExternal } from "./refs";
 import { TableNames } from "./_generated/dataModel";
@@ -7,6 +12,7 @@ import { TableNames } from "./_generated/dataModel";
 export const sendRatingNow = mutation({
   args: { planId: v.id("plans") },
   handler: async (ctx, { planId }) => {
+    requireDemo();
     await ctx.scheduler.runAfter(0, internal.reminders.sendRatingPrompt, { planId });
     return null;
   },
@@ -15,6 +21,7 @@ export const sendRatingNow = mutation({
 export const sendReminderNow = mutation({
   args: { planId: v.id("plans") },
   handler: async (ctx, { planId }) => {
+    requireDemo();
     await ctx.scheduler.runAfter(0, internal.reminders.sendReminder, { planId });
     return null;
   },
@@ -23,6 +30,7 @@ export const sendReminderNow = mutation({
 export const dropNow = mutation({
   args: { planId: v.id("plans") },
   handler: async (ctx, { planId }) => {
+    requireDemo();
     const plan = await ctx.db.get("plans", planId);
     if (!plan) return null;
     await ctx.db.patch("plans", planId, { confirmBy: Math.min(plan.confirmBy, Date.now()) });
@@ -34,6 +42,7 @@ export const dropNow = mutation({
 export const assignSoloNow = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
+    requireDemo();
     const quests = await ctx.db
       .query("soloQuests")
       .withIndex("by_user_date", (q) => q.eq("userId", userId))
@@ -68,6 +77,7 @@ const DEMO_TABLES: TableNames[] = [
 export const resetDemo = mutation({
   args: {},
   handler: async (ctx) => {
+    requireDemo();
     for (const table of DEMO_TABLES) {
       for (const doc of await ctx.db.query(table).take(2000)) {
         await ctx.db.delete(table, doc._id);

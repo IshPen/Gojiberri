@@ -37,6 +37,14 @@ export const savePhoto = mutation({
     if (args.planId && !plan) throw new ConvexError("Plan not found");
     const quest = args.questId ? await ctx.db.get("soloQuests", args.questId) : null;
     const groupId = args.groupId ?? plan?.groupId;
+    const alreadyCheckedIn = plan
+      ? (
+          await ctx.db
+            .query("photos")
+            .withIndex("by_plan", (q) => q.eq("planId", plan._id))
+            .take(200)
+        ).some((p) => p.userId === args.userId)
+      : false;
     const photoId = await ctx.db.insert("photos", {
       userId: args.userId,
       groupId,
@@ -45,6 +53,7 @@ export const savePhoto = mutation({
       storageId: args.storageId,
       caption: args.caption?.trim() || undefined,
     });
+    if (alreadyCheckedIn) return photoId;
     await awardPoints(ctx, args.userId, "checkin");
 
     const winner = plan && plan.winningIndex !== undefined ? plan.options[plan.winningIndex] : undefined;

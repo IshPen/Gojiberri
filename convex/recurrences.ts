@@ -32,7 +32,7 @@ export const setRecurrence = mutation({
     const existing = (await ctx.db.query("recurrences").take(500)).find((r) => r.groupId === groupId);
     const nextRun = Math.max(Date.now(), votingOpensFor(firstFridayOnOrAfter(Date.now())));
     if (existing) {
-      await ctx.db.patch("recurrences", existing._id, { rule, nextRun, active: true });
+      if (!existing.active) await ctx.db.patch("recurrences", existing._id, { rule, nextRun, active: true });
       return existing._id;
     }
     return await ctx.db.insert("recurrences", { groupId, rule, nextRun, active: true });
