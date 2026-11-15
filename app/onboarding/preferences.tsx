@@ -24,15 +24,17 @@ const setBusyBlocksRef = makeFunctionReference<"mutation", BlocksArgs, null>("us
 // TODO(convex): swap to api.users.setPushToken once it lands
 const setPushTokenRef = makeFunctionReference<"mutation", TokenArgs, null>("users:setPushToken");
 
-const AREAS = ["Mission", "SoMa", "Hayes Valley", "Marina", "North Beach", "Castro", "Sunset", "Richmond", "Nob Hill", "Dogpatch"];
+const SCHOOLS = ["Berkeley", "Stanford", "USF", "SF State", "Other"];
 const DIETS = ["vegetarian", "vegan", "gluten-free", "halal", "kosher", "no restrictions"];
 const VIBES = ["cozy", "active", "artsy", "foodie", "nightlife", "outdoors", "chill", "adventurous"];
+const BUDGET_MIN = 5;
+const BUDGET_MAX = 60;
 
 export default function PreferencesScreen() {
   const router = useRouter();
   const { userId, loading } = useUserId();
-  const [budget, setBudget] = useState(40);
-  const [area, setArea] = useState("Mission");
+  const [budget, setBudget] = useState(20);
+  const [school, setSchool] = useState<string | null>(null);
   const [diet, setDiet] = useState<string[]>(["no restrictions"]);
   const [vibes, setVibes] = useState<string[]>([]);
   const [calendarStatus, setCalendarStatus] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export default function PreferencesScreen() {
       <Screen testID="preferences-screen">
         <ErrorState
           testID="preferences-no-user"
-          message="We couldn't find your profile. Let's start over."
+          message="We lost your profile somewhere between classes. Let's start over."
           onRetry={() => router.replace("/onboarding/name")}
         />
       </Screen>
@@ -76,26 +78,30 @@ export default function PreferencesScreen() {
     try {
       const blocks = await readBusyBlocks();
       if (blocks === null) {
-        setCalendarStatus("Permission denied, we'll use demo availability");
+        setCalendarStatus("No calendar access, so we'll guess around a typical class schedule");
         return;
       }
       await setBusyBlocks({ userId: userId as Id<"users">, blocks });
       setCalendarStatus(`Connected · ${blocks.length} busy blocks`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not read your calendar.");
+      setError(e instanceof Error ? e.message : "Could not read your calendar. Try again or skip it for now.");
     } finally {
       setConnecting(false);
     }
   };
 
   const onFinish = async () => {
+    if (!school) {
+      setError("Pick your school so we can put you on the right leaderboard.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       await updatePreferences({
         userId: userId as Id<"users">,
         budgetMax: budget,
-        homeArea: area,
+        homeArea: school,
         diet: diet.length ? diet : ["no restrictions"],
         vibes,
       });
@@ -103,7 +109,7 @@ export default function PreferencesScreen() {
       if (token) await setPushToken({ userId: userId as Id<"users">, token });
       router.replace("/(tabs)/home");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save your preferences.");
+      setError(e instanceof Error ? e.message : "Could not save your picks. Check your connection and try again.");
       setSaving(false);
     }
   };
@@ -111,22 +117,22 @@ export default function PreferencesScreen() {
   return (
     <Screen
       testID="preferences-screen"
-      footer={<Button testID="preferences-finish" label="Finish" onPress={onFinish} loading={saving} />}
+      footer={<Button testID="preferences-finish" label="Find my first sidequest" onPress={onFinish} loading={saving} />}
     >
-      <Title testID="preferences-title">Almost there</Title>
-      <Subtitle testID="preferences-subtitle">Tell Gojiberri what you like so plans fit you.</Subtitle>
+      <Title testID="preferences-title">Last step, then you're in</Title>
+      <Subtitle testID="preferences-subtitle">Tell us your school and your budget so plans fit a student wallet and your floor can start racking up points.</Subtitle>
 
       {error ? <ErrorState testID="preferences-error" message={error} onRetry={() => setError(null)} /> : null}
 
-      <SectionHeader title="Budget" testID="budget-header" />
+      <SectionHeader title="Budget per hangout" testID="budget-header" />
       <Card testID="budget-card">
         <Text testID="budget-value" style={styles.budget}>
           ${budget} max per outing
         </Text>
         <Slider
           testID="budget-slider"
-          minimumValue={10}
-          maximumValue={100}
+          minimumValue={BUDGET_MIN}
+          maximumValue={BUDGET_MAX}
           step={5}
           value={budget}
           onValueChange={setBudget}
@@ -136,15 +142,24 @@ export default function PreferencesScreen() {
           style={styles.slider}
         />
         <View style={styles.sliderRange}>
-          <Text style={styles.rangeText}>$10</Text>
-          <Text style={styles.rangeText}>$100</Text>
+          <Text testID="budget-range-min" style={styles.rangeText}>${BUDGET_MIN}</Text>
+          <Text testID="budget-range-max" style={styles.rangeText}>${BUDGET_MAX}</Text>
         </View>
       </Card>
 
-      <SectionHeader title="Home area" testID="area-header" />
-      <View style={styles.chips}>
-        {AREAS.map((a) => (
-          <Chip key={a} testID={`area-chip-${a}`} label={a} selected={area === a} onPress={() => setArea(a)} />
+      <SectionHeader title="Your school" testID="school-header" />
+      <Text testID="school-hint" style={styles.hint}>
+        Your floor vs. theirs, your school vs. theirs. This is the leaderboard you climb.
+      </Text>
+      <View testID="school-picker" style={styles.chips}>
+        {SCHOOLS.map((s) => (
+          <Chip
+            key={s}
+            testID={`school-chip-${s.toLowerCase().replace(/\s+/g, "-")}`}
+            label={s}
+            selected={school === s}
+            onPress={() => setSchool(s)}
+          />
         ))}
       </View>
 
@@ -155,7 +170,7 @@ export default function PreferencesScreen() {
         ))}
       </View>
 
-      <SectionHeader title="Vibes" testID="vibes-header" />
+      <SectionHeader title="Your weekend vibe" testID="vibes-header" />
       <View style={styles.chips}>
         {VIBES.map((v) => (
           <Chip key={v} testID={`vibe-chip-${v}`} label={v} selected={vibes.includes(v)} onPress={() => toggle(vibes, setVibes, v)} />
@@ -173,7 +188,7 @@ export default function PreferencesScreen() {
         <Text testID="calendar-status" style={styles.calendarBody}>
           {connecting
             ? "Reading your next 14 days…"
-            : calendarStatus ?? "We only share busy times so your crew can find a free window."}
+            : calendarStatus ?? "We only share busy times, so your crew can plan around classes and midterms."}
         </Text>
       </Card>
     </Screen>
@@ -185,6 +200,7 @@ const styles = StyleSheet.create({
   slider: { width: "100%", height: 48, marginTop: spacing.sm },
   sliderRange: { flexDirection: "row", justifyContent: "space-between" },
   rangeText: { color: colors.textMuted, fontSize: font.size.sm },
+  hint: { color: colors.textMuted, fontSize: font.size.sm, marginBottom: spacing.sm },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   calendarTitle: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
   calendarBody: { fontSize: font.size.md, color: colors.textMuted, marginTop: spacing.xs, lineHeight: 22 },
