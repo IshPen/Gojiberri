@@ -94,7 +94,9 @@ async function weeklyStandings(ctx: QueryCtx) {
   ]);
 
   const weekly = new Map<Id<"users">, number>();
-  for (const e of events) weekly.set(e.userId, (weekly.get(e.userId) ?? 0) + e.points);
+  for (const e of events) {
+    if (e.reason === "checkin") weekly.set(e.userId, (weekly.get(e.userId) ?? 0) + e.points);
+  }
   const schoolOf = new Map(users.map((u) => [u._id, u.homeArea]));
 
   const crews = groups
