@@ -9,9 +9,12 @@
  */
 
 import type * as availability from "../availability.js";
+import type * as businesses from "../businesses.js";
 import type * as context from "../context.js";
 import type * as crons from "../crons.js";
 import type * as demo from "../demo.js";
+import type * as experiences from "../experiences.js";
+import type * as funds from "../funds.js";
 import type * as groups from "../groups.js";
 import type * as http from "../http.js";
 import type * as keiki from "../keiki.js";
@@ -44,9 +47,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   availability: typeof availability;
+  businesses: typeof businesses;
   context: typeof context;
   crons: typeof crons;
   demo: typeof demo;
+  experiences: typeof experiences;
+  funds: typeof funds;
   groups: typeof groups;
   http: typeof http;
   keiki: typeof keiki;
