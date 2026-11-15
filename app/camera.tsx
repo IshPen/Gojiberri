@@ -20,26 +20,19 @@ const generateUploadUrlRef = makeFunctionReference<"mutation", Record<string, ne
 // TODO(convex): swap to api.photos.savePhoto once it lands
 const savePhotoRef = makeFunctionReference<
   "mutation",
-  { userId: Id<"users">; storageId: Id<"_storage">; groupId?: Id<"groups">; planId?: Id<"plans">; questId?: Id<"soloQuests">; caption?: string },
+  { userId: Id<"users">; storageId: Id<"_storage">; groupId?: Id<"groups">; planId?: Id<"plans">; caption?: string },
   Id<"photos">
 >("photos:savePhoto");
-// TODO(convex): swap to api.solo.complete once it lands
-const completeQuestRef = makeFunctionReference<
-  "mutation",
-  { userId: Id<"users">; questId: Id<"soloQuests">; storageId: Id<"_storage"> },
-  null
->("solo:complete");
 
 const MOCK_PLAN = { title: "Boba run at Asha Tea House", groupId: "mock_hack_crew" as Id<"groups"> };
 
 const PHOTO_POINTS = 50;
-const QUEST_POINTS = 25;
 
 type Picked = { uri: string; mimeType: string };
 
 export default function CameraScreen() {
   const router = useRouter();
-  const { planId, groupId, questId } = useLocalSearchParams<{ planId?: string; groupId?: string; questId?: string }>();
+  const { planId, groupId } = useLocalSearchParams<{ planId?: string; groupId?: string }>();
   const { userId, loading: sessionLoading } = useUserId();
   const [photo, setPhoto] = useState<Picked | null>(null);
   const [caption, setCaption] = useState("");
@@ -50,10 +43,8 @@ export default function CameraScreen() {
 
   const generateLive = useMutation(generateUploadUrlRef);
   const saveLive = useMutation(savePhotoRef);
-  const completeLive = useMutation(completeQuestRef);
   const generateUploadUrl = USE_MOCK ? () => mockDelay("mock://upload", 300) : generateLive;
   const savePhoto = USE_MOCK ? (_args: Parameters<typeof saveLive>[0]) => mockDelay("photo_mock_1" as Id<"photos">, 700) : saveLive;
-  const completeQuest = USE_MOCK ? (_args: Parameters<typeof completeLive>[0]) => mockDelay(null, 700) : completeLive;
 
   const livePlan = useQuery(api.plans.getPlan, USE_MOCK || !planId ? "skip" : { planId: planId as Id<"plans"> });
   const mockPlan = useMockQuery(MOCK_PLAN, USE_MOCK && !!planId);
@@ -64,9 +55,6 @@ export default function CameraScreen() {
       : livePlan && { title: livePlan.options[livePlan.winningIndex ?? -1]?.title ?? "your crew's outing", groupId: livePlan.groupId };
   const planMissing = !!planId && !USE_MOCK && livePlan === null;
   const storyGroupId = groupId ?? plan?.groupId;
-
-  const isQuest = !!questId;
-  const reward = isQuest ? QUEST_POINTS : PHOTO_POINTS;
 
   const pick = async () => {
     setError(null);
@@ -130,17 +118,13 @@ export default function CameraScreen() {
       } else {
         await generateUploadUrl({});
       }
-      if (isQuest) {
-        await completeQuest({ userId: userId as Id<"users">, questId: questId as Id<"soloQuests">, storageId: storageId as Id<"_storage"> });
-      } else {
-        await savePhoto({
-          userId: userId as Id<"users">,
-          storageId: storageId as Id<"_storage">,
-          groupId: groupId ? (groupId as Id<"groups">) : undefined,
-          planId: planId ? (planId as Id<"plans">) : undefined,
-          caption: caption.trim() || undefined,
-        });
-      }
+      await savePhoto({
+        userId: userId as Id<"users">,
+        storageId: storageId as Id<"_storage">,
+        groupId: groupId ? (groupId as Id<"groups">) : undefined,
+        planId: planId ? (planId as Id<"plans">) : undefined,
+        caption: caption.trim() || undefined,
+      });
       setDone(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed. Please try again.");
@@ -166,9 +150,9 @@ export default function CameraScreen() {
           <Text style={styles.big}>🎉</Text>
           <Title testID="upload-success-title">Photo uploaded!</Title>
           <Text testID="upload-success-points" style={styles.reward}>
-            +{formatGojis(reward)}
+            +{formatGojis(PHOTO_POINTS)}
           </Text>
-          <PointsPill testID="upload-success-pill" size="lg" points={reward} />
+          <PointsPill testID="upload-success-pill" size="lg" points={PHOTO_POINTS} />
           {plan ? (
             <Text testID="upload-success-plan" style={styles.planDone}>
               Checked in: {plan.title}
@@ -186,11 +170,9 @@ export default function CameraScreen() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: isQuest ? "Quest check-in" : "Photo check-in" }} />
-      <Title testID="camera-title">{isQuest ? "Prove your quest" : "Snap the moment"}</Title>
-      <Subtitle testID="camera-subtitle">
-        {isQuest ? `Upload a photo to finish your solo quest and earn ${formatGojis(QUEST_POINTS)}.` : `Share a photo and earn ${formatGojis(PHOTO_POINTS)}.`}
-      </Subtitle>
+      <Stack.Screen options={{ title: "Photo check-in" }} />
+      <Title testID="camera-title">Snap the moment</Title>
+      <Subtitle testID="camera-subtitle">Share a photo and earn {formatGojis(PHOTO_POINTS)}.</Subtitle>
 
       {planId ? (
         planMissing ? (
@@ -223,17 +205,15 @@ export default function CameraScreen() {
             <Image testID="photo-preview-image" source={{ uri: photo.uri }} style={styles.preview} resizeMode="cover" />
             <Button testID="retake-photo" label="Retake" variant="ghost" onPress={() => setPhoto(null)} disabled={uploading} />
           </Card>
-          {isQuest ? null : (
-            <TextInput
-              testID="caption-input"
-              value={caption}
-              onChangeText={setCaption}
-              placeholder="Add a caption (optional)"
-              placeholderTextColor={colors.textMuted}
-              maxLength={140}
-              style={styles.input}
-            />
-          )}
+          <TextInput
+            testID="caption-input"
+            value={caption}
+            onChangeText={setCaption}
+            placeholder="Add a caption (optional)"
+            placeholderTextColor={colors.textMuted}
+            maxLength={140}
+            style={styles.input}
+          />
           <Button testID="upload-photo" label="Upload" onPress={upload} loading={uploading} disabled={!userId || planMissing || (!!planId && !plan)} />
         </>
       ) : (

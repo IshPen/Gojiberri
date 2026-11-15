@@ -8,7 +8,7 @@ These are three natural-language tests to run on iOS and Android. Each step name
 2. Type "Uma" into `name-input`, tap `avatar-option-2`, then tap `name-continue`.
 3. On the swipe screen, tap `swipe-option-left` or `swipe-option-right` until the progress bar (`swipe-progress`) completes, or tap `swipe-skip`.
 4. On preferences, tap `area-chip-Mission`, `diet-chip-vegetarian` and `vibe-chip-cozy`, then tap `preferences-finish`.
-5. The Home tab is visible (`home-greeting`). Tap `tab-groups`, then `create-group-button`.
+5. The Home tab is visible (`home-greeting`). With no crew yet, assert that `crew-empty` shows. Tap `tab-groups`, then `create-group-button`.
 6. Type "Hack Crew" into `group-name-input` and tap `create-group-submit`.
 7. Assert that `invite-code` shows a 6-character uppercase code. Tap `copy-invite-code` and assert that the button reads "Copied!".
 

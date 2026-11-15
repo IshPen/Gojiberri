@@ -32,7 +32,6 @@ import type * as recurrences from "../recurrences.js";
 import type * as refs from "../refs.js";
 import type * as reminders from "../reminders.js";
 import type * as seed from "../seed.js";
-import type * as solo from "../solo.js";
 import type * as sponsors from "../sponsors.js";
 import type * as suggest from "../suggest.js";
 import type * as time from "../time.js";
@@ -71,7 +70,6 @@ declare const fullApi: ApiFromModules<{
   refs: typeof refs;
   reminders: typeof reminders;
   seed: typeof seed;
-  solo: typeof solo;
   sponsors: typeof sponsors;
   suggest: typeof suggest;
   time: typeof time;

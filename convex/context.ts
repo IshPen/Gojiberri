@@ -4,7 +4,7 @@ import { internalMutation, internalQuery, QueryCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 
 // Internal reads and writes used by Gauri's "use node" actions
-// (memory, suggest, solo, whop, keiki), which cannot touch the database directly.
+// (memory, suggest, whop, keiki), which cannot touch the database directly.
 
 const TZ = "America/Los_Angeles";
 
@@ -133,9 +133,6 @@ export const ratingContext = internalQuery({
         const option = plan.options[plan.winningIndex ?? 0];
         if (option) place = await ctx.db.get("places", option.placeId);
       }
-    } else if (rating.questId) {
-      const quest = await ctx.db.get("soloQuests", rating.questId);
-      if (quest) place = await ctx.db.get("places", quest.placeId);
     }
     return {
       userId: rating.userId,
@@ -145,54 +142,6 @@ export const ratingContext = internalQuery({
       placeName: place?.name ?? "an outing",
       groupId,
     };
-  },
-});
-
-export const soloContext = internalQuery({
-  args: { userId: v.id("users"), date: v.string() },
-  handler: async (ctx, { userId, date }) => {
-    const user = await ctx.db.get("users", userId);
-    if (!user) return null;
-    const existing = await ctx.db
-      .query("soloQuests")
-      .withIndex("by_user_date", (q) => q.eq("userId", userId).eq("date", date))
-      .first();
-
-    const ratings = await ctx.db
-      .query("ratings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    const ratedPlaceIds = new Set<Id<"places">>();
-    for (const r of ratings) {
-      if (r.questId) {
-        const quest = await ctx.db.get("soloQuests", r.questId);
-        if (quest) ratedPlaceIds.add(quest.placeId);
-      }
-      if (r.planId) {
-        const plan = await ctx.db.get("plans", r.planId);
-        const option = plan?.options[plan.winningIndex ?? 0];
-        if (option) ratedPlaceIds.add(option.placeId);
-      }
-    }
-    return { user, existingQuestId: existing?._id ?? null, ratedPlaceIds: [...ratedPlaceIds] };
-  },
-});
-
-export const insertSoloQuest = internalMutation({
-  args: {
-    userId: v.id("users"),
-    date: v.string(),
-    placeId: v.id("places"),
-    prompt: v.string(),
-    sponsorId: v.optional(v.id("sponsors")),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("soloQuests")
-      .withIndex("by_user_date", (q) => q.eq("userId", args.userId).eq("date", args.date))
-      .first();
-    if (existing) return existing._id;
-    return await ctx.db.insert("soloQuests", { ...args, status: "open" });
   },
 });
 
