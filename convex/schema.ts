@@ -60,6 +60,7 @@ export default defineSchema({
     winningIndex: v.optional(v.number()),
     confirmBy: v.number(),
     recurrenceId: v.optional(v.id("recurrences")),
+    seedExperienceId: v.optional(v.id("experiences")), // always one of the 3 options
   }).index("by_group", ["groupId"]),
 
   votes: defineTable({
