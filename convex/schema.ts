@@ -75,8 +75,12 @@ export default defineSchema({
     date: v.string(),                    // "YYYY-MM-DD"
     placeId: v.id("places"),
     prompt: v.string(),                  // "Try the cardamom bun at Flour + Water Pizzeria"
-    status: v.union(v.literal("open"), v.literal("done"), v.literal("skipped")),
+    status: v.union(v.literal("open"), v.literal("verifying"), v.literal("done"), v.literal("skipped")),
     sponsorId: v.optional(v.id("sponsors")),
+    verdict: v.optional(v.union(v.literal("approved"), v.literal("rejected"), v.literal("unsure"))),
+    reason: v.optional(v.string()),      // AI's explanation for the verdict
+    lat: v.optional(v.number()),         // phone location at check-in
+    lng: v.optional(v.number()),
   }).index("by_user_date", ["userId", "date"]),
 
   ratings: defineTable({
