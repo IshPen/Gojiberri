@@ -179,3 +179,15 @@ it("rewriteDemoCopy fixes stale experience titles snapshotted into plan options"
     expect((await ctx.db.get("plans", ids.clean))!.options[0].title).toBe("Demo: Pizza study break (late)");
   });
 });
+
+it("patchPlan patches only the given fields and keeps votes when reopening voting", async () => {
+  const { t, ids } = await setup();
+  expect(await t.mutation(internal.admin.patchPlan, { planId: ids.planId, confirmBy: 5000 })).toEqual({ status: "done", confirmBy: 5000 });
+  expect(await t.mutation(internal.admin.patchPlan, { planId: ids.planId, status: "voting" })).toEqual({ status: "voting", confirmBy: 5000 });
+  await t.run(async (ctx) => {
+    const plan = (await ctx.db.get("plans", ids.planId))!;
+    expect(plan.winningIndex).toBe(0);
+    expect(await ctx.db.query("votes").withIndex("by_plan", (q) => q.eq("planId", ids.planId)).collect()).toHaveLength(2);
+    expect((await ctx.db.get("plans", ids.otherPlanId))!.confirmBy).toBe(0);
+  });
+});
