@@ -11,12 +11,6 @@ function base64ToBytes(b64: string) {
   return bytes;
 }
 
-function bytesToBase64(bytes: ArrayBuffer) {
-  let bin = "";
-  for (const b of new Uint8Array(bytes)) bin += String.fromCharCode(b);
-  return btoa(bin);
-}
-
 // Whop delivers webhooks per the Standard Webhooks spec:
 // HMAC-SHA256 over "{webhook-id}.{webhook-timestamp}.{body}", base64, in "v1,<sig>" entries.
 async function verifyWhop(req: Request, body: string) {
@@ -26,6 +20,7 @@ async function verifyWhop(req: Request, body: string) {
   const timestamp = req.headers.get("webhook-timestamp");
   const signatures = req.headers.get("webhook-signature");
   if (!id || !timestamp || !signatures) return false;
+  if (!/^\d+$/.test(timestamp) || !Number.isSafeInteger(Number(timestamp))) return false;
   if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 5 * 60) return false;
   const keyBytes = secret.startsWith("whsec_")
     ? base64ToBytes(secret.slice("whsec_".length))
@@ -35,14 +30,19 @@ async function verifyWhop(req: Request, body: string) {
     keyBytes,
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"],
+    ["verify"],
   );
-  const expected = bytesToBase64(
-    await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${id}.${timestamp}.${body}`)),
-  );
-  return signatures
-    .split(" ")
-    .some((entry) => entry.split(",")[1] === expected);
+  const signedBody = new TextEncoder().encode(`${id}.${timestamp}.${body}`);
+  for (const entry of signatures.split(" ")) {
+    const [version, signature, extra] = entry.split(",");
+    if (version !== "v1" || !signature || extra !== undefined) continue;
+    try {
+      if (await crypto.subtle.verify("HMAC", key, base64ToBytes(signature), signedBody)) return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
 }
 
 http.route({
@@ -59,8 +59,8 @@ http.route({
     }
     try {
       await ctx.runAction(external.handleWhopEvent, { event });
-    } catch (e) {
-      console.error("whop.handleEvent failed", e);
+    } catch {
+      console.error("whop.handleEvent failed");
       return new Response("Handler unavailable", { status: 500 });
     }
     return new Response(null, { status: 200 });
