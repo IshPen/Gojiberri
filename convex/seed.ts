@@ -67,13 +67,13 @@ const USERS = [
 
 const CREWS: { name: string; inviteCode: string; members: string[] }[] = [
   { name: "Hack Crew", inviteCode: "GOJI42", members: ["Uma", "Ishan", "Gauri"] },
-  { name: "Unit 3 Floor 2", inviteCode: "UNIT32", members: ["Maya", "Leo", "Priya", "Sam"] },
-  { name: "CS 61B Survivors", inviteCode: "CS61BS", members: ["Leo", "Sam"] },
-  { name: "Berkeley Boba Club", inviteCode: "BOBACL", members: ["Priya", "Sam"] },
-  { name: "USF Climbing Club", inviteCode: "USFCLB", members: ["Ava", "Diego", "Kai"] },
-  { name: "Lone Mountain Lounge", inviteCode: "LONEMT", members: ["Ava", "Kai"] },
-  { name: "Branner Hall Late Nights", inviteCode: "BRANNR", members: ["Noah", "Chloe"] },
-  { name: "Bay Area Bouldering League", inviteCode: "BOULDR", members: ["Kai", "Diego", "Chloe"] },
+  { name: "Midnight Crew", inviteCode: "UNIT32", members: ["Maya", "Leo", "Priya", "Sam"] },
+  { name: "Side Questers", inviteCode: "CS61BS", members: ["Leo", "Sam"] },
+  { name: "Boba Besties", inviteCode: "BOBACL", members: ["Priya", "Sam"] },
+  { name: "Chalk Pals", inviteCode: "USFCLB", members: ["Ava", "Diego", "Kai"] },
+  { name: "Sunset Crew", inviteCode: "LONEMT", members: ["Ava", "Kai"] },
+  { name: "Night Owls", inviteCode: "BRANNR", members: ["Noah", "Chloe"] },
+  { name: "Boulder Buddies", inviteCode: "BOULDR", members: ["Kai", "Diego", "Chloe"] },
 ];
 
 const BUSINESSES: { name: string; experiences: { title: string; description: string; place: string; pricePerPerson: number; minGroup: number; maxGroup: number; tags: string[] }[] }[] = [
@@ -99,7 +99,7 @@ const BUSINESSES: { name: string; experiences: { title: string; description: str
   {
     name: "Movement San Francisco",
     experiences: [
-      { title: "Club climb night", description: "Discounted student day passes and gear for the whole club.", place: "Movement San Francisco", pricePerPerson: 22, minGroup: 2, maxGroup: 10, tags: ["climbing", "active", "social", "student-discount"] },
+      { title: "Friends climb night", description: "Discounted student day passes and gear for your friend group.", place: "Movement San Francisco", pricePerPerson: 22, minGroup: 2, maxGroup: 10, tags: ["climbing", "active", "social", "student-discount"] },
     ],
   },
 ];
@@ -125,25 +125,25 @@ const PAST_PLANS: { daysAgo: number; places: string[]; why: string; ratings: [nu
 // users.points is the sum of a user's check-ins.
 //
 // Weekly avg per member at Berkeley (points.groupLeaderboard):
-//   Unit 3 Floor 2    (4 members): 9 check-ins = 450 / 4 = 112.5  -> #1
+//   Midnight Crew    (4 members): 9 check-ins = 450 / 4 = 112.5  -> #1
 //   Hack Crew         (3 members): 6 check-ins = 300 / 3 = 100    -> #2, 12.5 behind
-//   CS 61B Survivors  (2 members): 100 / 2 = 50
-//   Berkeley Boba Club (2 members): 50 / 2 = 25
+//   Side Questers  (2 members): 100 / 2 = 50
+//   Boba Besties (2 members): 50 / 2 = 25
 // One +50 check-in by a Hack Crew member on its locked plan: 350 / 3 = 116.7 > 112.5, so Hack Crew takes #1.
 // One check-in adds only 16.7 to a 3-member crew's avg, so a 20-point gap could never flip.
 const CREW_OUTINGS: { crew: string; daysAgo: number; place: string; checkedIn: string[] }[] = [
   { crew: "Hack Crew", daysAgo: 3, place: "Asha Tea House", checkedIn: ["Uma", "Ishan", "Gauri"] },
   { crew: "Hack Crew", daysAgo: 1, place: "Jupiter", checkedIn: ["Uma", "Ishan", "Gauri"] },
-  { crew: "Unit 3 Floor 2", daysAgo: 4, place: "Top Dog", checkedIn: ["Maya", "Leo", "Priya", "Sam"] },
-  { crew: "Unit 3 Floor 2", daysAgo: 3, place: "Indian Rock Park", checkedIn: ["Maya", "Leo", "Priya"] },
-  { crew: "Unit 3 Floor 2", daysAgo: 1, place: "Yogurt Park", checkedIn: ["Maya", "Priya"] },
-  { crew: "CS 61B Survivors", daysAgo: 2, place: "Free Speech Movement Café", checkedIn: ["Leo", "Sam"] },
-  { crew: "Berkeley Boba Club", daysAgo: 2, place: "Sharetea Berkeley", checkedIn: ["Priya"] },
-  { crew: "USF Climbing Club", daysAgo: 3, place: "Movement San Francisco", checkedIn: ["Ava", "Diego", "Kai"] },
-  { crew: "Lone Mountain Lounge", daysAgo: 2, place: "Genki Crepes", checkedIn: ["Ava"] },
-  { crew: "Branner Hall Late Nights", daysAgo: 4, place: "Pandora Karaoke", checkedIn: ["Noah", "Chloe"] },
-  { crew: "Branner Hall Late Nights", daysAgo: 1, place: "Ocean Beach", checkedIn: ["Noah"] },
-  { crew: "Bay Area Bouldering League", daysAgo: 2, place: "Berkeley Bouldering Project", checkedIn: ["Kai", "Chloe"] },
+  { crew: "Midnight Crew", daysAgo: 4, place: "Top Dog", checkedIn: ["Maya", "Leo", "Priya", "Sam"] },
+  { crew: "Midnight Crew", daysAgo: 3, place: "Indian Rock Park", checkedIn: ["Maya", "Leo", "Priya"] },
+  { crew: "Midnight Crew", daysAgo: 1, place: "Yogurt Park", checkedIn: ["Maya", "Priya"] },
+  { crew: "Side Questers", daysAgo: 2, place: "Free Speech Movement Café", checkedIn: ["Leo", "Sam"] },
+  { crew: "Boba Besties", daysAgo: 2, place: "Sharetea Berkeley", checkedIn: ["Priya"] },
+  { crew: "Chalk Pals", daysAgo: 3, place: "Movement San Francisco", checkedIn: ["Ava", "Diego", "Kai"] },
+  { crew: "Sunset Crew", daysAgo: 2, place: "Genki Crepes", checkedIn: ["Ava"] },
+  { crew: "Night Owls", daysAgo: 4, place: "Pandora Karaoke", checkedIn: ["Noah", "Chloe"] },
+  { crew: "Night Owls", daysAgo: 1, place: "Ocean Beach", checkedIn: ["Noah"] },
+  { crew: "Boulder Buddies", daysAgo: 2, place: "Berkeley Bouldering Project", checkedIn: ["Kai", "Chloe"] },
 ];
 
 const POT = {

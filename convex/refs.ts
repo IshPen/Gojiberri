@@ -2,7 +2,7 @@ import { makeFunctionReference, FunctionReference } from "convex/server";
 import { GenericMutationCtx } from "convex/server";
 import { DataModel, Id } from "./_generated/dataModel";
 
-// Functions owned by other teammates' modules (suggest, memory, solo, whop, keiki, seed).
+// Functions owned by other teammates' modules (suggest, memory, whop, keiki, seed).
 // Referenced by name so this backend deploys before those files exist.
 export const external = {
   generateSuggestions: makeFunctionReference<"action", { planId: Id<"plans"> }, null>(
@@ -14,10 +14,6 @@ export const external = {
   rememberRating: makeFunctionReference<"action", { ratingId: Id<"ratings"> }, null>(
     "memory:rememberRating",
   ),
-  pickSoloQuest: makeFunctionReference<"action", { userId: Id<"users"> }, null>(
-    "solo:pickSoloQuest",
-  ),
-  assignAll: makeFunctionReference<"action", Record<string, never>, null>("solo:assignAll"),
   refundDeposit: makeFunctionReference<"action", { depositId: Id<"deposits"> }, null>(
     "whop:refundDeposit",
   ),

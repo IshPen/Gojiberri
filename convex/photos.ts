@@ -29,7 +29,6 @@ export const savePhoto = mutation({
     storageId: v.id("_storage"),
     groupId: v.optional(v.id("groups")),
     planId: v.optional(v.id("plans")),
-    questId: v.optional(v.id("soloQuests")),
     caption: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -63,7 +62,6 @@ export const savePhoto = mutation({
       userId: args.userId,
       groupId,
       planId: args.planId,
-      questId: args.questId,
       storageId: args.storageId,
       caption: args.caption?.trim() || undefined,
     });

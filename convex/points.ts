@@ -4,12 +4,11 @@ import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { addDays, localDate, localTime, weekday } from "./time";
 
-export const POINTS = { checkin: 50, solo: 25, confirm: 15, rate: 10 } as const;
+export const POINTS = { checkin: 50, confirm: 15, rate: 10 } as const;
 export const POINTS_PER_DIAMOND = 500;
 
 const reasonValidator = v.union(
   v.literal("checkin"),
-  v.literal("solo"),
   v.literal("confirm"),
   v.literal("rate"),
 );
