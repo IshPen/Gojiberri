@@ -14,6 +14,7 @@ import { useUserId } from "../../lib/session";
 import { cleanTitle } from "../../lib/format";
 
 const MAX_PICKS = 3;
+const OPEN_PLAN = "open";
 
 export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
   return (
@@ -68,7 +69,7 @@ export default function RecommendedScreen() {
         userId: userId as Id<"users">,
         groupId: crew._id,
         window: windows[selectedWindow],
-        seedExperienceId: planningPick as Id<"experiences">,
+        seedExperienceId: planningPick === OPEN_PLAN ? undefined : (planningPick as Id<"experiences">),
       });
       setFocusPlanId(planId);
       setPlanningPick(null);
@@ -123,6 +124,31 @@ export default function RecommendedScreen() {
     setPlanningPick(planningPick === experienceId ? null : experienceId);
   };
 
+  const planner = () => (
+    <>
+      <Text style={styles.eyebrow}>Pick a time</Text>
+      {windows === undefined ? (
+        <LoadingState label="Finding times that work…" testID="windows-loading" />
+      ) : windows.length === 0 ? (
+        <Text testID="windows-empty" style={styles.muted}>No shared free time in the next 7 days.</Text>
+      ) : (
+        <View style={styles.chips}>
+          {windows.map((win, w) => (
+            <Chip key={win.start} testID={`free-window-${w}`} label={formatWindow(win)} selected={selectedWindow === w} onPress={() => setSelectedWindow(w)} />
+          ))}
+        </View>
+      )}
+      {planError ? <ErrorState testID="plan-error" message={planError} onRetry={sendToCrew} /> : null}
+      <Button
+        testID="plan-outing-button"
+        label={`Send to ${crew?.name ?? "your crew"} to vote`}
+        loading={sending}
+        disabled={selectedWindow === null}
+        onPress={sendToCrew}
+      />
+    </>
+  );
+
   const gap = ranks && ranks.crewRank && ranks.crewRank > 1 ? Math.round(((ranks.leaderAvg ?? 0) - (ranks.crewAvg ?? 0)) * 10) / 10 : null;
 
   return (
@@ -152,7 +178,7 @@ export default function RecommendedScreen() {
                 <Chip
                   key={p._id}
                   testID={`home-plan-chip-${i}`}
-                  label={p.winner ? cleanTitle(p.winner.title) : p.status === "generating" ? "New ideas" : "Vote"}
+                  label={p.winner ? cleanTitle(p.winner.title) : `${p.status === "generating" ? "New idea" : "Vote"} · ${new Date(p.window.start).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`}
                   selected={p._id === nextPlan._id}
                   onPress={() => setFocusPlanId(p._id)}
                 />
@@ -185,14 +211,20 @@ export default function RecommendedScreen() {
       {experiences === undefined || user === undefined ? (
         <LoadingState testID="picks-loading" label="Finding ideas…" />
       ) : picks.length === 0 ? (
-        <EmptyState
-          testID="picks-empty"
-          emoji="🧭"
-          title="No picks yet"
-          actionLabel={crew ? "Plan an outing" : undefined}
-          actionTestID="picks-empty-action"
-          onAction={crew ? () => router.push(`/group/${crew._id}`) : undefined}
-        />
+        planningPick === OPEN_PLAN ? (
+          <Card testID="picks-empty-planner" style={styles.card}>
+            {planner()}
+          </Card>
+        ) : (
+          <EmptyState
+            testID="picks-empty"
+            emoji="🧭"
+            title="No picks yet"
+            actionLabel={crew ? "Plan an outing" : undefined}
+            actionTestID="picks-empty-action"
+            onAction={crew ? () => planWith(OPEN_PLAN) : undefined}
+          />
+        )
       ) : (
         picks.map(({ e, matched }, i) => (
           <Card key={e._id} testID={`pick-card-${i}`} style={styles.card}>
@@ -216,26 +248,7 @@ export default function RecommendedScreen() {
             {openGoji === e._id ? <GojiDetails testID={`pick-gojis-${i}-breakdown`} preview={previews.get(`exp:${e._id}`)} /> : null}
             {planningPick === e._id ? (
               <View testID={`pick-planner-${i}`} style={styles.card}>
-                <Text style={styles.eyebrow}>Pick a time</Text>
-                {windows === undefined ? (
-                  <LoadingState label="Finding times that work…" testID="windows-loading" />
-                ) : windows.length === 0 ? (
-                  <Text testID="windows-empty" style={styles.muted}>No shared free time in the next 7 days.</Text>
-                ) : (
-                  <View style={styles.chips}>
-                    {windows.map((win, w) => (
-                      <Chip key={win.start} testID={`free-window-${w}`} label={formatWindow(win)} selected={selectedWindow === w} onPress={() => setSelectedWindow(w)} />
-                    ))}
-                  </View>
-                )}
-                {planError ? <ErrorState testID="plan-error" message={planError} onRetry={sendToCrew} /> : null}
-                <Button
-                  testID="plan-outing-button"
-                  label={`Send to ${crew?.name ?? "your crew"} to vote`}
-                  loading={sending}
-                  disabled={selectedWindow === null}
-                  onPress={sendToCrew}
-                />
+                {planner()}
               </View>
             ) : (
               <Button

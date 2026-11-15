@@ -413,7 +413,7 @@ export default function PlanPanel({ planId, inline = false }: { planId: string; 
       ) : null}
 
       {plan.status !== "generating"
-        ? plan.options.map((option, i) => (locked ? i !== (plan.winningIndex ?? 0) : i !== 0) ? null : (
+        ? plan.options.map((option, i) => (locked ? inline || i !== (plan.winningIndex ?? 0) : i !== 0) ? null : (
             <FadeIn key={`${regenCount}-${option.placeId}`} index={i} animate={freshRound === regenCount}>
             <OptionCard
               index={i}
