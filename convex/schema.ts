@@ -66,6 +66,7 @@ export default defineSchema({
     userId: v.id("users"),
     optionIndex: v.number(),
     confirmed: v.boolean(),
+  // eslint-disable-next-line @convex-dev/no-duplicate-indexes
   }).index("by_plan", ["planId"]).index("by_plan_user", ["planId", "userId"]),
 
   soloQuests: defineTable({

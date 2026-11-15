@@ -8,8 +8,22 @@
  * @module
  */
 
+import type * as availability from "../availability.js";
+import type * as crons from "../crons.js";
+import type * as demo from "../demo.js";
 import type * as groups from "../groups.js";
+import type * as http from "../http.js";
+import type * as notifications from "../notifications.js";
+import type * as photos from "../photos.js";
+import type * as plans from "../plans.js";
+import type * as points from "../points.js";
+import type * as ratings from "../ratings.js";
+import type * as recurrences from "../recurrences.js";
+import type * as refs from "../refs.js";
+import type * as reminders from "../reminders.js";
+import type * as time from "../time.js";
 import type * as users from "../users.js";
+import type * as votes from "../votes.js";
 
 import type {
   ApiFromModules,
@@ -18,8 +32,22 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  availability: typeof availability;
+  crons: typeof crons;
+  demo: typeof demo;
   groups: typeof groups;
+  http: typeof http;
+  notifications: typeof notifications;
+  photos: typeof photos;
+  plans: typeof plans;
+  points: typeof points;
+  ratings: typeof ratings;
+  recurrences: typeof recurrences;
+  refs: typeof refs;
+  reminders: typeof reminders;
+  time: typeof time;
   users: typeof users;
+  votes: typeof votes;
 }>;
 
 /**
