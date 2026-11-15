@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalQuery, mutation, query } from "./_generated/server";
 import { fitsBudget } from "./pricing";
+import { POINTS_PER_DIAMOND } from "./points";
 
 const MIN_SHARED_TAGS = 2;
 
@@ -39,7 +40,10 @@ export const redeemReward = mutation({
     if (!user) throw new Error("User not found");
     if (!sponsor || !sponsor.active) throw new Error("This offer is no longer available");
     if (user.diamonds < sponsor.rewardCost) {
-      throw new Error(`You need ${sponsor.rewardCost} diamonds, you have ${user.diamonds}`);
+      const rewards = (n: number) => `${n} ${n === 1 ? "reward" : "rewards"}`;
+      throw new Error(
+        `This needs ${rewards(sponsor.rewardCost)} and you have ${user.diamonds} ready. Every ${POINTS_PER_DIAMOND} Gojis unlocks a free reward.`,
+      );
     }
 
     const mine = await ctx.db
