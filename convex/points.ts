@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
 import { addDays, DAY, localDate, localTime, weekday } from "./time";
 import { checkedInPlanIds, openPlanFor, quotedOrLive, userGroups } from "./novelty";
 
@@ -114,11 +113,6 @@ export async function spendGojis(
   return balance;
 }
 
-async function topByLifetime(ctx: QueryCtx, limit: number) {
-  const users = await ctx.db.query("users").take(1000);
-  return users.sort((a, b) => lifetimeGojis(b) - lifetimeGojis(a)).slice(0, limit);
-}
-
 export const award = internalMutation({
   args: {
     userId: v.id("users"),
@@ -162,37 +156,36 @@ export const gojiPreview = query({
   },
 });
 
-export const leaderboard = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit }) => {
-    const users = await topByLifetime(ctx, Math.min(limit ?? 20, 100));
-    return users.map((u) => ({
-      _id: u._id,
-      name: u.name,
-      avatarUrl: u.avatarUrl,
-      points: lifetimeGojis(u),
-      diamonds: u.diamonds,
-      streak: u.streak,
-    }));
-  },
-});
+const AWARD_LABELS: Record<string, string> = {
+  checkin: "Check-in",
+  novel_bonus: "Tried something new",
+  regular_bonus: "Regular meetup",
+  fullcrew_bonus: "Whole crew showed up",
+  solo: "Solo quest",
+  confirm: "Confirmed",
+  rate: "Rated an outing",
+};
 
-export const weeklyPrizes = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const top = await topByLifetime(ctx, 3);
-    for (const user of top) {
-      await ctx.db.patch("users", user._id, { diamonds: user.diamonds + 1 });
-    }
-    if (top.length > 0) {
-      await ctx.scheduler.runAfter(0, internal.notifications.send, {
-        userIds: top.map((u) => u._id),
-        title: "Weekly leaderboard prize",
-        body: "You finished top 3 this week. +1 free reward!",
-        data: { screen: "leaderboard" },
+export const myRecentAwards = query({
+  args: { userId: v.id("users"), limit: v.optional(v.number()) },
+  handler: async (ctx, { userId, limit }) => {
+    const awards = [];
+    for await (const e of ctx.db
+      .query("pointEvents")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")) {
+      if (awards.length >= Math.min(Math.max(limit ?? 20, 1), 100)) break;
+      if (e.points <= 0) continue;
+      const streak = e.reason === "regular_bonus" && e.points === STREAK_BONUS;
+      awards.push({
+        reason: e.reason,
+        points: e.points,
+        label: streak ? "4 outings in a row" : (AWARD_LABELS[e.reason] ?? "Gojis"),
+        planId: e.planId ?? null,
+        createdAt: e._creationTime,
       });
     }
-    return null;
+    return awards;
   },
 });
 
