@@ -24,6 +24,7 @@ import type * as keiki from "../keiki.js";
 import type * as llm from "../llm.js";
 import type * as memory from "../memory.js";
 import type * as notifications from "../notifications.js";
+import type * as novelty from "../novelty.js";
 import type * as photos from "../photos.js";
 import type * as places from "../places.js";
 import type * as plans from "../plans.js";
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   llm: typeof llm;
   memory: typeof memory;
   notifications: typeof notifications;
+  novelty: typeof novelty;
   photos: typeof photos;
   places: typeof places;
   plans: typeof plans;

@@ -1,8 +1,9 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, MutationCtx } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { external, scheduleExternal } from "./refs";
-import { awardPoints } from "./points";
+import { AwardItem, awardPoints, checkinItems, crewStreak, FULLCREW_ITEM } from "./points";
+import { lockQuote } from "./novelty";
 
 export async function recordSponsorVisit(
   ctx: MutationCtx,
@@ -34,6 +35,7 @@ export const savePhoto = mutation({
   handler: async (ctx, args) => {
     const plan = args.planId ? await ctx.db.get("plans", args.planId) : null;
     if (args.planId && !plan) throw new ConvexError("Plan not found");
+    const group = plan ? await ctx.db.get("groups", plan.groupId) : null;
     if (plan) {
       if (plan.status !== "locked" && plan.status !== "done") {
         throw new ConvexError("You can only check in to a locked or done plan");
@@ -41,32 +43,46 @@ export const savePhoto = mutation({
       if (args.groupId && args.groupId !== plan.groupId) {
         throw new ConvexError("This plan belongs to a different crew");
       }
-      const group = await ctx.db.get("groups", plan.groupId);
       if (!group?.memberIds.includes(args.userId)) {
         throw new ConvexError("Only members of this plan's crew can check in");
       }
     }
-    const groupId = plan?.groupId ?? args.groupId;
-    let alreadyCheckedIn = false;
-    if (plan) {
-      for await (const event of ctx.db
-        .query("pointEvents")
-        .withIndex("by_user", (q) => q.eq("userId", args.userId))) {
-        if (event.reason === "checkin" && event.planId === plan._id) {
-          alreadyCheckedIn = true;
-          break;
-        }
-      }
+    const memberEvents = new Map<Id<"users">, Doc<"pointEvents">[]>();
+    for (const memberId of plan ? (group?.memberIds ?? []) : []) {
+      memberEvents.set(
+        memberId,
+        await ctx.db
+          .query("pointEvents")
+          .withIndex("by_user", (q) => q.eq("userId", memberId))
+          .collect(),
+      );
     }
+    const isCheckin = (e: Doc<"pointEvents">) => e.reason === "checkin" && e.planId === plan?._id;
     const photoId = await ctx.db.insert("photos", {
       userId: args.userId,
-      groupId,
+      groupId: plan?.groupId ?? args.groupId,
       planId: args.planId,
       storageId: args.storageId,
       caption: args.caption?.trim() || undefined,
     });
-    if (!plan || alreadyCheckedIn) return photoId;
-    await awardPoints(ctx, args.userId, "checkin", { planId: plan._id, groupId: plan.groupId });
+    if (!plan || !group || (memberEvents.get(args.userId) ?? []).some(isCheckin)) {
+      return { photoId, total: 0, items: [] as AwardItem[] };
+    }
+
+    const source = { planId: plan._id, groupId: plan.groupId };
+    const novelty = await lockQuote(ctx, args.userId, plan);
+    const items = checkinItems(novelty.points, await crewStreak(ctx, group, plan.window.start, plan._id));
+    for (const item of items) await awardPoints(ctx, args.userId, item.reason, source, item.points);
+
+    const wholeCrew = group.memberIds.every(
+      (id) => id === args.userId || (memberEvents.get(id) ?? []).some(isCheckin),
+    );
+    for (const memberId of wholeCrew ? group.memberIds : []) {
+      const events = memberEvents.get(memberId) ?? [];
+      if (events.some((e) => e.reason === "fullcrew_bonus" && e.planId === plan._id)) continue;
+      await awardPoints(ctx, memberId, "fullcrew_bonus", source);
+      if (memberId === args.userId) items.push(FULLCREW_ITEM);
+    }
 
     const winner = plan.winningIndex !== undefined ? plan.options[plan.winningIndex] : undefined;
     await recordSponsorVisit(ctx, winner?.sponsorId, args.userId, photoId);
@@ -77,7 +93,7 @@ export const savePhoto = mutation({
       .take(100);
     const mine = deposits.find((d) => d.userId === args.userId && d.status === "held");
     if (mine) await scheduleExternal(ctx, external.refundDeposit, { depositId: mine._id });
-    return photoId;
+    return { photoId, total: items.reduce((sum, item) => sum + item.points, 0), items };
   },
 });
 
