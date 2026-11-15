@@ -162,10 +162,10 @@ export default function RecommendedScreen() {
       </View>
       {user ? (
         <Card testID="home-basket" tone="muted" style={styles.basketCard} onPress={() => router.push("/(tabs)/profile")}>
-          <Basket size={56} progress={(user.points % brand.pointsPerReward) / brand.pointsPerReward} />
+          <Basket size={56} progress={((user.points + (user.gojisSpent ?? 0)) % brand.pointsPerReward) / brand.pointsPerReward} />
           <View style={{ flex: 1 }}>
             <Text style={styles.basketTitle}>
-              {brand.emoji} {user.points % brand.pointsPerReward} / {brand.pointsPerReward}
+              {brand.emoji} {(user.points + (user.gojisSpent ?? 0)) % brand.pointsPerReward} / {brand.pointsPerReward}
             </Text>
             <Text style={styles.muted}>berries toward your next free treat</Text>
           </View>
