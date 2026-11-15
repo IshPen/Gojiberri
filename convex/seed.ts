@@ -153,10 +153,13 @@ export const seedDemo = mutation({
     const placeIds = new Map<string, Id<"places">>();
     for (const place of PLACES) placeIds.set(place.name, await ctx.db.insert("places", place));
     const placeByName = (name: string) => PLACES.find((p) => p.name === name)!;
-    const option = (name: string, why: string, extra: { experienceId?: Id<"experiences">; sponsorId?: Id<"sponsors"> } = {}) => {
+    const experienceIds = new Map<string, Id<"experiences">>();
+    const option = (name: string, why: string, { experience, sponsorId }: { experience?: string; sponsorId?: Id<"sponsors"> } = {}) => {
       const place = placeByName(name);
-      const { min, max } = priceRange(place.priceLevel);
-      return { placeId: placeIds.get(name)!, title: name, costMin: min, costMax: max, why, travel: travelEstimate(place.area, place), ...extra };
+      const price = BUSINESSES.flatMap((b) => b.experiences).find((e) => e.title === experience)?.pricePerPerson;
+      const { min, max } = price === undefined ? priceRange(place.priceLevel) : { min: price, max: price };
+      const experienceId = experience ? experienceIds.get(experience) : undefined;
+      return { placeId: placeIds.get(name)!, title: name, costMin: min, costMax: max, why, travel: travelEstimate(place.area, place), experienceId, sponsorId };
     };
 
     const now = Date.now();
@@ -184,7 +187,6 @@ export const seedDemo = mutation({
     const hackIds = hackCrew.members.map(idOf);
 
     const businessIds: Id<"businesses">[] = [];
-    const experienceIds = new Map<string, Id<"experiences">>();
     for (const business of BUSINESSES) {
       const businessId = await ctx.db.insert("businesses", { name: business.name, earned: 0 });
       businessIds.push(businessId);
@@ -242,10 +244,10 @@ export const seedDemo = mutation({
       status: "locked",
       options: [
         option("Berkeley Bouldering Project", "Your crew rated climbing a 5, and BBP chips $10 into your pot.", {
-          experienceId: experienceIds.get("Crew climb night"),
+          experience: "Crew climb night",
           sponsorId: sponsorIds.get("Berkeley Bouldering Project"),
         }),
-        option("Cheese Board Pizza", "A crew favorite that fits a $20 budget.", { experienceId: experienceIds.get("Whole-pie pizza night") }),
+        option("Cheese Board Pizza", "A crew favorite that fits a $20 budget.", { experience: "Whole-pie pizza night" }),
         option("Indian Rock Park", "Free sunset views, a short walk from campus."),
       ],
       winningIndex: 0,
