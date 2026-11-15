@@ -89,7 +89,7 @@ const toCents = (dollars: number) => Math.round(dollars * 100);
 
 export const addDollars = (a: number, b: number) => (toCents(a) + toCents(b)) / 100;
 
-function shareCents(ledger: Ledger, userId: Id<"users">) {
+export function shareCents(ledger: Ledger, userId: Id<"users">) {
   let contributed = 0;
   let spent = 0;
   for (const t of ledger) {
@@ -100,7 +100,7 @@ function shareCents(ledger: Ledger, userId: Id<"users">) {
   return { contributed, spent };
 }
 
-async function potLedger(ctx: QueryCtx, potId: Id<"pots">) {
+export async function potLedger(ctx: QueryCtx, potId: Id<"pots">) {
   return await ctx.db
     .query("transactions")
     .withIndex("by_pot", (q) => q.eq("potId", potId))
