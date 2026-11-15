@@ -1,63 +1,27 @@
 import { useRouter } from "expo-router";
-import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useAction, useQuery } from "convex/react";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader, Title } from "../../components/ui";
+import { SchoolCrest } from "../../components/SchoolBadge";
 import { brand, colors, font, radius, spacing } from "../../constants/theme";
+import { api } from "../../convex/_generated/api";
 import { formatGojis, formatRewards } from "../../lib/format";
-import { mockDelay, useMockQuery } from "../../lib/mock";
+import { crewStanding, formatPts, schoolFor, withAlpha } from "../../lib/school";
 import { clearUserId, useUserId } from "../../lib/session";
-
-const USE_MOCK = true;
-
-type User = { _id: Id<"users">; name: string; avatarUrl?: string; points: number; diamonds: number; streak: number; vibes: string[]; homeArea: string; budgetMax: number };
-type Reward = { _id: Id<"rewards">; business: string; code: string };
-
-// TODO(convex): swap to api.users.getUser once it lands
-const getUserRef = makeFunctionReference<"query", { userId: Id<"users"> }, User | null>("users:getUser");
-// TODO(convex): swap to api.sponsors.getMyRewards once it lands (rewards table by_user, joined with sponsor business)
-const getMyRewardsRef = makeFunctionReference<"query", { userId: Id<"users"> }, Reward[]>("sponsors:getMyRewards");
-// TODO(convex): swap to api.memory.getMyProfile once it lands
-const getMyProfileRef = makeFunctionReference<"action", { userId: Id<"users"> }, string[]>("memory:getMyProfile");
-
-const MOCK_USER: User = {
-  _id: "mock_uma" as Id<"users">,
-  name: "Uma",
-  points: 1240,
-  diamonds: 2,
-  streak: 4,
-  vibes: ["cozy", "foodie"],
-  homeArea: "Mission",
-  budgetMax: 30,
-};
-const MOCK_REWARDS: Reward[] = [
-  { _id: "mock_r1" as Id<"rewards">, business: "Ritual Coffee Roasters", code: "GOJI-RITUAL10" },
-  { _id: "mock_r2" as Id<"rewards">, business: "Humphry Slocombe", code: "GOJI-SCOOP5" },
-];
-const MOCK_KNOWS = [
-  "You love cozy spots with good coffee.",
-  "You usually keep outings under $30.",
-  "You rated Escape SF 5 stars and called it thrilling.",
-  "You like hanging out in the Mission.",
-];
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { userId } = useUserId();
-  const skip = USE_MOCK || !userId;
-  const args = { userId: userId as Id<"users"> };
+  const args = userId ? { userId: userId as Id<"users"> } : "skip";
 
-  const liveUser = useQuery(getUserRef, skip ? "skip" : args);
-  const liveRewards = useQuery(getMyRewardsRef, skip ? "skip" : args);
-  const mockUser = useMockQuery(MOCK_USER, USE_MOCK);
-  const mockRewards = useMockQuery(MOCK_REWARDS, USE_MOCK, 800);
-  const user = USE_MOCK ? mockUser : liveUser;
-  const rewards = USE_MOCK ? mockRewards : liveRewards;
-
-  const getProfileLive = useAction(getMyProfileRef);
-  const getProfile = USE_MOCK ? (_args: { userId: Id<"users"> }) => mockDelay(MOCK_KNOWS, 1200) : getProfileLive;
+  const user = useQuery(api.users.getUser, args);
+  const rewards = useQuery(api.sponsors.getMyRewards, args);
+  const groups = useQuery(api.groups.getMyGroups, args);
+  const ranks = useQuery(api.points.myRanks, args);
+  const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
+  const getProfile = useAction(api.memory.getMyProfile);
 
   const [knows, setKnows] = useState<string[] | undefined>(undefined);
   const [knowsError, setKnowsError] = useState<string | null>(null);
@@ -65,11 +29,11 @@ export default function ProfileScreen() {
   const [signingOut, setSigningOut] = useState(false);
 
   const loadKnows = useCallback(async () => {
-    if (!USE_MOCK && !userId) return;
+    if (!userId) return;
     setKnowsLoading(true);
     setKnowsError(null);
     try {
-      setKnows(await getProfile({ userId: (userId ?? "mock_uma") as Id<"users"> }));
+      setKnows(await getProfile({ userId: userId as Id<"users"> }));
     } catch (e) {
       setKnowsError(e instanceof Error ? e.message : "Couldn't load your profile.");
     } finally {
@@ -86,7 +50,7 @@ export default function ProfileScreen() {
     setSigningOut(true);
     try {
       await clearUserId();
-      router.replace("/onboarding/name");
+      router.replace("/onboarding/school");
     } finally {
       setSigningOut(false);
     }
@@ -94,10 +58,15 @@ export default function ProfileScreen() {
 
   const toNext = user ? user.points % brand.pointsPerReward : 0;
   const pct = Math.round((toNext / brand.pointsPerReward) * 100);
+  const school = schoolFor(user?.homeArea);
+  const myIds = new Set<string>((groups ?? []).map((g) => g._id));
+  const standing = allCrews && groups ? crewStanding(allCrews, (id) => myIds.has(id)) : undefined;
 
   return (
     <Screen testID="profile-screen">
-      {user === undefined ? (
+      {!userId ? (
+        <ErrorState testID="profile-no-user" message="Join your school to set up your profile." onRetry={() => router.replace("/onboarding/school")} />
+      ) : user === undefined ? (
         <LoadingState testID="profile-loading" />
       ) : user === null ? (
         <ErrorState testID="profile-error" message="We couldn't find your profile." />
@@ -108,8 +77,57 @@ export default function ProfileScreen() {
               <Text style={styles.avatarText}>{user.name.charAt(0).toUpperCase()}</Text>
             </View>
             <Title testID="profile-name">{user.name}</Title>
-            <Text style={styles.area}>📍 {user.homeArea} · up to ${user.budgetMax} per outing</Text>
+            <Text testID="profile-budget" style={styles.area}>Up to ${user.budgetMax} per outing</Text>
           </View>
+
+          <Card testID="profile-school-card" style={[styles.schoolCard, { backgroundColor: withAlpha(school.color, 0.08), borderColor: withAlpha(school.color, 0.35) }]}>
+            <SchoolCrest school={user.homeArea} size={52} testID="profile-school-crest" />
+            <View style={styles.schoolBody}>
+              <Text testID="profile-school-name" style={[styles.schoolName, { color: school.color }]}>
+                {school.name} space
+              </Text>
+              <Text testID="profile-school-rank" style={styles.schoolMeta}>
+                {standing === undefined
+                  ? "Finding your rank…"
+                  : !standing
+                    ? "Join or start a crew to get ranked."
+                    : `${standing.crew.name} is #${standing.rank} at ${standing.school}${standing.rank > 1 ? `, ${formatPts(Math.max(0, standing.leader.avgPoints - standing.crew.avgPoints))} pts behind ${standing.leader.name}` : ". Hold the lead!"}`}
+              </Text>
+              {ranks?.schoolRank ? (
+                <Text testID="profile-school-among" style={styles.schoolMeta}>
+                  {school.name} is #{ranks.schoolRank} among schools
+                </Text>
+              ) : null}
+            </View>
+          </Card>
+
+          <SectionHeader title="Your crews" testID="profile-crews-header" />
+          {groups === undefined ? (
+            <LoadingState testID="profile-crews-loading" label="Loading your crews…" />
+          ) : groups.length === 0 ? (
+            <EmptyState
+              testID="profile-crews-empty"
+              emoji="👯"
+              title="No crew yet"
+              body={`Start a crew with your friend group at ${school.name}.`}
+              actionLabel="Start a crew"
+              actionTestID="profile-crews-empty-action"
+              onAction={() => router.push("/group/new")}
+            />
+          ) : (
+            <View testID="profile-crews" style={styles.crews}>
+              {groups.map((g, i) => (
+                <Card key={g._id} testID={`profile-crew-${i}`} onPress={() => router.push(`/group/${g._id}`)} style={styles.crewChip}>
+                  <Text style={styles.crewName} numberOfLines={1}>
+                    👯 {g.name}
+                  </Text>
+                  <Text style={styles.schoolMeta}>
+                    {g.members.length} {g.members.length === 1 ? "member" : "members"}
+                  </Text>
+                </Card>
+              ))}
+            </View>
+          )}
 
           <View style={styles.stats}>
             <Card testID="profile-gojis" style={styles.stat}>
@@ -122,11 +140,6 @@ export default function ProfileScreen() {
               <Text style={styles.statValue}>{user.diamonds}</Text>
               <Text style={styles.statLabel}>Rewards ready</Text>
             </Card>
-            <Card testID="profile-streak" style={styles.stat}>
-              <Text style={styles.statEmoji}>🔥</Text>
-              <Text style={styles.statValue}>{user.streak}</Text>
-              <Text style={styles.statLabel}>Streak</Text>
-            </Card>
           </View>
 
           <Card testID="reward-progress">
@@ -136,7 +149,7 @@ export default function ProfileScreen() {
             <View style={styles.track}>
               <View testID="reward-progress-fill" style={[styles.fill, { width: `${pct}%` }]} />
             </View>
-            <Text style={styles.progressHint}>{user.diamonds > 0 ? `You have ${formatRewards(user.diamonds)} ready. Redeem at any sponsor.` : `Every ${brand.pointsPerReward} ${brand.points} unlocks a free treat.`}</Text>
+            <Text style={styles.progressHint}>{user.diamonds > 0 ? `You have ${formatRewards(user.diamonds)} ready. Redeem at any sponsor.` : `Earn ${brand.points} by checking in on group outings with your crew. Every ${brand.pointsPerReward} unlocks a free treat.`}</Text>
           </Card>
         </>
       )}
@@ -172,7 +185,7 @@ export default function ProfileScreen() {
           ))
         ) : (
           <Text testID="profile-knows-empty" style={styles.knowsText}>
-            Nothing yet. Swipe, rate and complete quests and {brand.name} will learn your taste.
+            Nothing yet. Swipe and rate your crew's outings and {brand.name} will learn your taste.
           </Text>
         )}
         <Button testID="profile-knows-refresh" label="Refresh" variant="secondary" onPress={loadKnows} loading={knowsLoading} />
@@ -186,6 +199,13 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   hero: { alignItems: "center", gap: spacing.sm },
+  schoolCard: { flexDirection: "row", alignItems: "center", gap: spacing.lg, borderWidth: 1 },
+  schoolBody: { flex: 1, gap: spacing.xs },
+  schoolName: { fontSize: font.size.xl, fontWeight: font.weight.heavy },
+  schoolMeta: { fontSize: font.size.sm, color: colors.textMuted },
+  crews: { gap: spacing.sm },
+  crewChip: { gap: 2 },
+  crewName: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
   avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: colors.accent },
   avatarText: { fontSize: 44, fontWeight: font.weight.heavy, color: colors.accentDark },
   area: { fontSize: font.size.md, color: colors.textMuted },

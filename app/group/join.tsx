@@ -1,25 +1,13 @@
-import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, TextInput } from "react-native";
 import { Button, Screen, Subtitle, Title } from "../../components/ui";
+import { SchoolHeader } from "../../components/SchoolBadge";
 import { colors, font, radius, spacing } from "../../constants/theme";
+import { api } from "../../convex/_generated/api";
 import { useUserId } from "../../lib/session";
-import { mockDelay } from "../../lib/mock";
-
-const USE_MOCK = true;
-
-type JoinGroupArgs = { userId: Id<"users">; inviteCode: string };
-// TODO(convex): swap to api.groups.joinGroup once it lands
-const joinGroupRef = makeFunctionReference<"mutation", JoinGroupArgs, Id<"groups">>("groups:joinGroup");
-
-async function mockJoin(args: JoinGroupArgs): Promise<Id<"groups">> {
-  await mockDelay(null, 600);
-  if (args.inviteCode !== "GOJI42") throw new Error("Invalid invite code");
-  return "group-hack-crew" as Id<"groups">;
-}
 
 export default function JoinGroupScreen() {
   const router = useRouter();
@@ -28,22 +16,23 @@ export default function JoinGroupScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const joinLive = useMutation(joinGroupRef);
-  const joinGroup = USE_MOCK ? mockJoin : joinLive;
+  const joinGroup = useMutation(api.groups.joinGroup);
+  const user = useQuery(api.users.getUser, userId ? { userId: userId as Id<"users"> } : "skip");
+  const school = user?.homeArea ?? null;
 
   const submit = async () => {
     if (code.length !== 6) {
       setError("Codes are 6 characters long.");
       return;
     }
-    if (!USE_MOCK && !userId) {
+    if (!userId) {
       setError("You need to finish onboarding first.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const groupId = await joinGroup({ userId: (userId ?? "user-uma") as Id<"users">, inviteCode: code });
+      const groupId = await joinGroup({ userId: userId as Id<"users">, inviteCode: code });
       router.replace(`/group/${groupId}`);
     } catch {
       setError("That code didn't work. Check it and try again.");
@@ -54,9 +43,10 @@ export default function JoinGroupScreen() {
 
   return (
     <Screen testID="join-group-screen">
-      <Stack.Screen options={{ title: "Join a group" }} />
-      <Title testID="join-group-title">Join with code</Title>
-      <Subtitle>Ask a friend for their 6-character invite code.</Subtitle>
+      <Stack.Screen options={{ title: "Join a crew" }} />
+      <SchoolHeader school={school} testID="join-group-school-header" />
+      <Title testID="join-group-title">Join your friends' crew</Title>
+      <Subtitle testID="join-group-subtitle">Ask a friend for their crew's 6-character invite code{school ? `, then compete with them at ${school}` : ""}.</Subtitle>
       <TextInput
         testID="join-code-input"
         value={code}
@@ -78,7 +68,7 @@ export default function JoinGroupScreen() {
           {error}
         </Text>
       ) : null}
-      <Button testID="join-submit" label="Join" loading={loading} onPress={submit} />
+      <Button testID="join-submit" label="Join crew" loading={loading} onPress={submit} />
     </Screen>
   );
 }
