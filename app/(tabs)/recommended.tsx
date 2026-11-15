@@ -49,8 +49,8 @@ export default function RecommendedScreen() {
   const memoryText = (knows ?? []).join(" ").toLowerCase();
   const budget = user?.budgetMax ?? Infinity;
   const crewSize = crew?.members.length ?? 1;
-  const picks = (experiences ?? [])
-    .filter((e) => e.minGroup <= crewSize && crewSize <= e.maxGroup)
+  const sized = (experiences ?? []).filter((e) => e.minGroup <= crewSize && crewSize <= e.maxGroup);
+  const picks = (sized.length > 0 ? sized : experiences ?? [])
     .map((e) => {
       const matched = e.tags.filter((t) => vibes.has(t.toLowerCase()));
       const remembered = e.tags.filter((t) => memoryText.includes(t.toLowerCase().replace(/-/g, " ")) || memoryText.includes(t.toLowerCase()));

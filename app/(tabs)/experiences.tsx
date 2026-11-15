@@ -125,7 +125,7 @@ export default function ExperiencesScreen() {
                   <Image source={{ uri: e.imageUrl }} style={styles.photo} testID={`experience-photo-${e._id}`} />
                 ) : (
                   <View style={[styles.photo, styles.emojiBox]} testID={`experience-emoji-${e._id}`}>
-                    <Text style={styles.emoji}>{experienceEmoji(e.category)}</Text>
+                    <Text style={styles.emoji}>{experienceEmoji(e.category, [e.title, e.businessName, ...e.tags])}</Text>
                   </View>
                 )}
                 <View style={styles.body}>
