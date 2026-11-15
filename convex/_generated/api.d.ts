@@ -8,7 +8,33 @@
  * @module
  */
 
-import type * as myFunctions from "../myFunctions.js";
+import type * as availability from "../availability.js";
+import type * as context from "../context.js";
+import type * as crons from "../crons.js";
+import type * as demo from "../demo.js";
+import type * as groups from "../groups.js";
+import type * as http from "../http.js";
+import type * as keiki from "../keiki.js";
+import type * as llm from "../llm.js";
+import type * as memory from "../memory.js";
+import type * as notifications from "../notifications.js";
+import type * as photos from "../photos.js";
+import type * as places from "../places.js";
+import type * as plans from "../plans.js";
+import type * as points from "../points.js";
+import type * as pricing from "../pricing.js";
+import type * as ratings from "../ratings.js";
+import type * as recurrences from "../recurrences.js";
+import type * as refs from "../refs.js";
+import type * as reminders from "../reminders.js";
+import type * as seed from "../seed.js";
+import type * as solo from "../solo.js";
+import type * as sponsors from "../sponsors.js";
+import type * as suggest from "../suggest.js";
+import type * as time from "../time.js";
+import type * as users from "../users.js";
+import type * as votes from "../votes.js";
+import type * as whop from "../whop.js";
 
 import type {
   ApiFromModules,
@@ -17,7 +43,33 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  myFunctions: typeof myFunctions;
+  availability: typeof availability;
+  context: typeof context;
+  crons: typeof crons;
+  demo: typeof demo;
+  groups: typeof groups;
+  http: typeof http;
+  keiki: typeof keiki;
+  llm: typeof llm;
+  memory: typeof memory;
+  notifications: typeof notifications;
+  photos: typeof photos;
+  places: typeof places;
+  plans: typeof plans;
+  points: typeof points;
+  pricing: typeof pricing;
+  ratings: typeof ratings;
+  recurrences: typeof recurrences;
+  refs: typeof refs;
+  reminders: typeof reminders;
+  seed: typeof seed;
+  solo: typeof solo;
+  sponsors: typeof sponsors;
+  suggest: typeof suggest;
+  time: typeof time;
+  users: typeof users;
+  votes: typeof votes;
+  whop: typeof whop;
 }>;
 
 /**
