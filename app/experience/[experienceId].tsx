@@ -162,11 +162,11 @@ export default function ExperienceDetailScreen() {
   }
 
   let potBlocker: string | null = null;
-  if (!userId) potBlocker = "Sign in to pay from a crew pot";
-  else if (!crew) potBlocker = "Join a crew to pay from a pot";
-  else if (crew.potBalance === null) potBlocker = `${crew.name} doesn't have a pot yet`;
-  else if (crew.potBalance < potCost) potBlocker = `${crew.name}'s pot has $${crew.potBalance}, this needs about $${potCost}`;
-  else if (!crew.lockedPlanId) potBlocker = "Lock a plan with this experience to pay from the pot";
+  if (!userId) potBlocker = "Sign in to pay from a crew basket";
+  else if (!crew) potBlocker = "Join a crew to pay from a basket";
+  else if (crew.potBalance === null) potBlocker = `${crew.name} doesn't have a basket yet`;
+  else if (crew.potBalance < potCost) potBlocker = `${crew.name}'s basket has $${crew.potBalance}, this needs about $${potCost}`;
+  else if (!crew.lockedPlanId) potBlocker = "Lock a plan with this experience to pay from the basket";
 
   return (
     <Screen testID="experience-screen" edges={["bottom"]}>
@@ -271,7 +271,7 @@ export default function ExperienceDetailScreen() {
         <Button testID="experience-show-qr" label="Show QR to redeem" icon="📱" onPress={() => router.push(`/redeem/experience/${experience._id}`)} />
       ) : null}
 
-      <SectionHeader title="Pay from crew pot" testID="experience-pot-header" />
+      <SectionHeader title="Pay from the crew basket" testID="experience-pot-header" />
       <Card testID="experience-pot-card" tone={receipt ? "success" : "default"}>
         {receipt ? (
           <View testID="experience-pot-receipt">
@@ -285,7 +285,7 @@ export default function ExperienceDetailScreen() {
             {crew ? (
               <Text style={styles.meta} testID="experience-pot-summary">
                 {crew.name}: {crew.confirmedCount !== null ? "" : "about "}${potCost} for {people}
-                {crew.potBalance !== null ? ` · $${crew.potBalance} in the pot` : ""}
+                {crew.potBalance !== null ? ` · $${crew.potBalance} in the basket` : ""}
               </Text>
             ) : null}
             {potBlocker ? (
@@ -295,7 +295,7 @@ export default function ExperienceDetailScreen() {
             ) : (
               <Button
                 testID="experience-pay-pot"
-                label="Pay from crew pot"
+                label="Pay from the basket"
                 icon="💳"
                 variant="secondary"
                 loading={paying}

@@ -56,7 +56,7 @@ function BusinessTools({ name, home }: { name: string; home: Home }) {
     { id: "claimed", label: "Offers claimed / redeemed", value: `${offers.reduce((s, o) => s + o.claimed, 0)} / ${offers.reduce((s, o) => s + o.redeemed, 0)}` },
     { id: "sold", label: "Experiences sold", value: String(home.sales?.sold ?? 0) },
     { id: "earnings", label: "Earnings", value: money(home.sales?.earned ?? 0) },
-    { id: "chipins", label: "Pot chip-ins", value: money((home.sponsorship?.chipIns.total ?? 0) + (rule?.spentThisMonth ?? 0)) },
+    { id: "chipins", label: "Basket chip-ins", value: money((home.sponsorship?.chipIns.total ?? 0) + (rule?.spentThisMonth ?? 0)) },
     { id: "followers", label: "Followers", value: String(Object.entries(followers).find(([b]) => sameBusiness(b, name))?.[1] ?? 0) },
   ];
 
@@ -101,7 +101,7 @@ function BusinessTools({ name, home }: { name: string; home: Home }) {
         {rule ? (
           <>
             <Text style={styles.rowTitle}>
-              Chip {money(rule.amount)} into a crew's pot when they pick you{rule.active ? "" : " (paused)"}
+              Chip {money(rule.amount)} into a crew's basket when they pick you{rule.active ? "" : " (paused)"}
             </Text>
             <View style={styles.meter}>
               <View style={[styles.meterFill, { width: `${Math.min(100, (rule.spentThisMonth / rule.monthlyBudget) * 100)}%` }]} />
@@ -111,7 +111,7 @@ function BusinessTools({ name, home }: { name: string; home: Home }) {
             </Text>
           </>
         ) : (
-          <Text style={styles.rowMeta}>Set up auto-sponsorship: chip into a crew's pot whenever they lock a plan with you.</Text>
+          <Text style={styles.rowMeta}>Set up auto-sponsorship: chip into a crew's basket whenever they lock a plan with you.</Text>
         )}
       </Card>
 
@@ -255,9 +255,9 @@ export default function SponsorDashboardScreen() {
                 <Text style={styles.rowMeta}>Goji reward costs {home.sponsorship.rewardCost} {home.sponsorship.rewardCost === 1 ? brand.rewardSingular : brand.rewards}</Text>
               </Card>
               <Card testID="stat-chipins-card" tone="accent" style={{ gap: spacing.xs }}>
-                <Text style={styles.statLabel}>Crew pot chip-ins</Text>
+                <Text style={styles.statLabel}>Crew basket chip-ins</Text>
                 <Text testID="stat-chipins" style={styles.statLine}>
-                  Chipped into {home.sponsorship.chipIns.pots} crew {home.sponsorship.chipIns.pots === 1 ? "pot" : "pots"}: {money(home.sponsorship.chipIns.total)}
+                  Chipped into {home.sponsorship.chipIns.pots} crew {home.sponsorship.chipIns.pots === 1 ? "basket" : "baskets"}: {money(home.sponsorship.chipIns.total)}
                 </Text>
               </Card>
               <View style={styles.statRow}>
@@ -326,7 +326,7 @@ export default function SponsorDashboardScreen() {
             </>
           ) : (
             <Card testID="experiences-none" tone="muted">
-              <Text style={styles.rowMeta}>No experiences listed yet. Crews can book experiences straight from their pot.</Text>
+              <Text style={styles.rowMeta}>No experiences listed yet. Crews can book experiences straight from their basket.</Text>
             </Card>
           )}
         </>

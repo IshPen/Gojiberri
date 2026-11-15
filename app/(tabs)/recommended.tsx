@@ -218,7 +218,7 @@ export default function RecommendedScreen() {
         ) : (
           <EmptyState
             testID="picks-empty"
-            emoji="🧭"
+            emoji="🧺"
             title="No picks yet"
             actionLabel={crew ? "Plan an outing" : undefined}
             actionTestID="picks-empty-action"

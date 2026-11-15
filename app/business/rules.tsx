@@ -50,14 +50,14 @@ function RuleForm({ business, rule }: { business: string; rule: MockRule | null 
       <View style={{ gap: spacing.xs }}>
         <Text style={type.eyebrow}>{business}</Text>
         <Title testID="rules-title">Auto-sponsorship</Title>
-        <Subtitle>When a crew locks a plan at your place, we chip into their pot for you, split evenly across everyone who confirmed.</Subtitle>
+        <Subtitle>When a crew locks a plan at your place, we chip into their basket for you, split evenly across everyone who confirmed.</Subtitle>
       </View>
 
       <Card testID="rules-editor" style={{ gap: spacing.lg }}>
         <View style={styles.sentence}>
           <Text style={styles.sentenceText}>Chip $</Text>
           <TextInput testID="rules-amount-input" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" style={styles.inline} />
-          <Text style={styles.sentenceText}>into a crew's pot when they pick us</Text>
+          <Text style={styles.sentenceText}>into a crew's basket when they pick us</Text>
         </View>
         <View style={styles.sentence}>
           <Text style={styles.sentenceText}>Up to $</Text>
