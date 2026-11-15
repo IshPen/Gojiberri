@@ -34,6 +34,7 @@ import type * as pots from "../pots.js";
 import type * as pricing from "../pricing.js";
 import type * as purchases from "../purchases.js";
 import type * as ratings from "../ratings.js";
+import type * as recs from "../recs.js";
 import type * as recurrences from "../recurrences.js";
 import type * as redemptions from "../redemptions.js";
 import type * as refs from "../refs.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   pricing: typeof pricing;
   purchases: typeof purchases;
   ratings: typeof ratings;
+  recs: typeof recs;
   recurrences: typeof recurrences;
   redemptions: typeof redemptions;
   refs: typeof refs;

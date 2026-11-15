@@ -5,27 +5,16 @@ import { fitsBudget } from "./pricing";
 
 const MIN_CANDIDATES = 8;
 
-export const AREA_CENTERS: Record<string, { lat: number; lng: number }> = {
-  Mission: { lat: 37.7599, lng: -122.4148 },
-  "Hayes Valley": { lat: 37.7759, lng: -122.4245 },
-  SoMa: { lat: 37.7785, lng: -122.4056 },
-  "Inner Richmond": { lat: 37.7802, lng: -122.4645 },
-  "Outer Richmond": { lat: 37.7778, lng: -122.4935 },
-  "Nob Hill": { lat: 37.793, lng: -122.4161 },
-  Chinatown: { lat: 37.7941, lng: -122.4078 },
-  "North Beach": { lat: 37.8061, lng: -122.4103 },
-  Marina: { lat: 37.8037, lng: -122.4368 },
-  Tenderloin: { lat: 37.7847, lng: -122.4141 },
-  "Fisherman's Wharf": { lat: 37.808, lng: -122.4177 },
-  Dogpatch: { lat: 37.7609, lng: -122.3892 },
-  "Twin Peaks": { lat: 37.7544, lng: -122.4477 },
-  "Golden Gate Park": { lat: 37.7694, lng: -122.4862 },
-  Presidio: { lat: 37.7989, lng: -122.4662 },
-  Embarcadero: { lat: 37.7993, lng: -122.3977 },
-  Castro: { lat: 37.7609, lng: -122.435 },
+export const DEFAULT_CAMPUS = "Stanford";
+
+export const CAMPUS_CENTERS: Record<string, { lat: number; lng: number }> = {
+  Stanford: { lat: 37.4275, lng: -122.1697 },
+  Berkeley: { lat: 37.8719, lng: -122.2585 },
+  USF: { lat: 37.7766, lng: -122.4507 },
+  "SF State": { lat: 37.7219, lng: -122.4782 },
 };
 
-function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const rad = Math.PI / 180;
   const dLat = (b.lat - a.lat) * rad;
   const dLng = (b.lng - a.lng) * rad;
@@ -36,7 +25,7 @@ function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: numb
 }
 
 export function travelEstimate(homeArea: string, place: { lat: number; lng: number }): string | undefined {
-  const center = AREA_CENTERS[homeArea];
+  const center = CAMPUS_CENTERS[homeArea];
   if (!center) return undefined;
   const mins = Math.max(5, Math.round((distanceKm(center, place) / 15) * 60));
   return `~${mins} min by transit`;
