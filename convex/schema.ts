@@ -246,6 +246,20 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_experience", ["experienceId"]),
 
+  whopMockCheckouts: defineTable({
+    token: v.string(),
+    kind: v.union(v.literal("contribution"), v.literal("experience")),
+    userId: v.id("users"),
+    potId: v.optional(v.id("pots")),
+    purchaseId: v.optional(v.id("experiencePurchases")),
+    amount: v.number(),
+    currency: v.string(),
+    title: v.string(),
+    status: v.union(v.literal("pending"), v.literal("paid")),
+    expiresAt: v.number(),
+    paidAt: v.optional(v.number()),
+  }).index("by_token", ["token"]),
+
   redemptions: defineTable({             // short-lived QR codes a business scans
     token: v.string(),                   // random, single use
     kind: v.union(v.literal("offer"), v.literal("reward"), v.literal("experience")),
