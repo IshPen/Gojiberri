@@ -1,21 +1,16 @@
-import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import * as Clipboard from "expo-clipboard";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button, Card, Screen, Subtitle, Title } from "../../components/ui";
+import { SchoolHeader } from "../../components/SchoolBadge";
 import { brand, colors, font, minTapTarget, radius, spacing } from "../../constants/theme";
+import { api } from "../../convex/_generated/api";
 import { useUserId } from "../../lib/session";
-import { mockDelay } from "../../lib/mock";
 
-const USE_MOCK = true;
-
-type CreateGroupArgs = { userId: Id<"users">; name: string };
 type CreateGroupResult = { groupId: Id<"groups">; inviteCode: string };
-// TODO(convex): swap to api.groups.createGroup once it lands
-const createGroupRef = makeFunctionReference<"mutation", CreateGroupArgs, CreateGroupResult>("groups:createGroup");
 
 export default function NewGroupScreen() {
   const router = useRouter();
@@ -26,27 +21,26 @@ export default function NewGroupScreen() {
   const [created, setCreated] = useState<CreateGroupResult | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const createLive = useMutation(createGroupRef);
-  const createGroup = USE_MOCK
-    ? (args: CreateGroupArgs) => mockDelay<CreateGroupResult>({ groupId: "group-hack-crew" as Id<"groups">, inviteCode: "GOJI42" }, 700)
-    : createLive;
+  const createGroup = useMutation(api.groups.createGroup);
+  const user = useQuery(api.users.getUser, userId ? { userId: userId as Id<"users"> } : "skip");
+  const school = user?.homeArea ?? null;
 
   const submit = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError("Give your group a name first.");
+      setError("Give your crew a name first.");
       return;
     }
-    if (!USE_MOCK && !userId) {
+    if (!userId) {
       setError("You need to finish onboarding first.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      setCreated(await createGroup({ userId: (userId ?? "user-uma") as Id<"users">, name: trimmed }));
+      setCreated(await createGroup({ userId: userId as Id<"users">, name: trimmed }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't create the group.");
+      setError(e instanceof Error ? e.message : "Couldn't start your crew.");
     } finally {
       setLoading(false);
     }
@@ -62,17 +56,18 @@ export default function NewGroupScreen() {
   const share = async () => {
     if (!created) return;
     try {
-      await Share.share({ message: `Join "${name.trim()}" on ${brand.name} ${brand.emoji} with code ${created.inviteCode}` });
+      await Share.share({ message: `Join our crew "${name.trim()}"${school ? ` at ${school}` : ""} on ${brand.name} ${brand.emoji} with code ${created.inviteCode}` });
     } catch {}
   };
 
   return (
     <Screen testID="new-group-screen">
-      <Stack.Screen options={{ title: "New group" }} />
+      <Stack.Screen options={{ title: "New crew" }} />
+      <SchoolHeader school={school} testID="new-group-school-header" />
       {created ? (
         <>
-          <Title testID="group-created-title">Group created 🎉</Title>
-          <Subtitle>Share this code with your friends so they can join.</Subtitle>
+          <Title testID="group-created-title">{school ? `You started a crew at ${school} 🎉` : "Crew started 🎉"}</Title>
+          <Subtitle testID="group-created-subtitle">Share this code with your friend group so they can join and start climbing{school ? ` the ${school} board` : ""}.</Subtitle>
           <Card tone="accent" style={styles.codeCard}>
             <Text style={styles.codeLabel}>Invite code</Text>
             <Text testID="invite-code" style={styles.code} selectable>
@@ -81,18 +76,18 @@ export default function NewGroupScreen() {
           </Card>
           <Button testID="copy-invite-code" label={copied ? "Copied!" : "Copy code"} variant="secondary" onPress={copy} />
           <Button testID="share-invite-code" label="Share" variant="secondary" onPress={share} />
-          <Button testID="go-to-group" label="Go to group" onPress={() => router.replace(`/group/${created.groupId}`)} />
+          <Button testID="go-to-group" label="Go to your crew" onPress={() => router.replace(`/group/${created.groupId}`)} />
         </>
       ) : (
         <>
-          <Title testID="new-group-title">Create a group</Title>
-          <Subtitle>Name your crew, then invite friends with a code.</Subtitle>
+          <Title testID="new-group-title">{school ? `Start a crew at ${school}` : "Start a crew"}</Title>
+          <Subtitle testID="new-group-subtitle">A crew is your friend group. Name it, invite your friends with a code, and take on the other crews{school ? ` at ${school}` : ""}.</Subtitle>
           <View style={styles.field}>
             <TextInput
               testID="group-name-input"
               value={name}
               onChangeText={setName}
-              placeholder="Hack Crew"
+              placeholder="Boba Bandits"
               placeholderTextColor={colors.textMuted}
               style={styles.input}
               maxLength={40}
@@ -105,7 +100,7 @@ export default function NewGroupScreen() {
               {error}
             </Text>
           ) : null}
-          <Button testID="create-group-submit" label="Create" loading={loading} onPress={submit} />
+          <Button testID="create-group-submit" label="Start crew" loading={loading} onPress={submit} />
         </>
       )}
     </Screen>
