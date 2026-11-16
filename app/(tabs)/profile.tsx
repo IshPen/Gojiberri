@@ -219,7 +219,7 @@ export default function ProfileScreen() {
             Nothing yet
           </Text>
         )}
-        <Button testID="profile-knows-refresh" label="↻" variant="ghost" onPress={loadKnows} loading={knowsLoading} />
+        <Button testID="profile-knows-refresh" label="↻" accessibilityLabel="Refresh your taste" variant="ghost" onPress={loadKnows} loading={knowsLoading} />
       </Card>
 
       <Button testID="sign-out" label="Sign out · switch account" variant="danger" onPress={signOut} loading={signingOut} />
