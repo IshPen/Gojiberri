@@ -16,6 +16,7 @@ import type * as cards from "../cards.js";
 import type * as context from "../context.js";
 import type * as crons from "../crons.js";
 import type * as demo from "../demo.js";
+import type * as demoSet from "../demoSet.js";
 import type * as experienceCheckout from "../experienceCheckout.js";
 import type * as experienceShop from "../experienceShop.js";
 import type * as experiences from "../experiences.js";
@@ -67,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   context: typeof context;
   crons: typeof crons;
   demo: typeof demo;
+  demoSet: typeof demoSet;
   experienceCheckout: typeof experienceCheckout;
   experienceShop: typeof experienceShop;
   experiences: typeof experiences;
