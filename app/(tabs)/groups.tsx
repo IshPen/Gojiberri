@@ -8,6 +8,7 @@ import { brand, colors, font, radius, spacing, type } from "../../constants/them
 import { api } from "../../convex/_generated/api";
 import { crewStanding, formatPts } from "../../lib/school";
 import { initialsFor } from "../../lib/avatar";
+import { LockedWhopCard } from "../../components/WhopCard";
 import { useUserId } from "../../lib/session";
 
 export default function GroupsScreen() {
@@ -64,15 +65,7 @@ export default function GroupsScreen() {
       ) : groups === null ? (
         <ErrorState testID="groups-error" message="We couldn't load your crews." />
       ) : groups.length === 0 ? (
-        <EmptyState
-          testID="groups-empty"
-          emoji="👯"
-          title={school ? `No crew at ${school} yet` : "No crew yet"}
-          body="Start a crew with your friend group or join one with an invite code."
-          actionLabel="Start a crew"
-          actionTestID="groups-empty-action"
-          onAction={() => router.push("/group/new")}
-        />
+        <LockedWhopCard testID="groups-empty" onStart={() => router.push("/group/new")} />
       ) : (
         groups.map((group, i) => {
           const rank = rankOf(group._id);

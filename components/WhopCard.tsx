@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
+import { Button } from "./ui";
 import Basket from "./Basket";
 import { colors, font, radius, shadow, spacing, type } from "../constants/theme";
 
@@ -78,6 +79,24 @@ export default function WhopCard({ crewName, balance, goal, last4, limit, spent,
   );
 }
 
+export function LockedWhopCard({ onStart, testID = "whop-locked" }: { onStart: () => void; testID?: string }) {
+  return (
+    <View testID={testID} style={styles.lockedWrap}>
+      <View accessibilityLabel="Whop crew card, locked" style={[styles.card, styles.lockedCard]}>
+        <View style={styles.topRow}>
+          <Text style={styles.brand}>
+            Gojiberri <Text style={styles.lockedX}>x</Text> Whop
+          </Text>
+          <Text style={styles.lockIcon}>🔒</Text>
+        </View>
+        <View style={[styles.chip, styles.lockedChip]} />
+        <Text style={styles.lockedText}>Start a crew to unlock Whop</Text>
+      </View>
+      <Button testID="whop-locked-start-crew" label="Start a crew" onPress={onStart} />
+    </View>
+  );
+}
+
 function formatDollars(n: number) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
@@ -135,5 +154,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   limitText: { color: colors.onInk, fontSize: font.size.xs, fontWeight: font.weight.bold },
+  lockedWrap: { gap: spacing.md },
+  lockedCard: { backgroundColor: "#9A9499", shadowOpacity: 0, elevation: 0 },
+  lockedX: { color: colors.onInkMuted, fontWeight: font.weight.medium },
+  lockIcon: { fontSize: font.size.lg },
+  lockedChip: { backgroundColor: "rgba(255,255,255,0.35)" },
+  lockedText: { color: colors.onInk, fontSize: font.size.lg, fontWeight: font.weight.bold },
 });
 
