@@ -164,7 +164,8 @@ export default function CameraScreen() {
         {storyGroupId ? (
           <Button testID="view-story" label="See group story" variant="secondary" onPress={() => router.replace(`/story/${storyGroupId}`)} />
         ) : null}
-        <Button testID="upload-done" label="Done" onPress={() => router.back()} />
+        {planId ? <Button testID="checkin-rate" label="Rate it" icon="⭐" onPress={() => router.replace(`/rate/${planId}`)} /> : null}
+        <Button testID="upload-done" label="Done" variant={planId ? "ghost" : "primary"} onPress={() => router.back()} />
       </Screen>
     );
   }
