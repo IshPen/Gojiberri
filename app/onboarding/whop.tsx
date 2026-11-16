@@ -22,7 +22,7 @@ export default function WhopStep() {
   return (
     <Screen
       testID="onboarding-whop-screen"
-      footer={<Button testID="onboarding-whop-continue" label="Continue" onPress={() => router.replace("/(tabs)/recommended")} />}
+      footer={<Button testID="onboarding-whop-continue" label="Continue" onPress={() => router.push("/onboarding/school")} />}
     >
       <View style={styles.hero}>
         <Text style={type.eyebrow}>Your crew card</Text>
