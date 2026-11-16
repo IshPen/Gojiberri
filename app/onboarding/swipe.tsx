@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import type { GenericId as Id } from "convex/values";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useConvex } from "convex/react";
 import { Button, Card, ErrorState, LoadingState, Screen, Title } from "../../components/ui";
 import { colors, emoji, font, radius, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
@@ -28,7 +28,19 @@ export default function SwipeScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const rememberSwipe = useAction(api.memory.rememberSwipe);
-  const splits = useQuery(api.swipeStats.getSchoolSplits, school ? { school: schoolFor(school).name, pairs: SPLIT_PAIRS } : "skip");
+  const convex = useConvex();
+  const [splits, setSplits] = useState<{ aPercent: number; bPercent: number }[] | null>(null);
+
+  useEffect(() => {
+    if (!school) return;
+    let cancelled = false;
+    convex
+      .query(api.swipeStats.getSchoolSplits, { school: schoolFor(school).name, pairs: SPLIT_PAIRS })
+      .then((result) => !cancelled && setSplits(result), () => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [convex, school]);
   const schoolName = school ? schoolFor(school).name : "Your school";
 
   const goNext = useCallback(() => router.replace({ pathname: "/onboarding/preferences", params: school ? { school } : {} }), [router, school]);
