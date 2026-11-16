@@ -147,22 +147,24 @@ export default function ProfileScreen() {
 
           <Card testID="reward-progress">
             <Text style={styles.progressTitle}>
-              {formatGojis(toNext)} / {brand.pointsPerReward} to your next free reward {brand.rewardEmoji}
+              {brand.pointsEmoji} {toNext} / {brand.pointsPerReward} {brand.rewardEmoji}
             </Text>
             <View style={styles.track}>
               <View testID="reward-progress-fill" style={[styles.fill, { width: `${pct}%` }]} />
             </View>
-            <Text style={styles.progressHint}>{user.diamonds > 0 ? `You have ${formatRewards(user.diamonds)} ready. Redeem at any sponsor.` : `Earn ${brand.points} by checking in on group outings with your crew. Every ${brand.pointsPerReward} unlocks a free treat.`}</Text>
+            {user.diamonds > 0 ? <Text style={styles.progressHint}>🎁 {formatRewards(user.diamonds)} ready</Text> : null}
           </Card>
 
           <Card testID="goji-explainer" tone="muted" style={styles.earn}>
-            <Text style={styles.progressTitle}>How you earn {brand.points}</Text>
-            {EARN_WAYS.map((way) => (
-              <View key={way.title} style={styles.earnRow}>
-                <Text style={styles.earnEmoji}>{way.emoji}</Text>
-                <Text style={styles.earnTitle}>{way.title}</Text>
-              </View>
-            ))}
+            <View style={styles.earnGrid}>
+              {EARN_WAYS.map((way) => (
+                <View key={way.title} style={styles.earnRow}>
+                  <Text style={styles.earnEmoji}>{way.emoji}</Text>
+                  <Text style={styles.earnTitle}>+{way.points}</Text>
+                  <Text style={styles.earnLabel}>{way.title}</Text>
+                </View>
+              ))}
+            </View>
           </Card>
         </>
       )}
@@ -195,7 +197,7 @@ export default function ProfileScreen() {
         </>
       ) : null}
 
-      <SectionHeader title={`What ${brand.name} knows about you`} testID="knows-header" />
+      <SectionHeader title="Your taste" testID="knows-header" />
       <Card testID="profile-knows" tone="muted" style={{ gap: spacing.sm }}>
         {knowsLoading ? (
           <View style={styles.knowsState}>
@@ -205,17 +207,19 @@ export default function ProfileScreen() {
         ) : knowsError ? (
           <ErrorState testID="profile-knows-error" message={knowsError} onRetry={loadKnows} />
         ) : knows && knows.length > 0 ? (
-          knows.map((k, i) => (
-            <Text key={i} testID={`profile-knows-item-${i}`} style={styles.knowsText}>
-              • {k.replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/, "")}
-            </Text>
-          ))
+          <View style={styles.knowsChips}>
+            {knows.slice(0, 6).map((k, i) => (
+              <Text key={i} testID={`profile-knows-item-${i}`} style={styles.knowsChip} numberOfLines={1}>
+                {k.replace(/^\[\d{4}-\d{2}-\d{2}\]\s*/, "").replace(/\.$/, "")}
+              </Text>
+            ))}
+          </View>
         ) : (
           <Text testID="profile-knows-empty" style={styles.knowsText}>
-            Nothing yet. Swipe and rate your crew's outings and {brand.name} will learn your taste.
+            Nothing yet
           </Text>
         )}
-        <Button testID="profile-knows-refresh" label="Refresh" variant="secondary" onPress={loadKnows} loading={knowsLoading} />
+        <Button testID="profile-knows-refresh" label="↻" variant="ghost" onPress={loadKnows} loading={knowsLoading} />
       </Card>
 
       <Button testID="sign-out" label="Sign out · switch account" variant="danger" onPress={signOut} loading={signingOut} />
@@ -224,15 +228,19 @@ export default function ProfileScreen() {
 }
 
 const EARN_WAYS = [
-  { emoji: "📸", title: "Show up together" },
-  { emoji: "🧭", title: "Try something new" },
-  { emoji: "🔁", title: "Meet regularly" },
-  { emoji: "👯", title: "Bring the whole crew" },
+  { emoji: "📸", title: "Check in", points: 50 },
+  { emoji: "🧭", title: "New", points: 25 },
+  { emoji: "🔁", title: "Regular", points: 15 },
+  { emoji: "👯", title: "Full crew", points: 20 },
 ];
 
 const styles = StyleSheet.create({
   earn: { gap: spacing.sm },
-  earnRow: { flexDirection: "row", gap: spacing.md, alignItems: "center" },
+  earnGrid: { flexDirection: "row", justifyContent: "space-between" },
+  earnRow: { alignItems: "center", gap: 2, flex: 1 },
+  earnLabel: { fontSize: font.size.xs, color: colors.textMuted, fontWeight: font.weight.semibold },
+  knowsChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  knowsChip: { maxWidth: "100%", fontSize: font.size.sm, fontWeight: font.weight.semibold, color: colors.accentDark, backgroundColor: colors.accentSoft, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, overflow: "hidden" },
   earnEmoji: { fontSize: font.size.lg },
   earnTitle: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text },
   hero: { alignItems: "center", gap: spacing.sm },

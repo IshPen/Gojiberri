@@ -452,11 +452,7 @@ export default function PlanPanel({ planId, inline = false }: { planId: string; 
       {votingOpen ? (
         <View testID="plan-reject-card" style={styles.gap}>
           <Text testID="plan-reject-count" style={styles.rejectLine}>
-            <Text testID="plan-reject-hint">
-              {maxed
-                ? "No more new ideas for this plan"
-                : `${rejectedBy.length} of ${members} out, at half we'll find a new idea`}
-            </Text>
+            <Text testID="plan-reject-hint">{maxed ? "No more ideas" : `${rejectedBy.length}/${members} out`}</Text>
             {spentRound === regenCount && iPassed ? <Text testID="plan-reject-spent"> · -{REJECT_COST} Gojis</Text> : null}
           </Text>
           {confirmingReject ? (
@@ -476,6 +472,14 @@ export default function PlanPanel({ planId, inline = false }: { planId: string; 
               onPress={() => (alreadyPaid ? reject() : setConfirmingReject(true))}
             />
           )}
+        </View>
+      ) : null}
+
+      {votingOpen && !maxed ? (
+        <View testID="plan-reject-meter" style={styles.meter}>
+          {Array.from({ length: members }, (_, i) => (
+            <View key={i} style={[styles.meterSeg, i < rejectedBy.length && styles.meterFilled, i === Math.ceil(members / 2) - 1 && styles.meterMark]} />
+          ))}
         </View>
       ) : null}
 
@@ -563,6 +567,10 @@ const styles = StyleSheet.create({
   bannerEmoji: { fontSize: emojiSize.lg },
   bannerLabel: { fontSize: font.size.sm, fontWeight: font.weight.bold, color: colors.success, textTransform: "uppercase" },
   rejectLine: { fontSize: font.size.md, color: colors.textMuted, textAlign: "center" },
+  meter: { flexDirection: "row", gap: 4, alignSelf: "center", width: 120 },
+  meterSeg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.border },
+  meterFilled: { backgroundColor: colors.textMuted },
+  meterMark: { borderWidth: 1.5, borderColor: colors.accent },
   newIdeas: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.accentDark, textAlign: "center" },
   links: { flexDirection: "row", justifyContent: "center", gap: spacing.lg },
   bannerTitle: { fontSize: font.size.xl, fontWeight: font.weight.heavy, color: colors.text, textAlign: "center" },
