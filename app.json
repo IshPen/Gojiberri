@@ -42,6 +42,12 @@
           "cameraPermission": "Gojiberri uses the camera for photo check-ins and to scan reward QR codes.",
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Gojiberri checks you're at the outing when you check in"
+        }
       ]
     ],
     "experiments": {
