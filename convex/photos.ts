@@ -264,6 +264,7 @@ export const getGroupStory = query({
         return {
           _id: photo._id,
           _creationTime: photo._creationTime,
+          takenAt: plan ? Math.min(photo._creationTime, plan.window.start) : photo._creationTime,
           url,
           userName: user?.name ?? "Someone",
           avatarUrl: user?.avatarUrl,
