@@ -13,6 +13,7 @@ import { formatWindow } from "../../lib/format";
 import { useUserId } from "../../lib/session";
 import { cleanTitle } from "../../lib/format";
 import CrewCardHero from "../../components/CrewCardHero";
+import { LockedWhopCard } from "../../components/WhopCard";
 
 const MAX_PICKS = 3;
 const OPEN_PLAN = "open";
@@ -168,6 +169,8 @@ export default function RecommendedScreen() {
           me={userId}
           testID="home-crew-card"
         />
+      ) : groups !== undefined && groups.length === 0 ? (
+        <LockedWhopCard testID="crew-empty" onStart={() => router.push("/group/new")} />
       ) : null}
 
       {ranks?.crewRank ? (
@@ -206,17 +209,6 @@ export default function RecommendedScreen() {
             <Chip key={g._id} testID={`picks-crew-${i}`} label={g.name} selected={g._id === crew?._id} onPress={() => setCrewIndex(i)} />
           ))}
         </View>
-      ) : null}
-      {groups !== undefined && groups.length === 0 ? (
-        <EmptyState
-          testID="crew-empty"
-          emoji="👯"
-          title="Start a crew first"
-          body="Plans are made with friends."
-          actionLabel="Start a crew"
-          actionTestID="crew-empty-action"
-          onAction={() => router.push("/group/new")}
-        />
       ) : null}
       {experiences === undefined || user === undefined ? (
         <LoadingState testID="picks-loading" label="Finding ideas…" />
