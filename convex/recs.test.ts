@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema";
 import { api } from "./_generated/api";
@@ -8,6 +8,14 @@ import { Doc, Id } from "./_generated/dataModel";
 import { CAMPUS_CENTERS } from "./places";
 import { computeTaste, TasteInput } from "./taste";
 import { addDays, localDate } from "./time";
+
+vi.mock("supermemory", () => ({
+  Supermemory: class {
+    add = vi.fn(async () => ({}));
+    search = vi.fn(async () => ({ results: [] }));
+    profile = vi.fn(async () => ({ profile: { static: [], dynamic: [] } }));
+  },
+}));
 
 const modules = { ...import.meta.glob("./**/*.ts"), ...import.meta.glob("./_generated/*.js") };
 
@@ -202,6 +210,49 @@ describe("recs.forYou", () => {
 
     expect(recs.map((r) => r.slot)).toEqual(["safe", "safe", "stretch"]);
     expect(recs[2].title).toBe("Salsa dinner");
+  });
+
+  it("lifts a same-category idea right after a 5-star rating and drops it after a 1-star one", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn(() => { throw new Error("Network forbidden in recs tests"); }));
+    try {
+      const persona = { name: "Rae", budgetMax: 20, homeArea: "Stanford", diet: [], vibes: ["active"] };
+      const w = world(persona);
+      const userId = await w.setup({
+        taste: {},
+        spots: [
+          { name: "Bouldering wall", tags: ["bouldering"], category: "climbing-gym", km: 1 },
+          { name: "Rope gym", tags: ["ropes", "active"], category: "climbing-gym", km: 1 },
+          { name: "Corner cafe", tags: ["coffee", "active"], category: "food", km: 1 },
+        ],
+      });
+      const planId = await w.t.run(async (ctx) => {
+        const groupId = await ctx.db.insert("groups", { name: "Crew", inviteCode: "CREW02", ownerId: userId, memberIds: [userId] });
+        return await ctx.db.insert("plans", {
+          groupId, window: { start: 0, end: 1 }, status: "done", winningIndex: 0, confirmBy: 0,
+          options: [{ placeId: w.ids["Bouldering wall"] as Id<"places">, title: "Bouldering", costMin: 0, costMax: 10, why: "" }],
+        });
+      });
+      const ropeScore = async () => (await w.feed(userId)).find((r) => r.title === "Rope gym")!.score;
+      const rate = async (stars: number) => {
+        await w.t.mutation(api.ratings.submitRating, { userId, planId, stars, vibe: "chill" });
+        await w.t.finishAllScheduledFunctions(vi.runAllTimers);
+      };
+
+      const baseline = await ropeScore();
+      await rate(5);
+      const loved = await ropeScore();
+      expect(loved).toBeGreaterThan(baseline);
+      const order = titles(await w.feed(userId));
+      expect(order.indexOf("Rope gym")).toBeLessThan(order.indexOf("Corner cafe"));
+      await rate(1);
+      expect(await ropeScore()).toBeLessThan(baseline);
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
   });
 
   describe("a climber at Berkeley", () => {

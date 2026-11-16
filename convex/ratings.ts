@@ -26,7 +26,7 @@ export const submitRating = mutation({
       ratingId = await ctx.db.insert("ratings", { userId, planId, stars: clamped, vibe: word });
     }
     await scheduleExternal(ctx, external.rememberRating, { ratingId });
-    await ctx.scheduler.runAfter(0, internal.taste.rebuild, { userId });
+    await ctx.scheduler.runAfter(0, internal.taste.rebuild, { userId, planId });
     return ratingId;
   },
 });

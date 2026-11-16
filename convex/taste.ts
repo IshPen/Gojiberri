@@ -8,11 +8,18 @@ export const WEIGHTS = {
   swipeRejected: -0.5,
   vibe: 2,
   ratingPerStar: 0.75,
+  ratingCategoryPerStar: 0.5,
+  ratingVibe: 1,
+  wouldRedo: 0.75,
   pass: -0.5,
   checkin: 0.5,
 };
 export const WEIGHT_LIMIT = 5;
 export const DISLIKE_AT = -2;
+export const RATING_HALF_LIFE_MS = 30 * 24 * 60 * 60 * 1000;
+export const RATING_VIBES = ["chill", "chaotic", "cozy", "thrilling", "fancy"];
+const LEARNED_MIN_CHANGE = 0.25;
+const LEARNED_MAX = 3;
 
 // Tags for the onboarding this-or-that labels (data/thisOrThat.ts), in the places and experiences vocabulary.
 export const SWIPE_TAGS: Record<string, string[]> = {
@@ -56,7 +63,7 @@ export function normalizeTags(tags: string[]): string[] {
 export type TasteInput = {
   user: Pick<Doc<"users">, "vibes" | "diet" | "budgetMax">;
   swipes: { chosenTags: string[]; rejectedTags: string[] }[];
-  ratings: { stars: number; tags: string[] }[];
+  ratings: { stars: number; tags: string[]; category?: string | null; vibe?: string; at?: number; planId?: Id<"plans"> }[];
   passes: { tags: string[] }[];
   checkins: { tags: string[]; category: string; at: number }[];
 };
@@ -71,7 +78,14 @@ export function computeTaste({ user, swipes, ratings, passes, checkins }: TasteI
     add(s.rejectedTags, WEIGHTS.swipeRejected);
   }
   add(user.vibes, WEIGHTS.vibe);
-  for (const r of ratings) add(r.tags, (r.stars - 3) * WEIGHTS.ratingPerStar);
+  const newestRatingAt = Math.max(0, ...ratings.map((r) => r.at ?? 0));
+  for (const r of ratings) {
+    const decay = 0.5 ** ((newestRatingAt - (r.at ?? newestRatingAt)) / RATING_HALF_LIFE_MS);
+    const vibe = r.vibe?.trim().toLowerCase() ?? "";
+    add(r.tags, ((r.stars - 3) * WEIGHTS.ratingPerStar + (vibe === "would-redo" ? WEIGHTS.wouldRedo : 0)) * decay);
+    if (r.category) add([r.category], (r.stars - 3) * WEIGHTS.ratingCategoryPerStar * decay);
+    if (RATING_VIBES.includes(vibe)) add([vibe], (r.stars >= 3 ? 1 : -1) * WEIGHTS.ratingVibe * decay);
+  }
   for (const p of passes) add(p.tags, WEIGHTS.pass);
   const categoryCounts: Record<string, number> = {};
   const lastCategoryAt: Record<string, number> = {};
@@ -85,7 +99,8 @@ export function computeTaste({ user, swipes, ratings, passes, checkins }: TasteI
   const tagWeights: Record<string, number> = {};
   for (const [tag, weight] of Object.entries(raw)) {
     const clamped = Math.min(WEIGHT_LIMIT, Math.max(-WEIGHT_LIMIT, weight));
-    if (clamped !== 0) tagWeights[tag] = clamped;
+    const rounded = Math.round(clamped * 1000) / 1000;
+    if (rounded !== 0) tagWeights[tag] = rounded;
   }
   return {
     tagWeights,
@@ -95,6 +110,19 @@ export function computeTaste({ user, swipes, ratings, passes, checkins }: TasteI
     lastCategoryAt,
     budgetMax: user.budgetMax,
   };
+}
+
+export function learnedPhrases(before: Record<string, number>, after: Record<string, number>): string[] {
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .map((tag) => ({ tag, change: (after[tag] ?? 0) - (before[tag] ?? 0) }))
+    .filter(({ change }) => Math.abs(change) >= LEARNED_MIN_CHANGE)
+    .sort((a, b) => Math.abs(b.change) - Math.abs(a.change) || a.tag.localeCompare(b.tag))
+    .slice(0, LEARNED_MAX)
+    .map(({ tag, change }) => {
+      const label = tag.replace(/-/g, " ");
+      if (RATING_VIBES.includes(tag)) return change > 0 ? `you love ${label} spots` : `fewer ${label} spots`;
+      return change > 0 ? `more ${label}` : `less ${label}`;
+    });
 }
 
 type PlanOption = Doc<"plans">["options"][number];
@@ -143,10 +171,16 @@ async function gatherInput(ctx: QueryCtx, user: Doc<"users">): Promise<TasteInpu
     if (rating.planId) {
       const plan = await ctx.db.get("plans", rating.planId);
       const option = plan?.options[plan.winningIndex ?? 0];
-      if (option) ratings.push({ stars: rating.stars, tags: (await optionIdea(ctx, option)).tags });
+      if (option) {
+        const idea = await optionIdea(ctx, option);
+        ratings.push({ stars: rating.stars, ...idea, vibe: rating.vibe, at: rating._creationTime, planId: rating.planId });
+      }
     } else if (rating.questId) {
       const quest = await ctx.db.get("soloQuests", rating.questId);
-      if (quest) ratings.push({ stars: rating.stars, tags: (await placeIdea(ctx, quest.placeId)).tags });
+      if (quest) {
+        const idea = await placeIdea(ctx, quest.placeId);
+        ratings.push({ stars: rating.stars, ...idea, vibe: rating.vibe, at: rating._creationTime });
+      }
     }
   }
   const events = await ctx.db
@@ -176,14 +210,26 @@ async function gatherInput(ctx: QueryCtx, user: Doc<"users">): Promise<TasteInpu
   return { user, swipes, ratings, passes, checkins };
 }
 
-export async function rebuildTaste(ctx: MutationCtx, userId: Id<"users">) {
+// A rating-triggered rebuild (ratedPlanId set) records what the profile just learned in lastLearned;
+// any other rebuild keeps the previous lastLearned.
+export async function rebuildTaste(ctx: MutationCtx, userId: Id<"users">, ratedPlanId?: Id<"plans">) {
   const user = await ctx.db.get("users", userId);
   if (!user) return null;
-  const profile = { userId, ...computeTaste(await gatherInput(ctx, user)), updatedAt: Date.now() };
+  const input = await gatherInput(ctx, user);
+  const taste = computeTaste(input);
   const existing = await ctx.db
     .query("tasteProfiles")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .unique();
+  const now = Date.now();
+  let lastLearned = existing?.lastLearned;
+  if (ratedPlanId) {
+    const before =
+      existing?.tagWeights ??
+      computeTaste({ ...input, ratings: input.ratings.filter((r) => r.planId !== ratedPlanId) }).tagWeights;
+    lastLearned = { at: now, planId: ratedPlanId, learned: learnedPhrases(before, taste.tagWeights) };
+  }
+  const profile = { userId, ...taste, updatedAt: now, ...(lastLearned ? { lastLearned } : {}) };
   if (existing) {
     await ctx.db.replace("tasteProfiles", existing._id, profile);
     return existing._id;
@@ -192,9 +238,9 @@ export async function rebuildTaste(ctx: MutationCtx, userId: Id<"users">) {
 }
 
 export const rebuild = internalMutation({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
-    await rebuildTaste(ctx, userId);
+  args: { userId: v.id("users"), planId: v.optional(v.id("plans")) },
+  handler: async (ctx, { userId, planId }) => {
+    await rebuildTaste(ctx, userId, planId);
     return null;
   },
 });
@@ -243,5 +289,20 @@ export const getMyTaste = query({
       budgetMax: profile.budgetMax ?? null,
       updatedAt: profile.updatedAt,
     };
+  },
+});
+
+export const getLastLearned = query({
+  args: { userId: v.id("users") },
+  returns: v.union(
+    v.null(),
+    v.object({ at: v.number(), planId: v.optional(v.id("plans")), learned: v.array(v.string()) }),
+  ),
+  handler: async (ctx, { userId }) => {
+    const profile = await ctx.db
+      .query("tasteProfiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    return profile?.lastLearned ?? null;
   },
 });
