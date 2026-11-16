@@ -130,7 +130,7 @@ describe("memory writes carry metadata", () => {
     const { t, ids, scheduled } = await world();
     const storageId = await t.run((ctx) => ctx.storage.store(new Blob(["x"])));
     const result = await t.mutation(api.photos.savePhoto, { userId: ids.ana, storageId, planId: ids.lockedPlanId, caption: "we escaped" });
-    expect(Object.keys(result).sort()).toEqual(["items", "photoId", "total"]);
+    expect(Object.keys(result).sort()).toEqual(["items", "photoId", "total", "verification"]);
     const job = (await scheduled()).find((f) => f.name === "memory:rememberCheckin");
     expect(job?.args).toEqual([{ photoId: result.photoId }]);
 

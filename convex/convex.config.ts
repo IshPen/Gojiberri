@@ -16,6 +16,7 @@ const app = defineApp({
     KEIKI_WEBHOOK_SECRET: v.optional(v.string()),
     GOOGLE_PLACES_API_KEY: v.optional(v.string()),
     LEADERBOARD_WEEK_START: v.optional(v.string()),
+    CHECKIN_VERIFY: v.optional(v.string()),
   },
 });
 

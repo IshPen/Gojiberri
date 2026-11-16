@@ -3,9 +3,9 @@ import { internalMutation, MutationCtx } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import schema from "./schema";
 
-const CHECKIN_REASONS: Doc<"pointEvents">["reason"][] = ["checkin", "novel_bonus", "regular_bonus", "fullcrew_bonus"];
+export const CHECKIN_REASONS: Doc<"pointEvents">["reason"][] = ["checkin", "novel_bonus", "regular_bonus", "fullcrew_bonus"];
 
-async function deletePointEvent(ctx: MutationCtx, event: Doc<"pointEvents">) {
+export async function deletePointEvent(ctx: MutationCtx, event: Doc<"pointEvents">) {
   const user = await ctx.db.get("users", event.userId);
   if (user) {
     const patch: Partial<Doc<"users">> = { points: Math.max(0, user.points - event.points) };
