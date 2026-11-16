@@ -1,49 +1,53 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Platform, StyleSheet, Text, View } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import WhopCard from "../components/WhopCard";
 import { Button, Screen } from "../components/ui";
 import { brand, colors, font, radius, shadow, spacing, type } from "../constants/theme";
 
-const STORY_MS = 3600;
+const STORY_MS = 4000;
 const useNativeDriver = Platform.OS !== "web";
 
 const BUBBLES = [
   { text: "we should hang out!", at: 500, mine: false },
-  { text: "when??", at: 750, mine: true },
-  { text: "idk 😅", at: 1000, mine: false },
+  { text: "when??", at: 800, mine: true },
+  { text: "idk 😅", at: 1100, mine: false },
 ];
 const AVATARS = [
-  { glyph: "🐝", at: 2050 },
-  { glyph: "🦉", at: 2200 },
-  { glyph: "🐬", at: 2350 },
+  { glyph: "🐝", at: 2250 },
+  { glyph: "🦉", at: 2450 },
+  { glyph: "🐬", at: 2650 },
 ];
 const BERRY_ANGLES = [0, 60, 120, 180, 240, 300];
 const CAPTIONS = [
-  { text: "Out of the group chat", from: 450, to: 1550 },
-  { text: "Everyone's in", from: 1650, to: 2550 },
-  { text: "Pay with Whop", from: 2650, to: Infinity },
+  { text: "Out of the group chat", from: 450, to: 1700 },
+  { text: "Everyone's in", from: 1800, to: 2950 },
+  { text: "Pay with Whop", from: 3050, to: Infinity },
 ];
 
 export default function IntroScreen() {
   const router = useRouter();
+  const { replay } = useLocalSearchParams<{ replay?: string }>();
   const t = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(t, { toValue: STORY_MS, duration: STORY_MS, easing: Easing.linear, useNativeDriver }).start();
+    t.setValue(0);
+    const story = Animated.timing(t, { toValue: STORY_MS, duration: STORY_MS, delay: 250, easing: Easing.linear, useNativeDriver });
+    story.start();
+    return () => story.stop();
   }, [t]);
 
   const range = (points: number[], values: number[]) => t.interpolate({ inputRange: points, outputRange: values, extrapolate: "clamp" });
   const pop = (at: number, ms = 250) => ({
     opacity: range([at, at + ms * 0.6], [0, 1]),
-    transform: [{ scale: range([at, at + ms * 0.7, at + ms], [0.5, 1.08, 1]) }],
+    transform: [{ scale: range([at, at + ms * 0.7, at + ms], [0.3, 1.15, 1]) }],
   });
 
-  const chatOut = { opacity: range([1500, 1750], [1, 0]), transform: [{ scale: range([1500, 1750], [1, 0.4]) }, { translateY: range([1500, 1750], [0, 30]) }] };
-  const finish = () => router.replace("/welcome");
+  const chatOut = { opacity: range([1650, 1900], [1, 0]), transform: [{ scale: range([1650, 1900], [1, 0.3]) }, { translateY: range([1650, 1900], [0, 40]) }] };
+  const finish = () => (replay && router.canGoBack() ? router.back() : router.replace("/welcome"));
 
   return (
-    <Screen testID="intro-screen" scroll={false} footer={<Button testID="intro-get-started" label="Get started" onPress={finish} />}>
+    <Screen testID="intro-screen" scroll={false} footer={<Button testID="intro-get-started" label={replay ? "Done" : "Get started"} onPress={finish} />}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.top}>
         <Text testID="intro-wordmark" style={styles.wordmark}>
@@ -54,9 +58,9 @@ export default function IntroScreen() {
         </Text>
       </View>
 
-      <Animated.View testID="intro-card" style={{ opacity: range([0, 350], [0, 1]), transform: [{ translateY: range([0, 450], [80, 0]) }] }}>
+      <Animated.View testID="intro-card" style={{ opacity: range([0, 350], [0, 1]), transform: [{ translateY: range([0, 500], [180, 0]) }, { scale: range([0, 500], [0.85, 1]) }] }}>
         <WhopCard testID="intro-whop-card" crewName="Hack Crew" balance={60} goal={60} last4="4242" showNumber />
-        <Animated.View testID="intro-paid" style={[styles.paid, pop(2650, 300)]}>
+        <Animated.View testID="intro-paid" style={[styles.paid, pop(3050, 350)]}>
           <Text style={styles.paidText}>Paid ✓</Text>
         </Animated.View>
         {BERRY_ANGLES.map((angle) => {
@@ -67,10 +71,10 @@ export default function IntroScreen() {
               style={[
                 styles.berry,
                 {
-                  opacity: range([2700, 2800, 3300], [0, 1, 0]),
+                  opacity: range([3100, 3200, 3800], [0, 1, 0]),
                   transform: [
-                    { translateX: range([2700, 3300], [0, Math.cos(rad) * 110]) },
-                    { translateY: range([2700, 3300], [0, Math.sin(rad) * 70]) },
+                    { translateX: range([3100, 3800], [0, Math.cos(rad) * 130]) },
+                    { translateY: range([3100, 3800], [0, Math.sin(rad) * 90]) },
                   ],
                 },
               ]}
@@ -89,7 +93,7 @@ export default function IntroScreen() {
             </Animated.View>
           ))}
         </Animated.View>
-        <Animated.View testID="intro-outing" style={[styles.outing, pop(1700, 300)]}>
+        <Animated.View testID="intro-outing" style={[styles.outing, pop(1850, 350)]}>
           <Text style={styles.outingTitle}>🧋 Boba crawl · Sat</Text>
           <View style={styles.avatars}>
             {AVATARS.map((a, i) => (
