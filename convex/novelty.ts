@@ -10,6 +10,7 @@ export const FALLBACK_NOVEL_POINTS = 25;
 const FALLBACK_WINDOW = 30 * DAY;
 const SCORE_TTL = DAY;
 const TOP_VIBES = 6;
+const TOP_LIKES = 10;
 const MAX_IDEAS = 20;
 
 export type Novelty = { points: number; score: number; reason: string | null; source: "ai" | "fallback" };
@@ -50,6 +51,13 @@ async function checkinCategory(ctx: QueryCtx, planId: Id<"plans">) {
   return key ? (await ideaDetails(ctx, key))?.category : undefined;
 }
 
+async function tasteProfile(ctx: QueryCtx, userId: Id<"users">) {
+  return await ctx.db
+    .query("tasteProfiles")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .unique();
+}
+
 async function fallbackNovelty(
   ctx: QueryCtx,
   userId: Id<"users">,
@@ -63,19 +71,27 @@ async function fallbackNovelty(
   const bump = (term: string, by: number) => {
     if (norm(term)) scores.set(norm(term), (scores.get(norm(term)) ?? 0) + by);
   };
-  const user = await ctx.db.get("users", userId);
-  for (const vibe of user?.vibes ?? []) bump(vibe, 3);
-  const ratings = await ctx.db
-    .query("ratings")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .collect();
-  for (const rating of ratings) {
-    if (rating.stars < 4) continue;
-    bump(rating.vibe, 1);
-    const plan = rating.planId ? await ctx.db.get("plans", rating.planId) : null;
-    const key = plan ? planIdeaKey(plan) : null;
-    const rated = key ? await ideaDetails(ctx, key) : null;
-    for (const term of rated ? [rated.category ?? "", ...rated.tags] : []) bump(term, 1);
+  const profile = await tasteProfile(ctx, userId);
+  if (profile) {
+    const disliked = new Set(profile.dislikedTags.map(norm));
+    if (idea.tags.some((tag) => disliked.has(norm(tag)))) return none;
+    for (const [tag, weight] of Object.entries(profile.tagWeights)) if (weight > 0) bump(tag, weight);
+    for (const [category, count] of Object.entries(profile.categoryCounts)) bump(category, count);
+  } else {
+    const user = await ctx.db.get("users", userId);
+    for (const vibe of user?.vibes ?? []) bump(vibe, 3);
+    const ratings = await ctx.db
+      .query("ratings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const rating of ratings) {
+      if (rating.stars < 4) continue;
+      bump(rating.vibe, 1);
+      const plan = rating.planId ? await ctx.db.get("plans", rating.planId) : null;
+      const key = plan ? planIdeaKey(plan) : null;
+      const rated = key ? await ideaDetails(ctx, key) : null;
+      for (const term of rated ? [rated.category ?? "", ...rated.tags] : []) bump(term, 1);
+    }
   }
   const top = [...scores]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -247,7 +263,19 @@ export const scoringContext = internalQuery({
         });
       }
     }
-    return { vibes: user.vibes, diet: user.diet, ideas, recentCheckins };
+    const profile = await tasteProfile(ctx, userId);
+    const learned = profile
+      ? {
+          likes: Object.entries(profile.tagWeights)
+            .filter(([, weight]) => weight > 0)
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, TOP_LIKES)
+            .map(([tag]) => tag),
+          dislikes: profile.dislikedTags,
+          categoryCounts: profile.categoryCounts,
+        }
+      : null;
+    return { vibes: user.vibes, diet: user.diet, learned, ideas, recentCheckins };
   },
 });
 
@@ -256,6 +284,7 @@ Score 0 to 1: 1 = something they've never done and is outside their usual taste,
 Return JSON: {"scores":[{"ideaKey":"<as given>","score":0.0,"reason":"<see below>"}]}.
 Each reason is shown to that person on a "+X Gojis for you" card, so write it TO them in the second person ("You…", "your…"), never "They", "This user", or "The user".
 Keep it to one short line, at most 90 characters, about their own taste, e.g. "You usually go for brunch spots; live jazz is new for you."
+taste.learned, when present, is learned from their swipes and ratings: likes (strongest first), dislikes, and categoryCounts (how often they've done each category).
 Score every idea exactly once and use the ideaKey values exactly as given.`;
 
 const SECOND_PERSON: [RegExp, string][] = [
@@ -291,7 +320,7 @@ export const scoreIdeas = internalAction({
     let result: { scores?: { ideaKey?: unknown; score?: unknown; reason?: unknown }[] };
     try {
       result = await chatJSON(SYSTEM, {
-        taste: { vibes: context.vibes, diet: context.diet, profile },
+        taste: { vibes: context.vibes, diet: context.diet, learned: context.learned, profile },
         recentCheckins: context.recentCheckins,
         ideas: context.ideas,
       });

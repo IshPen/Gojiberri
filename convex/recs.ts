@@ -209,8 +209,12 @@ export const forYou = query({
       .map((c) => {
         const matchedVibes = c.tags.filter(liked).sort((a, b) => weights.get(b)! - weights.get(a)!);
         const matchedDiet = c.tags.filter((t) => diets.some((d) => t === d || t === `${d}-friendly`));
+        const category = c.category ? norm(c.category) : undefined;
+        const categoryWeight = category && !c.tags.includes(category) ? (weights.get(category) ?? 0) : 0;
         const weighted =
-          c.tags.reduce((sum, t) => sum + (weights.get(t) ?? 0), 0) + (matchedDiet.length ? DIET_MATCH_WEIGHT : 0);
+          c.tags.reduce((sum, t) => sum + (weights.get(t) ?? 0), 0) +
+          categoryWeight +
+          (matchedDiet.length ? DIET_MATCH_WEIGHT : 0);
         const fit = Math.min(1, Math.max(0, weighted / FULL_FIT_WEIGHT));
         const potCovers = potShare !== null && c.cost <= potShare;
         const km = c.location ? distanceKm(campus, c.location) : null;
@@ -225,7 +229,6 @@ export const forYou = query({
           (recent ? RECENT_PENALTY : 0) +
           ROTATION_BAND * hash01(`${userId}:${today}:${c.key}`);
         const unfamiliar = c.tags.filter((t) => !liked(t));
-        const category = c.category ? norm(c.category) : undefined;
         const categoryRecent = category !== undefined && (lastCategoryAt.get(category) ?? 0) >= dayEnd - NOVELTY_DAYS * DAY;
         const novelty =
           0.7 * (c.tags.length ? unfamiliar.length / c.tags.length : 1) +

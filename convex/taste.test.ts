@@ -5,7 +5,7 @@ import { convexTest } from "convex-test";
 import schema from "./schema";
 import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import { computeTaste, TasteInput } from "./taste";
+import { computeTaste, learnedPhrases, RATING_HALF_LIFE_MS, TasteInput } from "./taste";
 
 vi.mock("supermemory", () => ({
   Supermemory: class {
@@ -39,6 +39,58 @@ describe("computeTaste weights", () => {
       ratings: [{ stars: 5, tags: ["climbing"] }, { stars: 1, tags: ["karaoke"] }, { stars: 3, tags: ["pizza"] }],
     });
     expect(taste.tagWeights).toEqual({ climbing: 1.5, karaoke: -1.5 });
+  });
+
+  it("boosts the rated idea's category on 4-5 stars, 5 stronger than 4, and lowers it on 1-2", () => {
+    const taste = computeTaste({
+      ...empty,
+      ratings: [
+        { stars: 5, tags: ["climbing"], category: "Activity" },
+        { stars: 4, tags: ["boba"], category: "food" },
+        { stars: 3, tags: ["pizza"], category: "late-night" },
+        { stars: 2, tags: ["museum"], category: "arts" },
+        { stars: 1, tags: ["karaoke"], category: "nightlife" },
+      ],
+    });
+    expect(taste.tagWeights).toEqual({
+      climbing: 1.5, activity: 1,
+      boba: 0.75, food: 0.5,
+      museum: -0.75, arts: -0.5,
+      karaoke: -1.5, nightlife: -1,
+    });
+  });
+
+  it("adds the rating's vibe to the matching vibe tag, and would-redo boosts the idea's tags", () => {
+    const taste = computeTaste({
+      ...empty,
+      ratings: [
+        { stars: 5, tags: ["boba"], vibe: "chill" },
+        { stars: 1, tags: ["bar"], vibe: "chaotic" },
+        { stars: 3, tags: ["museum"], vibe: "cozy" },
+        { stars: 4, tags: ["hiking"], vibe: "would-redo" },
+        { stars: 4, tags: ["coffee"], vibe: "meh" },
+      ],
+    });
+    expect(taste.tagWeights).toEqual({
+      boba: 1.5, chill: 1,
+      bar: -1.5, chaotic: -1,
+      cozy: 1,
+      hiking: 1.5,
+      coffee: 0.75,
+    });
+  });
+
+  it("halves a rating's weight for every 30 days it is older than the newest rating", () => {
+    const now = 100 * RATING_HALF_LIFE_MS;
+    const taste = computeTaste({
+      ...empty,
+      ratings: [
+        { stars: 5, tags: ["climbing"], at: now },
+        { stars: 5, tags: ["boba"], at: now - RATING_HALF_LIFE_MS },
+        { stars: 1, tags: ["karaoke"], at: now - 2 * RATING_HALF_LIFE_MS },
+      ],
+    });
+    expect(taste.tagWeights).toEqual({ climbing: 1.5, boba: 0.75, karaoke: -0.375 });
   });
 
   it("weights a pass -0.5 on the rejected option's tags", () => {
@@ -76,6 +128,21 @@ describe("computeTaste weights", () => {
     });
     expect(taste.tagWeights).toEqual({ at: -2, above: -1.5, below: -2.5 });
     expect(taste.dislikedTags).toEqual(["at", "below"]);
+  });
+});
+
+describe("learnedPhrases", () => {
+  it("names the three biggest weight changes, with vibe tags as spots", () => {
+    expect(
+      learnedPhrases(
+        { climbing: 1, "fancy-dinner": 0.5, chill: 0, boba: 2, coffee: 1 },
+        { climbing: 3, "fancy-dinner": -1, chill: 1, boba: 2.1, tea: 0.5 },
+      ),
+    ).toEqual(["more climbing", "less fancy dinner", "you love chill spots"]);
+  });
+
+  it("ignores changes under 0.25", () => {
+    expect(learnedPhrases({ boba: 1 }, { boba: 1.2, tea: 0.1 })).toEqual([]);
   });
 });
 
@@ -131,8 +198,9 @@ describe("taste.rebuild", () => {
     await t.mutation(internal.taste.rebuild, { userId: ids.ana });
     const taste = await profile(ids.ana);
     expect(taste?.tagWeights).toEqual({
-      cozy: 2,
+      cozy: 3,
       boba: 2, quick: 2,
+      food: 1,
       museum: -0.5, free: -0.5,
       nerdy: -0.5, "group-friendly": -0.5,
     });
@@ -209,7 +277,28 @@ describe("taste hooks", () => {
     await t.mutation(api.ratings.submitRating, { userId: ids.ben, planId: ids.lockedPlanId, stars: 1, vibe: "meh" });
     expect(await scheduled()).toContain("taste:rebuild");
     await t.finishAllScheduledFunctions(vi.runAllTimers);
-    expect((await profile(ids.ben))?.tagWeights).toEqual({ cozy: 2, boba: -1.5, quick: -1.5 });
+    expect((await profile(ids.ben))?.tagWeights).toEqual({ cozy: 2, boba: -1.5, quick: -1.5, food: -1 });
+  });
+
+  it("ratings.submitRating records what the rating taught, and other rebuilds keep it", async () => {
+    const { t, ids } = await world();
+    expect(await t.query(api.taste.getLastLearned, { userId: ids.ben })).toBeNull();
+    await t.mutation(api.ratings.submitRating, { userId: ids.ben, planId: ids.lockedPlanId, stars: 5, vibe: "would-redo" });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const learned = await t.query(api.taste.getLastLearned, { userId: ids.ben });
+    expect(learned).toMatchObject({ planId: ids.lockedPlanId, learned: ["more boba", "more quick", "more food"] });
+    expect(learned?.at).toBeGreaterThan(0);
+
+    await t.mutation(api.ratings.submitRating, { userId: ids.ben, planId: ids.lockedPlanId, stars: 1, vibe: "chaotic" });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect((await t.query(api.taste.getLastLearned, { userId: ids.ben }))?.learned).toEqual([
+      "less boba", "less quick", "less food",
+    ]);
+
+    await t.mutation(internal.taste.rebuild, { userId: ids.ben });
+    expect((await t.query(api.taste.getLastLearned, { userId: ids.ben }))?.learned).toEqual([
+      "less boba", "less quick", "less food",
+    ]);
   });
 
   it("votes.rejectOptions schedules a rebuild that penalizes the passed options", async () => {
@@ -233,5 +322,23 @@ describe("taste hooks", () => {
     expect(taste?.tagWeights).toEqual({ cozy: 2, boba: 0.5, quick: 0.5 });
     expect(taste?.categoryCounts).toEqual({ food: 1 });
     expect(taste?.lastCategoryAt.food).toBeGreaterThan(0);
+  });
+});
+
+describe("novelty fallback", () => {
+  it("reads the taste profile: liked tags, disliked tags and category counts are not new", async () => {
+    const { t, ids } = await world();
+    const karaokeId = await t.run(async (ctx) => {
+      await ctx.db.insert("tasteProfiles", {
+        userId: ids.ana, tagWeights: { climbing: 4, karaoke: -3 }, dislikedTags: ["karaoke"], dietConstraints: [],
+        categoryCounts: { food: 2 }, lastCategoryAt: { food: 0 }, updatedAt: 0,
+      });
+      return await ctx.db.insert("places", {
+        name: "Karaoke Box", area: "Stanford", category: "nightlife", priceLevel: 1, tags: ["karaoke"], lat: 0, lng: 0, durationMins: 60,
+      });
+    });
+    const keys = [`place:${ids.climbId}`, `place:${karaokeId}`, `place:${ids.bobaId}`, `place:${ids.museumId}`];
+    const previews = await t.query(api.points.gojiPreview, { userId: ids.ana, ideaKeys: keys });
+    expect(previews.map((p) => p.noveltyReason)).toEqual([null, null, null, "New for you: you usually go for climbing, food."]);
   });
 });

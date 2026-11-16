@@ -243,6 +243,11 @@ export default defineSchema({
     lastCategoryAt: v.record(v.string(), v.number()), // ms epoch of the latest check-in per category
     budgetMax: v.optional(v.number()),
     updatedAt: v.number(),
+    lastLearned: v.optional(v.object({     // what the latest rating taught, from taste.rebuild
+      at: v.number(),
+      planId: v.optional(v.id("plans")),
+      learned: v.array(v.string()),        // up to 3 phrases, e.g. "more climbing"
+    })),
   }).index("by_user", ["userId"]),
 
   rerankCache: defineTable({            // LLM rerank of the For You top 10, per user per day
