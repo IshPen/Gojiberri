@@ -44,6 +44,7 @@ import type * as rerank from "../rerank.js";
 import type * as seed from "../seed.js";
 import type * as sponsors from "../sponsors.js";
 import type * as suggest from "../suggest.js";
+import type * as swipeStats from "../swipeStats.js";
 import type * as taste from "../taste.js";
 import type * as time from "../time.js";
 import type * as users from "../users.js";
@@ -94,6 +95,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   sponsors: typeof sponsors;
   suggest: typeof suggest;
+  swipeStats: typeof swipeStats;
   taste: typeof taste;
   time: typeof time;
   users: typeof users;
