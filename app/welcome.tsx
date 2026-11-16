@@ -6,7 +6,7 @@ import { clearBusinessAccount } from "../lib/businessSession";
 import { clearUserId } from "../lib/session";
 
 const ROLES = [
-  { id: "student", glyph: "🎓", title: "Continue as a student", body: "Plan outings with your crew, earn Gojis and claim local deals.", href: "/onboarding/school" },
+  { id: "student", glyph: "🎓", title: "Continue as a student", body: "Plan outings with your crew, earn Gojis and claim local deals.", href: "/onboarding/whop" },
   { id: "business", glyph: "🏪", title: "Continue as a business", body: "Scan student QR codes, run offers and see how crews find you.", href: "/business/signin" },
 ] as const;
 
