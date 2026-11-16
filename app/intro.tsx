@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Platform, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { LeaderboardAvatar } from "../components/LeaderboardRow";
 import WhopCard from "../components/WhopCard";
 import { Button, Screen } from "../components/ui";
 import { brand, colors, font, radius, shadow, spacing, type } from "../constants/theme";
@@ -14,9 +15,9 @@ const BUBBLES = [
   { text: "idk 😅", at: 1100, mine: false },
 ];
 const AVATARS = [
-  { glyph: "🐝", at: 2250 },
-  { glyph: "🦉", at: 2450 },
-  { glyph: "🐬", at: 2650 },
+  { glyph: "U", at: 2250 },
+  { glyph: "I", at: 2450 },
+  { glyph: "G", at: 2650 },
 ];
 const BERRY_ANGLES = [0, 60, 120, 180, 240, 300];
 const CAPTIONS = [
@@ -97,8 +98,8 @@ export default function IntroScreen() {
           <Text style={styles.outingTitle}>🧋 Boba crawl · Sat</Text>
           <View style={styles.avatars}>
             {AVATARS.map((a, i) => (
-              <View key={a.glyph} style={styles.avatar}>
-                <Text style={styles.avatarGlyph}>{a.glyph}</Text>
+              <View key={a.glyph}>
+                <LeaderboardAvatar glyph={a.glyph} mine size={52} />
                 <Animated.View testID={`intro-check-${i}`} style={[styles.check, pop(a.at, 200)]}>
                   <Text style={styles.checkText}>✓</Text>
                 </Animated.View>
@@ -125,7 +126,7 @@ export default function IntroScreen() {
 
 const styles = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingTop: spacing.lg },
-  wordmark: { ...type.title, color: colors.berry },
+  wordmark: { ...type.title, color: colors.accent },
   skip: { position: "absolute", right: 0, top: spacing.lg, padding: spacing.sm, ...type.label },
   paid: {
     position: "absolute",
@@ -160,8 +161,6 @@ const styles = StyleSheet.create({
   },
   outingTitle: { ...type.heading, fontSize: font.size.xl },
   avatars: { flexDirection: "row", gap: spacing.lg },
-  avatar: { width: 52, height: 52, borderRadius: radius.pill, backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center" },
-  avatarGlyph: { fontSize: font.size.xxl },
   check: {
     position: "absolute",
     right: -4,
