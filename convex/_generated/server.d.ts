@@ -34,6 +34,7 @@ type Env = {
   readonly GOOGLE_PLACES_API_KEY: string | undefined;
   readonly KEIKI_API_KEY: string | undefined;
   readonly KEIKI_WEBHOOK_SECRET: string | undefined;
+  readonly LEADERBOARD_WEEK_START: string | undefined;
   readonly OPENAI_API_KEY: string | undefined;
   readonly SUPERMEMORY_API_KEY: string | undefined;
   readonly WHOP_API_BASE: string | undefined;
