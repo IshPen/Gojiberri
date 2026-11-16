@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   },
   blob: { position: "absolute", borderRadius: 999 },
   blobAccent: { width: 320, height: 320, top: -170, right: -110, backgroundColor: colors.accent, opacity: 0.85 },
-  blobOrange: { width: 240, height: 240, bottom: -150, left: -70, backgroundColor: colors.partner, opacity: 0.5 },
+  blobOrange: { width: 240, height: 240, bottom: -150, left: -70, backgroundColor: colors.accentSoft, opacity: 0.22 },
   blobGold: { width: 140, height: 140, bottom: -60, right: -30, backgroundColor: colors.gold, opacity: 0.18 },
   sheen: {
     position: "absolute",
