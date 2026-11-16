@@ -16,7 +16,7 @@ import { useUserId } from "../lib/session";
 import { cleanTitle } from "../lib/format";
 
 const USE_MOCK = false;
-const VERIFY_MOCK = true;
+const VERIFY_MOCK = false;
 
 
 // TODO(convex): swap to api.photos.generateUploadUrl once it lands
@@ -84,7 +84,7 @@ export default function CameraScreen() {
   const planMissing = !!planId && !USE_MOCK && livePlan === null;
   const storyGroupId = groupId ?? plan?.groupId;
   const liveStatus = useQuery(checkinStatusRef, !VERIFY_MOCK && photoId && planId ? { photoId } : "skip");
-  const status = VERIFY_MOCK ? null : liveStatus ?? (photoId && planId ? { status: "verifying" as const } : null);
+  const status = VERIFY_MOCK ? null : liveStatus === undefined && photoId && planId ? { status: "verifying" as const } : liveStatus ?? null;
   const verifying = status?.status === "verifying" && !timedOut;
   useEffect(() => {
     if (status?.status !== "verifying") return;
