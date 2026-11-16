@@ -161,7 +161,7 @@ export default function SponsorDashboardScreen() {
   const header = <Stack.Screen options={{ title: "Business" }} />;
 
   const switchAccount = async () => {
-    router.replace("/welcome");
+    router.replace("/intro");
     await clearBusinessAccount();
   };
 

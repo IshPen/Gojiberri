@@ -52,7 +52,7 @@ export default function ProfileScreen() {
     setSigningOut(true);
     try {
       await clearUserId();
-      router.replace("/welcome");
+      router.replace("/intro");
     } finally {
       setSigningOut(false);
     }
@@ -222,6 +222,7 @@ export default function ProfileScreen() {
         <Button testID="profile-knows-refresh" label="↻" accessibilityLabel="Refresh your taste" variant="ghost" onPress={loadKnows} loading={knowsLoading} />
       </Card>
 
+      <Button testID="profile-how-it-works" label="How it works" variant="ghost" onPress={() => router.push({ pathname: "/intro", params: { replay: "1" } })} />
       <Button testID="sign-out" label="Sign out · switch account" variant="danger" onPress={signOut} loading={signingOut} />
     </Screen>
   );
