@@ -271,7 +271,7 @@ export default function RecommendedScreen() {
           </Card>
         ))
       )}
-      <Button testID="home-see-experiences" label="🎟️ All experiences" variant="ghost" onPress={() => router.push("/experiences")} />
+      <Button testID="home-see-experiences" label="All experiences" variant="ghost" onPress={() => router.push("/experiences")} />
     </Screen>
   );
 }

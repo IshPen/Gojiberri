@@ -54,7 +54,6 @@ export default function GroupsScreen() {
         <Button
           testID="create-group-button"
           label={school ? `Start a crew at ${school}` : "Start a crew"}
-          icon="➕"
           onPress={() => router.push("/group/new")}
         />
         <Button testID="join-group-button" label="Join a friend's crew" variant="secondary" onPress={() => router.push("/group/join")} />

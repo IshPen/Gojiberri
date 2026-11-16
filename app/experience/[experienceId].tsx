@@ -224,7 +224,6 @@ export default function ExperienceDetailScreen() {
             <Button
               testID="experience-buy-whop"
               label={myPurchase?.status === "completed" ? "Purchased ✓ Buy another spot" : "Buy with Whop"}
-              icon="🛒"
               variant={myPurchase?.status === "completed" ? "secondary" : "primary"}
               loading={buying}
               disabled={!userId || !experience.active}
@@ -259,7 +258,6 @@ export default function ExperienceDetailScreen() {
           <Button
             testID="experience-buy-whop"
             label="Whop checkout coming soon"
-            icon="🛒"
             disabled
             onPress={() => {}}
             style={styles.action}
@@ -268,7 +266,7 @@ export default function ExperienceDetailScreen() {
       </Card>
 
       {myPurchase?.status === "completed" || receipt ? (
-        <Button testID="experience-show-qr" label="Show QR to redeem" icon="📱" onPress={() => router.push(`/redeem/experience/${experience._id}`)} />
+        <Button testID="experience-show-qr" label="Show QR to redeem" onPress={() => router.push(`/redeem/experience/${experience._id}`)} />
       ) : null}
 
       <SectionHeader title="Pay from the crew basket" testID="experience-pot-header" />
@@ -296,7 +294,6 @@ export default function ExperienceDetailScreen() {
               <Button
                 testID="experience-pay-pot"
                 label="Pay from the basket"
-                icon="💳"
                 variant="secondary"
                 loading={paying}
                 onPress={payFromPot}

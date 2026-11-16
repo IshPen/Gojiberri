@@ -95,7 +95,7 @@ function BusinessTools({ name, home }: { name: string; home: Home }) {
           </Card>
         ))
       )}
-      <Button testID="create-offer" label="Create offer" icon="✨" variant="secondary" onPress={() => go("/business/offer")} />
+      <Button testID="create-offer" label="Create offer" variant="secondary" onPress={() => go("/business/offer")} />
 
       <SectionHeader title="Sponsorship rules" testID="rules-header" />
       <Card testID="rules-card" onPress={() => go("/business/rules")} style={{ gap: spacing.sm }}>
@@ -193,7 +193,6 @@ export default function SponsorDashboardScreen() {
         <Button
           testID="scan-qr-button"
           label="Scan QR"
-          icon="📷"
           onPress={() => router.push("/business/scan")}
           style={styles.heroButton}
         />
@@ -265,7 +264,7 @@ export default function SponsorDashboardScreen() {
                   Payment received ✓ Your quests are funded.
                 </Text>
               ) : null}
-              <Button testID="fund-quests" label="Fund more quests" icon="💸" variant="secondary" onPress={fund} loading={funding} />
+              <Button testID="fund-quests" label="Fund more quests" variant="secondary" onPress={fund} loading={funding} />
             </>
           ) : (
             <Card testID="offers-empty" tone="muted">

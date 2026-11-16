@@ -117,7 +117,7 @@ export default function ScanScreen() {
           <Button testID="scan-cancel" label="Cancel" variant="secondary" onPress={() => setScanning(false)} style={styles.cancel} />
         </View>
       ) : (
-        <Button testID="scan-qr-open" label="Scan QR" icon="📷" onPress={openScanner} />
+        <Button testID="scan-qr-open" label="Scan QR" onPress={openScanner} />
       )}
 
       {error ? <ErrorState testID="scan-error" message={error} /> : null}

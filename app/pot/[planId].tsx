@@ -16,7 +16,6 @@ import { useUserId } from "../../lib/session";
 import { formatDollars, type PlanSplit } from "../../lib/split";
 import { cleanTitle } from "../../lib/format";
 import Basket from "../../components/Basket";
-import BerryBurst from "../../components/BerryBurst";
 
 const DEFAULT_PER_MEMBER = 20;
 
@@ -199,7 +198,6 @@ export default function PotScreen() {
         <Button
           testID="pot-issue-card-button"
           label="Issue card"
-          icon="💳"
           variant="secondary"
           loading={busy === "issue"}
           disabled={!!busy}
@@ -264,7 +262,6 @@ export default function PotScreen() {
         </View>
       )}
 
-      {receipt ? <BerryBurst testID="pot-confetti" count={36} /> : null}
     </Screen>
   );
 }

@@ -20,7 +20,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export function usePressScale(to: number = motion.pressScale) {
   const scale = useRef(new Animated.Value(1)).current;
   const spring = (toValue: number) =>
-    Animated.spring(scale, { toValue, speed: 40, bounciness: toValue === 1 ? 8 : 0, useNativeDriver: Platform.OS !== "web" }).start();
+    Animated.spring(scale, { toValue, speed: 40, bounciness: 0, useNativeDriver: Platform.OS !== "web" }).start();
   return { scale, onPressIn: () => spring(to), onPressOut: () => spring(1) };
 }
 
@@ -64,7 +64,7 @@ type CardProps = {
 
 const cardTones = {
   default: { backgroundColor: colors.card, borderColor: colors.border },
-  accent: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  accent: { backgroundColor: colors.card, borderColor: colors.border },
   muted: { backgroundColor: colors.cardMuted, borderColor: colors.cardMuted },
   success: { backgroundColor: colors.successSoft, borderColor: colors.success },
 };
@@ -118,7 +118,7 @@ type ButtonProps = {
 const buttonVariants = {
   primary: { container: { backgroundColor: colors.accent }, text: { color: colors.textOnAccent } },
   secondary: {
-    container: { backgroundColor: colors.card, borderWidth: 2, borderColor: colors.accent },
+    container: { backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.accent },
     text: { color: colors.accent },
   },
   ghost: { container: { backgroundColor: "transparent" }, text: { color: colors.accent } },
@@ -140,7 +140,7 @@ export function Button({ label, accessibilityLabel, onPress, testID, variant = "
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
-      style={[styles.button, v.container, variant === "primary" && !inactive && shadow.lift, inactive && styles.disabled, style, { transform: [{ scale: press.scale }] }]}
+      style={[styles.button, v.container, inactive && styles.disabled, style, { transform: [{ scale: press.scale }] }]}
     >
       {loading ? (
         <ActivityIndicator color={v.text.color} />
@@ -204,12 +204,9 @@ export function Subtitle({ children, testID, style }: { children: ReactNode; tes
 export function SectionHeader({ title, testID, action }: { title: string; testID?: string; action?: ReactNode }) {
   return (
     <View style={styles.sectionHeader}>
-      <View style={styles.sectionLead}>
-        <View style={styles.sectionLeaf} />
-        <Text testID={testID} style={styles.sectionTitle}>
-          {title}
-        </Text>
-      </View>
+      <Text testID={testID} style={styles.sectionTitle}>
+        {title}
+      </Text>
       {action}
     </View>
   );
@@ -276,7 +273,6 @@ export const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.xl,
-    ...shadow.card,
   },
   disabled: { opacity: 0.45 },
   button: {
@@ -291,13 +287,13 @@ export const styles = StyleSheet.create({
     minHeight: minTapTarget,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.pill,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
     alignItems: "center",
     justifyContent: "center",
   },
-  chipSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  chipSelected: { borderColor: colors.accent, backgroundColor: colors.card },
   chipText: { fontSize: font.size.md, fontWeight: font.weight.semibold, color: colors.text },
   chipTextSelected: { color: colors.accentDark },
   title: type.title,
@@ -308,9 +304,9 @@ export const styles = StyleSheet.create({
   sectionLeaf: { width: 12, height: 7, borderTopLeftRadius: 7, borderBottomRightRadius: 7, backgroundColor: colors.leaf, transform: [{ rotate: "-30deg" }] },
   berryLeaf: { position: "absolute", backgroundColor: colors.leaf, transform: [{ rotate: "-25deg" }] },
   state: { alignItems: "center", justifyContent: "center", paddingVertical: spacing.xxxl, gap: spacing.md },
-  stateCard: { alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.xs, ...shadow.sm },
+  stateCard: { alignItems: "center", paddingVertical: spacing.xxl, gap: spacing.xs },
   stateEmoji: { fontSize: emoji.lg, marginBottom: spacing.sm },
   stateTitle: { ...type.heading, fontSize: font.size.xl, textAlign: "center", marginTop: spacing.md },
   stateBody: { ...type.muted, textAlign: "center", marginTop: spacing.xs },
-  berry: { alignItems: "center", justifyContent: "center", backgroundColor: colors.berrySoft, borderWidth: 3, borderColor: colors.card, ...shadow.sm },
+  berry: { alignItems: "center", justifyContent: "center", backgroundColor: colors.berrySoft },
 });
