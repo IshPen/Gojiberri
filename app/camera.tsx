@@ -196,7 +196,7 @@ export default function CameraScreen() {
           {gojis && gojis.total > 0 ? <GojiBreakdown data={gojis} /> : null}
           {plan && status ? (
             <Text
-              testID={"checkin-" + (verifying ? "verifying" : status.status)}
+              testID={"checkin-" + (timedOut && status.status === "verifying" ? "unverified" : status.status)}
               style={[styles.status, status.status === "verified" ? styles.statusOk : status.status === "rejected" && !verifying ? styles.statusWarn : null]}
             >
               {verifying
