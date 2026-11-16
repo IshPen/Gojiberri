@@ -2,7 +2,7 @@ import type { FunctionReturnType } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useQuery } from "convex/react";
 import { useRouter, type ErrorBoundaryProps } from "expo-router";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LayoutAnimation, Pressable, StyleSheet, Text, View } from "react-native";
 import BerryBurst from "../../components/BerryBurst";
 import LeaderboardPinned from "../../components/LeaderboardPinned";
@@ -13,7 +13,7 @@ import { Button, EmptyState, ErrorState, LoadingState, Screen, Title } from "../
 import { api } from "../../convex/_generated/api";
 import { colors, font, minTapTarget, radius, shadow, spacing } from "../../constants/theme";
 import { avatarFor } from "../../lib/avatar";
-import { formatPts } from "../../lib/school";
+import { crewStanding, formatPts } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 
 type CrewRow = FunctionReturnType<typeof api.points.groupLeaderboard>[number];
@@ -131,14 +131,16 @@ export default function LeaderboardScreen() {
   const groups = useQuery(api.groups.getMyGroups, args);
   const livePlans = useQuery(api.plans.getMyUpcomingPlans, args);
   const mySchool = user?.homeArea ?? null;
-  const crews = useQuery(api.points.groupLeaderboard, mySchool ? { school: mySchool, limit: 1000 } : "skip");
+  const allCrews = useQuery(api.points.groupLeaderboard, { limit: 1000 });
+  const crews = useMemo(() => (allCrews && mySchool ? allCrews.filter((c) => c.school === mySchool) : allCrews), [allCrews, mySchool]);
   const schools = useQuery(api.points.schoolLeaderboard, { limit: 1000 });
   const ranks = useQuery(api.points.myRanks, args);
 
   const myGroupIds = new Set<string>((groups ?? []).map((g) => g._id));
   const isMyCrew = (c: CrewRow) => myGroupIds.has(c.groupId);
   const isMySchool = (s: SchoolRow) => s.school === mySchool;
-  const crewIndex = crews ? crews.findIndex(isMyCrew) : -1;
+  const standing = allCrews ? crewStanding(allCrews, (id) => myGroupIds.has(id)) : null;
+  const crewIndex = standing ? standing.rank - 1 : -1;
   const schoolIndex = schools ? schools.findIndex(isMySchool) : -1;
   const plans: LockedPlan[] | undefined = userId ? livePlans : [];
   const lockedPlan = plans
@@ -169,7 +171,7 @@ export default function LeaderboardScreen() {
   const crewPoints = (c: CrewRow) => c.avgPoints;
   const schoolName = (s: SchoolRow) => s.school;
   const schoolPoints = (s: SchoolRow) => s.avgPoints;
-  const myCrew = crews && crewIndex >= 0 ? crews[crewIndex] : null;
+  const myCrew = standing?.crew ?? null;
   const mySchoolRow = schools && schoolIndex >= 0 ? schools[schoolIndex] : null;
   const fallbackName = ranks?.crewName ?? groups?.[0]?.name ?? "Your crew";
 
@@ -178,11 +180,11 @@ export default function LeaderboardScreen() {
       <LeaderboardPinned
         testID="leaderboard-pinned"
         rank={myCrew ? crewIndex + 1 : null}
-        total={crews?.length ?? 0}
+        total={standing?.rivals.length ?? 0}
         avatar={<LeaderboardAvatar glyph={avatarFor({ name: myCrew?.name ?? fallbackName })} mine size={36} />}
         name={myCrew?.name ?? fallbackName}
         points={myCrew?.avgPoints ?? null}
-        gap={crews ? gapText(crews, crewIndex, crewName, crewPoints) : null}
+        gap={standing ? gapText(standing.rivals, crewIndex, crewName, crewPoints) : null}
         action={action}
       />
     ) : (
@@ -250,7 +252,7 @@ export default function LeaderboardScreen() {
       ) : (
         <Board rows={schools} prefix="school" keyOf={schoolKey} nameOf={schoolName} pointsOf={schoolPoints} isMine={isMySchool} dayIndex={dayIndex} avatarOf={(s) => <SchoolCrest school={s.school} size={36} />} />
       )}
-      {segment === "crews" && myCrew && crewIndex < ZONE ? <BerryBurst testID="leaderboard-celebrate" /> : null}
+      {segment === "crews" && myCrew?.school === mySchool && crewIndex < ZONE ? <BerryBurst testID="leaderboard-celebrate" /> : null}
     </Screen>
   );
 }
