@@ -159,6 +159,17 @@ const REDEMPTIONS: { key: string; business: string; kind: "offer" | "experience"
   { key: "orens-past-1", business: "Oren's Hummus - University Ave", kind: "experience", experience: "Mezze for the table", crew: "Night Owls", user: "Chloe", hoursAgo: 96 },
 ];
 
+// A business, experience or sponsor counts as ours only if it matches this file's definition at a tagged place.
+async function ourExperience(ctx: MutationCtx, businessId: Id<"businesses">, def: (typeof BUSINESSES)[number]) {
+  const rows = await ctx.db.query("experiences").withIndex("by_business", (q) => q.eq("businessId", businessId)).take(100);
+  for (const e of rows) {
+    if (e.title !== def.experience.title || e.description !== def.experience.description || !e.placeId) continue;
+    const place = await ctx.db.get("places", e.placeId);
+    if (place && isMarkedPlace(place)) return e;
+  }
+  return null;
+}
+
 async function crewByName(ctx: MutationCtx) {
   const groups = await ctx.db.query("groups").take(1000);
   const crews = new Map<string, { group: Doc<"groups">; members: Map<string, Id<"users">> }>();
@@ -193,6 +204,10 @@ export const insertCore = internalMutation({
     const sponsorByName = new Map((await ctx.db.query("sponsors").take(500)).map((s) => [nameKey(s.business), s]));
     for (const b of BUSINESSES) {
       let business = businessByName.get(nameKey(b.name));
+      if (business && !(await ourExperience(ctx, business._id, b))) {
+        skipped.push("business " + b.name + " already exists");
+        continue;
+      }
       if (!business) {
         business = (await ctx.db.get("businesses", await ctx.db.insert("businesses", { name: b.name, earned: 0 })))!;
         businessByName.set(nameKey(b.name), business);
@@ -200,8 +215,7 @@ export const insertCore = internalMutation({
       }
       const businessId = business._id;
       const pid = placeId.get(b.place)!;
-      const experiences = await ctx.db.query("experiences").withIndex("by_business", (q) => q.eq("businessId", businessId)).take(100);
-      if (!experiences.some((e) => e.title === b.experience.title)) {
+      if (!(await ourExperience(ctx, businessId, b))) {
         await ctx.db.insert("experiences", { ...b.experience, businessId, placeId: pid, active: false });
         inserted.experiences++;
       }
@@ -224,7 +238,7 @@ export const insertCore = internalMutation({
     };
 
     const crews = await crewByName(ctx);
-    const pendingPhotos: { planId: Id<"plans">; groupId: Id<"groups">; userId: Id<"users">; slot: number; url: string }[] = [];
+    const pendingPhotos: { planId: Id<"plans">; groupId: Id<"groups">; userId: Id<"users">; url: string }[] = [];
     for (const outing of OUTINGS) {
       if (outing.start >= LEADERBOARD_WEEK_START) throw new Error("Demo outings must predate the leaderboard week");
       const crew = crews.get(outing.crew);
@@ -275,11 +289,11 @@ export const insertCore = internalMutation({
         }
       }
       const id = planId;
-      const have = (await ctx.db.query("photos").withIndex("by_plan", (q) => q.eq("planId", id)).take(100)).length;
-      outing.photos.forEach(([name, url], slot) => {
+      const posted = new Set((await ctx.db.query("photos").withIndex("by_plan", (q) => q.eq("planId", id)).take(100)).map((p) => p.userId));
+      for (const [name, url] of outing.photos) {
         const userId = crew.members.get(name);
-        if (slot >= have && userId) pendingPhotos.push({ planId: id, groupId, userId, slot, url });
-      });
+        if (userId && !posted.has(userId)) pendingPhotos.push({ planId: id, groupId, userId, url });
+      }
     }
 
     for (const p of PURCHASES) {
@@ -328,11 +342,11 @@ export const insertCore = internalMutation({
 });
 
 export const insertPhoto = internalMutation({
-  args: { planId: v.id("plans"), groupId: v.id("groups"), userId: v.id("users"), slot: v.number(), storageId: v.id("_storage") },
-  handler: async (ctx, { planId, groupId, userId, slot, storageId }) => {
+  args: { planId: v.id("plans"), groupId: v.id("groups"), userId: v.id("users"), storageId: v.id("_storage") },
+  handler: async (ctx, { planId, groupId, userId, storageId }) => {
     const plan = await ctx.db.get("plans", planId);
-    const have = (await ctx.db.query("photos").withIndex("by_plan", (q) => q.eq("planId", planId)).take(100)).length;
-    if (!plan || !OUTING_STARTS.has(plan.window.start) || have > slot) return { photo: false, visit: false };
+    const posted = (await ctx.db.query("photos").withIndex("by_plan", (q) => q.eq("planId", planId)).take(100)).some((p) => p.userId === userId);
+    if (!plan || !OUTING_STARTS.has(plan.window.start) || posted) return { photo: false, visit: false };
     const photoId = await ctx.db.insert("photos", { userId, groupId, planId, storageId, verifyStatus: "verified" });
     const sponsorId = plan.winningIndex !== undefined ? plan.options[plan.winningIndex]?.sponsorId : undefined;
     const sponsor = sponsorId ? await ctx.db.get("sponsors", sponsorId) : null;
@@ -426,23 +440,35 @@ export const undo = internalMutation({
         kept.push(place.name);
         continue;
       }
-      for (const s of sponsors.filter((s) => s.placeId === place._id)) {
+      const def = BUSINESSES.find((b) => b.place === place.name);
+      for (const s of sponsors.filter((s) => s.placeId === place._id && def && s.offer === def.offer && nameKey(s.business) === nameKey(def.name))) {
         await ctx.db.delete("sponsors", s._id);
         removed.sponsors++;
       }
-      const def = BUSINESSES.find((b) => b.place === place.name);
       const business = def && businesses.find((b) => nameKey(b.name) === nameKey(def.name));
-      if (business) {
-        const experiences = await ctx.db.query("experiences").withIndex("by_business", (q) => q.eq("businessId", business._id)).take(100);
-        const ours = experiences.filter((e) => e.placeId === place._id);
-        for (const e of ours) {
-          await ctx.db.delete("experiences", e._id);
+      const experience = business && (await ourExperience(ctx, business._id, def));
+      if (business && experience) {
+        const foreignSale = await ctx.db.query("experiencePurchases").withIndex("by_experience", (q) => q.eq("experienceId", experience._id)).first();
+        if (foreignSale) {
+          kept.push(def.name + " (has untagged purchases)");
+        } else {
+          await ctx.db.delete("experiences", experience._id);
           removed.experiences++;
+          const rest = await ctx.db.query("experiences").withIndex("by_business", (q) => q.eq("businessId", business._id)).first();
+          if (!rest) {
+            await ctx.db.delete("businesses", business._id);
+            removed.businesses++;
+          } else {
+            kept.push(def.name + " business (has other listings)");
+          }
         }
-        if (ours.length === experiences.length) {
-          await ctx.db.delete("businesses", business._id);
-          removed.businesses++;
-        }
+      }
+      const stillUsed =
+        (await ctx.db.query("experiences").take(2000)).some((e) => e.placeId === place._id) ||
+        (await ctx.db.query("sponsors").take(500)).some((s) => s.placeId === place._id);
+      if (stillUsed) {
+        kept.push(place.name + " place (still used)");
+        continue;
       }
       await ctx.db.delete("places", place._id);
       removed.places++;
