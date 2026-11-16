@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, StyleSheet, Text, TextInput, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import { makeFunctionReference } from "convex/server";
 import type { GenericId as Id } from "convex/values";
 import { useMutation, useQuery } from "convex/react";
@@ -15,6 +16,7 @@ import { useUserId } from "../lib/session";
 import { cleanTitle } from "../lib/format";
 
 const USE_MOCK = false;
+const VERIFY_MOCK = true;
 
 
 // TODO(convex): swap to api.photos.generateUploadUrl once it lands
@@ -22,9 +24,30 @@ const generateUploadUrlRef = makeFunctionReference<"mutation", Record<string, ne
 // TODO(convex): swap to api.photos.savePhoto once it lands
 const savePhotoRef = makeFunctionReference<
   "mutation",
-  { userId: Id<"users">; storageId: Id<"_storage">; groupId?: Id<"groups">; planId?: Id<"plans">; caption?: string },
-  { photoId: Id<"photos"> } & GojiBreakdownData
+  { userId: Id<"users">; storageId: Id<"_storage">; groupId?: Id<"groups">; planId?: Id<"plans">; caption?: string; lat?: number; lng?: number; accuracy?: number },
+  { photoId: Id<"photos">; verification?: "pending" | "skipped" } & GojiBreakdownData
 >("photos:savePhoto");
+type CheckinStatus = { status: "verifying" | "verified" | "unverified" | "rejected"; reason?: string; distanceM?: number; cvOk?: boolean };
+const checkinStatusRef = makeFunctionReference<"query", { photoId: Id<"photos"> }, CheckinStatus | null>("photos:getCheckinStatus");
+
+function currentLocation() {
+  return Promise.race([readLocation(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))]);
+}
+
+async function readLocation() {
+  try {
+    const perm = await Location.requestForegroundPermissionsAsync();
+    if (!perm.granted) return null;
+    const pos = await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
+    ]);
+    if (!pos) return null;
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy ?? undefined };
+  } catch {
+    return null;
+  }
+}
 
 const MOCK_PLAN = { title: "Boba run at Asha Tea House", groupId: "mock_hack_crew" as Id<"groups"> };
 
@@ -43,6 +66,8 @@ export default function CameraScreen() {
   const [gojis, setGojis] = useState<GojiBreakdownData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [photoId, setPhotoId] = useState<Id<"photos"> | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
 
   const generateLive = useMutation(generateUploadUrlRef);
   const saveLive = useMutation(savePhotoRef);
@@ -58,6 +83,14 @@ export default function CameraScreen() {
       : livePlan && { title: cleanTitle(livePlan.options[livePlan.winningIndex ?? -1]?.title ?? "your crew's outing"), groupId: livePlan.groupId };
   const planMissing = !!planId && !USE_MOCK && livePlan === null;
   const storyGroupId = groupId ?? plan?.groupId;
+  const liveStatus = useQuery(checkinStatusRef, !VERIFY_MOCK && photoId && planId ? { photoId } : "skip");
+  const status = VERIFY_MOCK ? null : liveStatus ?? (photoId && planId ? { status: "verifying" as const } : null);
+  const verifying = status?.status === "verifying" && !timedOut;
+  useEffect(() => {
+    if (status?.status !== "verifying") return;
+    const timer = setTimeout(() => setTimedOut(true), 25000);
+    return () => clearTimeout(timer);
+  }, [status?.status]);
 
   const pick = async () => {
     setError(null);
@@ -108,6 +141,7 @@ export default function CameraScreen() {
 
   const upload = async () => {
     if (!photo || !userId) return;
+    const located = planId && !VERIFY_MOCK ? currentLocation() : Promise.resolve(null);
     setUploading(true);
     setError(null);
     try {
@@ -121,7 +155,9 @@ export default function CameraScreen() {
       } else {
         await generateUploadUrl({});
       }
+      const coords = await located;
       const saved = await savePhoto({
+        ...(coords ?? {}),
         userId: userId as Id<"users">,
         storageId: storageId as Id<"_storage">,
         groupId: groupId ? (groupId as Id<"groups">) : undefined,
@@ -130,6 +166,10 @@ export default function CameraScreen() {
       });
       setGojis(saved);
       setDone(true);
+      if (planId) {
+        setTimedOut(false);
+        setPhotoId(saved.photoId);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed. Please try again.");
     } finally {
@@ -152,8 +192,22 @@ export default function CameraScreen() {
         <Stack.Screen options={{ title: "Checked in!" }} />
         <Card tone="success" style={styles.center}>
           <Text style={styles.big}>🎉</Text>
-          <Title testID="upload-success-title">Photo uploaded!</Title>
+          <Title testID="upload-success-title">{plan ? "Checked in!" : "Photo uploaded!"}</Title>
           {gojis && gojis.total > 0 ? <GojiBreakdown data={gojis} /> : null}
+          {plan && status ? (
+            <Text
+              testID={"checkin-" + (timedOut && status.status === "verifying" ? "unverified" : status.status)}
+              style={[styles.status, status.status === "verified" ? styles.statusOk : status.status === "rejected" && !verifying ? styles.statusWarn : null]}
+            >
+              {verifying
+                ? "Verifying…"
+                : status.status === "verified"
+                  ? "Verified ✓ at " + plan.title
+                  : status.status === "rejected"
+                    ? "Not verified: " + (status.reason ?? "You don't seem to be at " + plan.title)
+                    : "Couldn't verify"}
+            </Text>
+          ) : null}
           {plan ? (
             <Text testID="upload-success-plan" style={styles.planDone}>
               Checked in: {plan.title}
@@ -238,6 +292,9 @@ const styles = StyleSheet.create({
   planCard: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
   planTitle: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.accentDark },
   planLoading: { fontSize: font.size.sm, color: colors.textMuted },
+  status: { fontSize: font.size.sm, fontWeight: font.weight.semibold, color: colors.textMuted, textAlign: "center" },
+  statusOk: { color: colors.success, fontWeight: font.weight.bold },
+  statusWarn: { color: colors.text, backgroundColor: colors.warningSoft, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, overflow: "hidden" },
   planDone: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.text, textAlign: "center" },
   previewCard: { padding: spacing.md, gap: spacing.sm },
   preview: { width: "100%", aspectRatio: 1, borderRadius: radius.md, backgroundColor: colors.cardMuted },
