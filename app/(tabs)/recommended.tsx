@@ -12,7 +12,7 @@ import { api } from "../../convex/_generated/api";
 import { formatWindow } from "../../lib/format";
 import { useUserId } from "../../lib/session";
 import { cleanTitle } from "../../lib/format";
-import Basket from "../../components/Basket";
+import CrewCardHero from "../../components/CrewCardHero";
 
 const MAX_PICKS = 3;
 const OPEN_PLAN = "open";
@@ -160,16 +160,14 @@ export default function RecommendedScreen() {
         </Title>
         {user ? <PointsPill testID="home-points" points={user.points} /> : null}
       </View>
-      {user ? (
-        <Card testID="home-basket" tone="muted" style={styles.basketCard} onPress={() => router.push("/(tabs)/profile")}>
-          <Basket size={56} progress={((user.points + (user.gojisSpent ?? 0)) % brand.pointsPerReward) / brand.pointsPerReward} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.basketTitle}>
-              {brand.emoji} {(user.points + (user.gojisSpent ?? 0)) % brand.pointsPerReward} / {brand.pointsPerReward}
-            </Text>
-            <Text style={styles.muted}>berries toward your next free treat</Text>
-          </View>
-        </Card>
+      {crew ? (
+        <CrewCardHero
+          groupId={crew._id}
+          crewName={crew.name}
+          planId={activePlans.find((p) => p.groupId === crew._id && p.status === "locked")?._id ?? activePlans.find((p) => p.groupId === crew._id)?._id}
+          me={userId}
+          testID="home-crew-card"
+        />
       ) : null}
 
       {ranks?.crewRank ? (
@@ -273,6 +271,7 @@ export default function RecommendedScreen() {
           </Card>
         ))
       )}
+      <Button testID="home-see-experiences" label="🎟️ All experiences" variant="ghost" onPress={() => router.push("/experiences")} />
     </Screen>
   );
 }
@@ -287,6 +286,4 @@ const styles = StyleSheet.create({
   eyebrow: type.eyebrow,
   title: type.heading,
   muted: type.muted,
-  basketCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: -spacing.md },
-  basketTitle: { fontSize: font.size.lg, fontWeight: font.weight.heavy, color: colors.berryDark },
 });

@@ -14,7 +14,7 @@ These are three natural-language tests to run on iOS and Android. Each step name
 
 ## 2. Open a plan, vote, confirm, see the lock banner
 
-1. On the For You tab, tap `pick-plan-0` ("Plan with Hack Crew"). The pick card expands inline (`pick-planner-0`). The crew page no longer plans; its `plan-on-for-you` card links back here.
+1. On the For You tab, tap `pick-plan-0` ("Plan with Hack Crew"). The pick card expands inline (`pick-planner-0`).
 2. Tap `free-window-0`, then `plan-outing-button` ("Send to Hack Crew to vote").
 3. Assert that the `home-up-next` card on For You shows the plan inline (`plan-inline`): first `plan-generating`, then one idea, `vote-option-0`, with `plan-im-in` ("I'm in") and `plan-reject` ("Not feeling it · 10 Gojis"). If the backend still returns 3 options, only the first is shown. When the crew has several active plans, switch between them with `home-plan-chip-N`. The same panel is still available at /plan/[planId] (`plan-screen`) for deep links and notifications.
 4. Tap `plan-im-in`. Assert that `vote-count-0` increases. Once a majority is in, `lock-banner` appears with the winner title (`lock-winner-title`).

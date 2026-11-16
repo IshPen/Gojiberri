@@ -358,7 +358,7 @@ export default function PlanPanel({ planId, inline = false }: { planId: string; 
 
   return (
     <PlanWrap inline={inline}>
-      <Title testID="plan-title">{regenerating ? "New idea on the way" : plan.status === "generating" ? "Planning…" : "Your crew's pick"}</Title>
+      {inline ? null : <Title testID="plan-title">{regenerating ? "New idea on the way" : plan.status === "generating" ? "Planning…" : "Your crew's pick"}</Title>}
       <Subtitle testID="plan-window">{formatWindow(plan.window)}</Subtitle>
 
       {plan.status === "generating" ? (
@@ -397,7 +397,7 @@ export default function PlanPanel({ planId, inline = false }: { planId: string; 
       {votingOpen ? (
         <View style={styles.countdownRow}>
           <Text testID="confirm-countdown" style={styles.countdown}>
-            {plan.confirmBy > now ? `⏳ Voting closes in ${formatCountdown(plan.confirmBy, now)}` : "⏳ Voting wraps up soon"}
+            {plan.confirmBy > now ? `⏳ ${formatCountdown(plan.confirmBy, now)}` : "⏳ Soon"}
           </Text>
         </View>
       ) : null}

@@ -170,7 +170,7 @@ export default function PotScreen() {
           {formatDollars(myShare)}
         </Text>
         <Text style={styles.muted}>
-          {formatDollars(pot.balance)} of berries in the basket. Leftovers stay yours and roll over.
+          🧺 {formatDollars(pot.balance)}
         </Text>
       </Card>
 
@@ -291,7 +291,6 @@ function SplitCard({
   onPay: () => void;
 }) {
   const mine = split.attendees.find((a) => a.userId === me);
-  const sponsorEach = split.attendees.length > 0 ? split.sponsorCredit / split.attendees.length : 0;
   return (
     <Card testID="pot-split-card" tone="accent" style={styles.split}>
       <Text style={type.eyebrow}>{title}</Text>
@@ -300,7 +299,7 @@ function SplitCard({
       </Text>
       {split.sponsorCredit > 0 ? (
         <Text testID="pot-split-sponsor" style={styles.muted}>
-          Sponsors chipped in {formatDollars(split.sponsorCredit)}, so everyone pays {formatDollars(Math.floor(sponsorEach * 100) / 100)} less.
+          ⭐ Sponsor −{formatDollars(split.sponsorCredit)}
         </Text>
       ) : null}
       <View style={styles.list}>
@@ -339,9 +338,9 @@ function SplitCard({
             onPress={onPay}
           />
           {estimated ? (
-            <Text testID="pot-split-confirm-hint" style={[styles.muted, { textAlign: "center" }]}>Ask your crew to confirm they're going. The basket pays once everyone's in.</Text>
+            <Text testID="pot-split-confirm-hint" style={[styles.muted, { textAlign: "center" }]}>Waiting on confirms</Text>
           ) : !split.allCovered ? (
-            <Text style={[styles.muted, { textAlign: "center" }]}>Unlocks once everyone's covered.</Text>
+            <Text style={[styles.muted, { textAlign: "center" }]}>Needs everyone covered</Text>
           ) : null}
         </>
       )}
