@@ -11,7 +11,7 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHead
 import { colors, font, radius, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../../lib/errors";
-import { avatarFor } from "../../lib/avatar";
+import { initialsFor } from "../../lib/avatar";
 import { useUserId } from "../../lib/session";
 import { formatDollars, type PlanSplit } from "../../lib/split";
 import { cleanTitle } from "../../lib/format";
@@ -356,7 +356,7 @@ function ActionError({ message }: { message: string }) {
 function Avatar({ name, avatar, sponsor }: { name: string; avatar?: string; sponsor?: boolean }) {
   return (
     <View style={[styles.avatar, sponsor && { backgroundColor: colors.warningSoft }]}>
-      <Text style={styles.avatarText}>{sponsor ? name : avatarFor({ name, avatarUrl: avatar })}</Text>
+      <Text style={styles.avatarText}>{sponsor ? name : initialsFor(name)}</Text>
     </View>
   );
 }

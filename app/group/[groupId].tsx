@@ -7,7 +7,7 @@ import { Button, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHead
 import { brand, colors, font, radius, spacing } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatWindow } from "../../lib/format";
-import { avatarFor } from "../../lib/avatar";
+import { initialsFor } from "../../lib/avatar";
 import { crewStanding, formatPts } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 import { cleanTitle } from "../../lib/format";
@@ -106,7 +106,7 @@ export default function GroupScreen() {
         {group.members.map((m, i) => (
           <View key={m._id} style={styles.member}>
             <View testID={`member-avatar-${i}`} style={styles.avatar}>
-              <Text style={styles.avatarText}>{avatarFor(m)}</Text>
+              <Text style={styles.avatarText}>{initialsFor(m.name)}</Text>
             </View>
             <Text testID={`member-name-${i}`} style={styles.memberName}>
               {m.name}

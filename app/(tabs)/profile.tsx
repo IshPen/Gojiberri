@@ -8,7 +8,7 @@ import { SchoolCrest } from "../../components/SchoolBadge";
 import { brand, colors, emoji, font, radius, shadow, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import { formatGojis, formatRewards } from "../../lib/format";
-import { avatarFor } from "../../lib/avatar";
+import { initialsFor } from "../../lib/avatar";
 import { crewStanding, formatPts, schoolFor } from "../../lib/school";
 import { clearUserId, useUserId } from "../../lib/session";
 
@@ -77,7 +77,7 @@ export default function ProfileScreen() {
         <>
           <View style={styles.hero}>
             <View testID="profile-avatar" style={styles.avatar}>
-              <Text style={styles.avatarText}>{avatarFor(user)}</Text>
+              <Text style={styles.avatarText}>{initialsFor(user.name)}</Text>
             </View>
             <Title testID="profile-name">{user.name}</Title>
             <Text testID="profile-budget" style={styles.area}>Up to ${user.budgetMax} per outing</Text>
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   crewChip: { gap: 2 },
   crewName: { fontSize: font.size.lg, fontWeight: font.weight.bold, color: colors.text },
   avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center", borderWidth: 4, borderColor: colors.card, ...shadow.lift },
-  avatarText: { fontSize: emoji.lg, fontWeight: font.weight.black, color: colors.accentDark },
+  avatarText: { fontSize: 36, fontWeight: font.weight.heavy, color: colors.accentDark },
   area: { fontSize: font.size.md, color: colors.textMuted },
   stats: { flexDirection: "row", gap: spacing.sm },
   stat: { flex: 1, alignItems: "center", paddingHorizontal: spacing.sm, paddingVertical: spacing.lg },

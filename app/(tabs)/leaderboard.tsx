@@ -12,7 +12,7 @@ import { SchoolCrest } from "../../components/SchoolBadge";
 import { Button, EmptyState, ErrorState, LoadingState, Screen, Title } from "../../components/ui";
 import { api } from "../../convex/_generated/api";
 import { colors, font, minTapTarget, radius, shadow, spacing } from "../../constants/theme";
-import { avatarFor } from "../../lib/avatar";
+import { initialsFor } from "../../lib/avatar";
 import { crewStanding, formatPts } from "../../lib/school";
 import { useUserId } from "../../lib/session";
 
@@ -181,7 +181,7 @@ export default function LeaderboardScreen() {
         testID="leaderboard-pinned"
         rank={myCrew ? crewIndex + 1 : null}
         total={standing?.rivals.length ?? 0}
-        avatar={<LeaderboardAvatar glyph={avatarFor({ name: myCrew?.name ?? fallbackName })} mine size={36} />}
+        avatar={<LeaderboardAvatar glyph={initialsFor(myCrew?.name ?? fallbackName)} mine size={36} />}
         name={myCrew?.name ?? fallbackName}
         points={myCrew?.avgPoints ?? null}
         gap={standing ? gapText(standing.rivals, crewIndex, crewName, crewPoints) : null}
@@ -238,7 +238,7 @@ export default function LeaderboardScreen() {
         ) : crews.length === 0 ? (
           <EmptyState testID="crews-empty" emoji="🍓" title={`No crews at ${mySchool} yet`} body="Check in on a crew outing to get on the board." />
         ) : (
-          <Board rows={crews} prefix="crew" keyOf={crewKey} nameOf={crewName} pointsOf={crewPoints} isMine={isMyCrew} dayIndex={dayIndex} avatarOf={(c, mine) => <LeaderboardAvatar glyph={avatarFor({ name: c.name })} mine={mine} />} />
+          <Board rows={crews} prefix="crew" keyOf={crewKey} nameOf={crewName} pointsOf={crewPoints} isMine={isMyCrew} dayIndex={dayIndex} avatarOf={(c, mine) => <LeaderboardAvatar glyph={initialsFor(c.name)} mine={mine} />} />
         )
       ) : schools === undefined ? (
         <LoadingState testID="schools-loading" label="Loading schools…" />

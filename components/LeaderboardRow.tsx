@@ -28,7 +28,7 @@ export function LeaderboardSparkline({ values, max, mine, testID }: { values: (n
 export function LeaderboardAvatar({ glyph, mine, size = 40 }: { glyph: string; mine?: boolean; size?: number }) {
   return (
     <View style={[styles.avatar, { width: size, height: size, backgroundColor: mine ? colors.accentSoft : colors.cardMuted, borderColor: mine ? colors.accent : colors.border }]}>
-      <Text style={{ fontSize: size * 0.5 }}>{glyph}</Text>
+      <Text style={{ fontSize: size * 0.36, fontWeight: font.weight.heavy, color: mine ? colors.accentDark : colors.textMuted }}>{glyph}</Text>
     </View>
   );
 }

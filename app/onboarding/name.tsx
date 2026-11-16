@@ -2,13 +2,12 @@ import { useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useMutation } from "convex/react";
-import { Button, Card, ErrorState, Screen, SectionHeader, Subtitle } from "../../components/ui";
+import { Button, ErrorState, Screen, SectionHeader, Subtitle } from "../../components/ui";
 import { SchoolCrest } from "../../components/SchoolBadge";
-import { brand, colors, font, minTapTarget, radius, spacing, type, emoji as emojiSize } from "../../constants/theme";
+import { brand, colors, font, radius, spacing, type } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { schoolFor } from "../../lib/school";
-import { AVATARS } from "../../lib/avatar";
 import { setUserId } from "../../lib/session";
 import { TimeoutError, withTimeout } from "../../lib/timeout";
 import Basket from "../../components/Basket";
@@ -17,7 +16,6 @@ export default function NameScreen() {
   const router = useRouter();
   const { school } = useLocalSearchParams<{ school?: string }>();
   const [name, setName] = useState("");
-  const [avatar, setAvatar] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +32,7 @@ export default function NameScreen() {
     setSaving(true);
     setError(null);
     try {
-      if (pending.current?.name !== trimmed) pending.current = { name: trimmed, promise: createUser({ name: trimmed, avatarUrl: AVATARS[avatar] }) };
+      if (pending.current?.name !== trimmed) pending.current = { name: trimmed, promise: createUser({ name: trimmed }) };
       const id = await withTimeout(pending.current.promise, "We couldn't reach Gojiberri. Check your connection and try again.");
       await setUserId(id);
       router.replace({ pathname: "/onboarding/swipe", params: { school } });
@@ -87,21 +85,6 @@ export default function NameScreen() {
         style={styles.input}
       />
 
-      <SectionHeader title="Pick your mascot" testID="avatar-label" />
-      <Card testID="avatar-grid" style={styles.grid}>
-        {AVATARS.map((emoji, i) => (
-          <Card
-            key={emoji}
-            testID={`avatar-option-${i}`}
-            onPress={() => setAvatar(i)}
-            tone={avatar === i ? "accent" : "muted"}
-            accessibilityLabel={`Avatar ${emoji}`}
-            style={styles.avatar}
-          >
-            <Text style={styles.avatarEmoji}>{emoji}</Text>
-          </Card>
-        ))}
-      </Card>
     </Screen>
   );
 }
@@ -121,16 +104,4 @@ const styles = StyleSheet.create({
     fontSize: font.size.lg,
     color: colors.text,
   },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, justifyContent: "center", padding: spacing.lg },
-  avatar: {
-    width: 64,
-    height: 64,
-    minHeight: minTapTarget,
-    padding: 0,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.lg,
-  },
-  avatarEmoji: { fontSize: emojiSize.md },
 });
