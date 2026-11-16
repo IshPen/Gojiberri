@@ -179,7 +179,7 @@ export default function ProfileScreen() {
           <Card key={r._id} testID={`reward-${i}`}>
             <Text style={styles.rewardBiz}>{r.business}</Text>
             <Text style={styles.rewardCode}>{r.code}</Text>
-            <Button testID={`reward-show-qr-${i}`} label="Show QR" icon="📱" variant="secondary" onPress={() => router.push(`/redeem/reward/${r._id}`)} style={{ marginTop: spacing.md }} />
+            <Button testID={`reward-show-qr-${i}`} label="Show QR" variant="secondary" onPress={() => router.push(`/redeem/reward/${r._id}`)} style={{ marginTop: spacing.md }} />
           </Card>
         ))
       )}

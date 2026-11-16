@@ -95,7 +95,7 @@ export default function PreferencesScreen() {
         }),
         "We couldn't save your picks. Check your connection and try again.",
       );
-      router.replace("/(tabs)/recommended");
+      router.replace("/onboarding/whop");
       registerForPushToken()
         .then((token) => (token ? setPushToken({ userId: userId as Id<"users">, token }) : null))
         .catch(() => {});

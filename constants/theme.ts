@@ -70,8 +70,8 @@ export const font = {
 };
 
 export const type = {
-  display: { fontSize: font.size.hero, lineHeight: 42, fontWeight: font.weight.black, letterSpacing: -0.8, color: colors.text },
-  title: { fontSize: font.size.xxl, lineHeight: 34, fontWeight: font.weight.heavy, letterSpacing: -0.5, color: colors.text },
+  display: { fontSize: font.size.hero, lineHeight: 42, fontWeight: font.weight.heavy, letterSpacing: -0.8, color: colors.text },
+  title: { fontSize: font.size.xxl, lineHeight: 34, fontWeight: font.weight.bold, letterSpacing: -0.5, color: colors.text },
   heading: { fontSize: font.size.lg, lineHeight: 24, fontWeight: font.weight.bold, letterSpacing: -0.2, color: colors.text },
   body: { fontSize: font.size.md, lineHeight: 22, fontWeight: font.weight.regular, color: colors.text },
   muted: { fontSize: font.size.md, lineHeight: 22, fontWeight: font.weight.regular, color: colors.textMuted },
@@ -115,7 +115,7 @@ export const shadow = {
 };
 
 export const motion = {
-  pressScale: 0.97,
+  pressScale: 0.985,
   fast: 150,
   base: 250,
   slow: 400,

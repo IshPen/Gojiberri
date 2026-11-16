@@ -68,7 +68,7 @@ export default function ExperiencesScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} testID="experiences-filters">
         <Chip
           testID="experiences-filter-near"
-          label={`📍 Near ${school}`}
+          label={`Near ${school}`}
           selected={nearOnly}
           onPress={() => {
             setNearOnly(true);
@@ -77,7 +77,7 @@ export default function ExperiencesScreen() {
         />
         <Chip
           testID="experiences-filter-everywhere"
-          label="🌎 Everywhere"
+          label="Everywhere"
           selected={!nearOnly}
           onPress={() => {
             setNearOnly(false);

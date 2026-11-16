@@ -222,7 +222,7 @@ export default function CameraScreen() {
       ) : (
         <Card testID="camera-empty" tone="muted" style={styles.center}>
           <Text style={styles.big}>📸</Text>
-          <Button testID="take-photo" label="Take photo" icon="📷" onPress={pick} style={styles.fullWidth} />
+          <Button testID="take-photo" label="Take photo" onPress={pick} style={styles.fullWidth} />
           <Button testID="choose-photo" label="Choose from library" variant="secondary" onPress={chooseFromLibrary} style={styles.fullWidth} />
         </Card>
       )}

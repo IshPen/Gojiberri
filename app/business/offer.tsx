@@ -136,8 +136,8 @@ function OfferForm({ business, existing, onDone }: { business: string; existing:
       </Field>
       <Field label="Perk">
         <View style={styles.chips}>
-          <Chip testID="offer-perk-freebie" label="🎁 Freebie" selected={perk === "freebie"} onPress={() => setPerk("freebie")} />
-          <Chip testID="offer-perk-discount" label="🏷️ Discount" selected={perk === "discount"} onPress={() => setPerk("discount")} />
+          <Chip testID="offer-perk-freebie" label="Freebie" selected={perk === "freebie"} onPress={() => setPerk("freebie")} />
+          <Chip testID="offer-perk-discount" label="Discount" selected={perk === "discount"} onPress={() => setPerk("discount")} />
         </View>
         {perk === "discount" ? (
           <TextInput testID="offer-discount-input" value={discount} onChangeText={setDiscount} keyboardType="number-pad" placeholder="% off" placeholderTextColor={colors.textMuted} style={styles.input} />

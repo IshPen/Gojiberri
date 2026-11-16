@@ -104,7 +104,7 @@ function Board<T>({
   return (
     <View style={styles.board} testID={prefix === "crew" ? "crews-section" : "schools-section"}>
       <View style={styles.zone} testID={prefix + "-promotion-zone"}>
-        <Text style={styles.zoneLabel}>🏆 Top {ZONE}</Text>
+        <Text style={styles.zoneLabel}>Top {ZONE}</Text>
         {shown.slice(0, ZONE).map(render)}
       </View>
       {shown.slice(ZONE).map((row, i) => render(row, i + ZONE))}
@@ -125,7 +125,7 @@ export default function LeaderboardScreen() {
   const router = useRouter();
   const { userId } = useUserId();
   const [segment, setSegment] = useState<Segment>("crews");
-  const { dayIndex, endsIn } = useWeek();
+  const { dayIndex } = useWeek();
   const args = userId ? { userId: userId as Id<"users"> } : "skip";
   const user = useQuery(api.users.getUser, args);
   const groups = useQuery(api.groups.getMyGroups, args);
@@ -208,9 +208,6 @@ export default function LeaderboardScreen() {
           {segment === "crews" ? (mySchool ? `${mySchool} league` : "League") : "All schools"}
         </Title>
       </View>
-      <View style={styles.countdown} testID="leaderboard-countdown">
-        <Text style={styles.countdownText}>⏱ Ends in {endsIn}</Text>
-      </View>
 
       <View style={styles.segments} accessibilityRole="tablist">
         {SEGMENTS.map((s) => (
@@ -252,7 +249,6 @@ export default function LeaderboardScreen() {
       ) : (
         <Board rows={schools} prefix="school" keyOf={schoolKey} nameOf={schoolName} pointsOf={schoolPoints} isMine={isMySchool} dayIndex={dayIndex} avatarOf={(s) => <SchoolCrest school={s.school} size={36} />} />
       )}
-      {segment === "crews" && myCrew?.school === mySchool && crewIndex < ZONE ? <BerryBurst testID="leaderboard-celebrate" /> : null}
     </Screen>
   );
 }
@@ -261,14 +257,12 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   headerEmoji: { fontSize: 30 },
   title: { flex: 1 },
-  countdown: { alignSelf: "flex-start", paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.warningSoft, marginTop: -spacing.sm },
-  countdownText: { fontSize: font.size.sm, fontWeight: font.weight.heavy, color: colors.text, fontVariant: ["tabular-nums"] },
   segments: { flexDirection: "row", backgroundColor: colors.cardMuted, borderRadius: radius.pill, padding: spacing.xs },
   segment: { flex: 1, minHeight: minTapTarget, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
   segmentOn: { backgroundColor: colors.card, ...shadow.sm },
   segmentText: { fontSize: font.size.md, fontWeight: font.weight.bold, color: colors.textMuted },
   segmentTextOn: { color: colors.accentDark },
   board: { gap: spacing.xs },
-  zone: { gap: spacing.xs, padding: spacing.xs, paddingTop: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.successSoft, marginBottom: spacing.sm },
+  zone: { gap: spacing.xs, padding: spacing.xs, paddingTop: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.cardMuted, marginBottom: spacing.sm },
   zoneLabel: { fontSize: font.size.xs, fontWeight: font.weight.heavy, letterSpacing: 1.2, color: colors.success, textTransform: "uppercase", paddingHorizontal: spacing.md },
 });

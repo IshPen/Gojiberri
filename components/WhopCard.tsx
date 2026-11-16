@@ -9,12 +9,13 @@ type WhopCardProps = {
   last4?: string;
   limit?: number;
   spent?: number;
+  showNumber?: boolean;
   testID?: string;
 };
 
 
-export default function WhopCard({ crewName, balance, goal, last4, limit, spent, testID = "whop-card" }: WhopCardProps) {
-  const ready = !!last4 && (spent !== undefined || (goal > 0 && balance >= goal));
+export default function WhopCard({ crewName, balance, goal, last4, limit, spent, showNumber, testID = "whop-card" }: WhopCardProps) {
+  const ready = !!last4 && (!!showNumber || spent !== undefined || (goal > 0 && balance >= goal));
   const progress = goal > 0 ? Math.min(balance / goal, 1) : 0;
 
   return (
@@ -26,7 +27,10 @@ export default function WhopCard({ crewName, balance, goal, last4, limit, spent,
 
       <View style={styles.topRow}>
         <Text testID={`${testID}-brand`} style={styles.brand}>
-          Gojiberri <Text style={styles.brandX}>x</Text> Whop
+          Gojiberri
+        </Text>
+        <Text testID={`${testID}-powered`} style={styles.powered}>
+          powered by <Text style={styles.poweredWhop}>Whop</Text>
         </Text>
       </View>
 
@@ -103,7 +107,8 @@ const styles = StyleSheet.create({
   },
   topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   brand: { color: colors.onInk, fontSize: font.size.md, fontWeight: font.weight.heavy, letterSpacing: 0.4 },
-  brandX: { color: colors.onInkMuted, fontWeight: font.weight.medium },
+  powered: { color: colors.onInkMuted, fontSize: font.size.xs, fontWeight: font.weight.semibold },
+  poweredWhop: { color: colors.onInk, fontWeight: font.weight.heavy },
   middle: { gap: spacing.md },
   chip: {
     width: 42,

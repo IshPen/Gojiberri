@@ -140,7 +140,7 @@ export default function SponsorScreen() {
         </Text>
       </Card>
       {sponsor.active ? (
-        <Button testID="show-qr-offer" label="Show QR for this offer" icon="📱" onPress={() => router.push(`/redeem/offer/${sponsor._id}`)} />
+        <Button testID="show-qr-offer" label="Show QR for this offer" onPress={() => router.push(`/redeem/offer/${sponsor._id}`)} />
       ) : (
         <Card testID="offer-paused" tone="muted">
           <Text style={styles.meta}>This offer is paused right now.</Text>
