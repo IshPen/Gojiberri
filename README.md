@@ -22,14 +22,20 @@ Built by three people in one day (Nov 15, 2026, at the YC/Capy/Revyl/Convex hack
 
 | | |
 |---|---|
-| ![Taste swipes](docs/screenshots/onboarding-swipe.png) | ![For You](docs/screenshots/for-you.png) |
-| Taste swipes at onboarding | For You: one pick, predicted Gojis, novelty |
-| ![Crew pot](docs/screenshots/crew-pot.png) | ![Leaderboard](docs/screenshots/leaderboard.png) |
-| The crew pot and Whop card, fair-split shares | Weekly crew league with standings and gaps |
-| ![Experiences](docs/screenshots/experiences.png) | ![Profile](docs/screenshots/profile.png) |
-| Local experiences, bought with Whop or the pot | Goji earning, taste chips |
-| ![Whop checkout](docs/screenshots/whop-checkout.png) | ![Receipt](docs/screenshots/whop-receipt.png) |
-| Whop checkout for a crew chip-in | Per-attendee fair-split receipt |
+| ![Intro story](docs/screenshots/intro.png) | ![Taste swipes](docs/screenshots/onboarding-swipe.png) |
+| The intro: out of the group chat, pay with Whop | This-or-that swipes at onboarding |
+| ![For You](docs/screenshots/for-you.png) | ![Picks](docs/screenshots/for-you-picks.png) |
+| For You: the crew's next plan and standing | Picks with predicted Gojis and novelty reasons |
+| ![Crew pot](docs/screenshots/crew-pot.png) | ![Whop card](docs/screenshots/crew-pot-card.png) |
+| The crew pot: your share and fair split | The crew's Whop card and one-tap top-up |
+| ![Crew league](docs/screenshots/leaderboard.png) | ![Schools board](docs/screenshots/leaderboard-schools.png) |
+| Weekly crew league with gaps and trends | Schools, ranked by participation |
+| ![Experience](docs/screenshots/experience.png) | ![Profile](docs/screenshots/profile.png) |
+| Buy a local experience with Whop or the pot | Gojis, reward progress, earn rows |
+| ![Taste](docs/screenshots/profile-taste.png) | ![Whop checkout](docs/screenshots/whop-checkout.png) |
+| Your taste, learned from every rating | Whop checkout for a crew chip-in |
+| ![Receipt](docs/screenshots/whop-receipt.png) |  |
+| Per-attendee fair-split receipt |  |
 
 ## Why friends come back every day
 
