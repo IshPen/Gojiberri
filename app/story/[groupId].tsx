@@ -41,7 +41,7 @@ export default function StoryScreen() {
 
   const slides = useMemo(() => {
     if (!story) return undefined;
-    const newest = story.filter((p): p is StoryPhoto => !!p.url).sort((a, b) => b._creationTime - a._creationTime);
+    const newest = story.filter((p): p is StoryPhoto => !!p.url).sort((a, b) => b.takenAt - a.takenAt || b._creationTime - a._creationTime);
     const latestPlan = newest.find((p) => p.planId)?.planId;
     const fromOuting = latestPlan ? newest.filter((p) => p.planId === latestPlan) : [];
     const picked = (fromOuting.length >= STORY_LENGTH ? fromOuting : newest).slice(0, STORY_LENGTH);
@@ -189,7 +189,7 @@ export default function StoryScreen() {
               {group?.name ?? "Your crew"}
             </Text>
             <Text testID="story-viewer-author" style={styles.author} numberOfLines={1}>
-              {photo.userName} · {ago(photo._creationTime)}
+              {photo.userName} · {ago(photo.takenAt)}
             </Text>
           </View>
           <Pressable testID="story-add-photo" accessibilityRole="button" accessibilityLabel="Add photo" hitSlop={8} onPress={addPhoto} style={styles.icon}>

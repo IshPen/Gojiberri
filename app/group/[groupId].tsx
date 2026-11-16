@@ -57,7 +57,7 @@ export default function GroupScreen() {
   }
 
   const upcoming = (plans ?? []).filter((p) => p.status !== "done" && p.status !== "cancelled");
-  const past = (plans ?? []).filter((p) => p.status === "done" || p.status === "cancelled");
+  const past = (plans ?? []).filter((p) => p.status === "done" || p.status === "cancelled").sort((a, b) => b.window.start - a.window.start);
   const potPlan = upcoming.find((p) => p.status === "locked") ?? upcoming[0] ?? past[0];
   const planTitle = (p: Plan) => cleanTitle((p.winningIndex !== undefined ? p.options[p.winningIndex]?.title : undefined) ?? "Outing ideas");
   const crewRank = allCrews ? crewStanding(allCrews, (id) => id === group._id) : undefined;
