@@ -104,6 +104,7 @@ function PressCard({ children, onPress, testID, style, disabled, accessibilityLa
 }
 
 type ButtonProps = {
+  accessibilityLabel?: string;
   label: string;
   onPress: () => void;
   testID: string;
@@ -125,7 +126,7 @@ const buttonVariants = {
 
 };
 
-export function Button({ label, onPress, testID, variant = "primary", loading, disabled, icon, style }: ButtonProps) {
+export function Button({ label, accessibilityLabel, onPress, testID, variant = "primary", loading, disabled, icon, style }: ButtonProps) {
   const v = buttonVariants[variant];
   const inactive = disabled || loading;
   const press = usePressScale();
@@ -137,7 +138,7 @@ export function Button({ label, onPress, testID, variant = "primary", loading, d
       onPressOut={press.onPressOut}
       disabled={inactive}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
       style={[styles.button, v.container, variant === "primary" && !inactive && shadow.lift, inactive && styles.disabled, style, { transform: [{ scale: press.scale }] }]}
     >
