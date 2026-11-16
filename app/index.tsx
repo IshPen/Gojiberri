@@ -6,7 +6,9 @@ import { ActivityIndicator, View } from "react-native";
 import { ErrorState, Screen } from "../components/ui";
 import { colors } from "../constants/theme";
 import { api } from "../convex/_generated/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useBusinessAccount } from "../lib/businessSession";
+import { INTRO_SEEN_KEY } from "./intro";
 import { clearUserId, useUserId } from "../lib/session";
 import { TimeoutError, withTimeout } from "../lib/timeout";
 
@@ -16,7 +18,12 @@ export default function Index() {
   const convex = useConvex();
   const { userId, loading: userLoading } = useUserId();
   const { account, loading: businessLoading } = useBusinessAccount();
-  const loading = userLoading || businessLoading;
+  const [introSeen, setIntroSeen] = useState<boolean | null>(null);
+  const loading = userLoading || businessLoading || introSeen === null;
+
+  useEffect(() => {
+    AsyncStorage.getItem(INTRO_SEEN_KEY).then((v) => setIntroSeen(v === "1"), () => setIntroSeen(true));
+  }, []);
   const [check, setCheck] = useState<Check | null>(null);
   const [attempt, setAttempt] = useState(0);
 
@@ -66,5 +73,5 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={userId && check && "valid" in check && check.valid ? "/(tabs)/recommended" : "/welcome"} />;
+  return <Redirect href={userId && check && "valid" in check && check.valid ? "/(tabs)/recommended" : introSeen ? "/welcome" : "/intro"} />;
 }
