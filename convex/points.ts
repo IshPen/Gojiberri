@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, query, MutationCtx, QueryCtx } from "./_generated/server";
+import { env, internalMutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { addDays, DAY, localDate, localTime, weekday } from "./time";
 import { checkedInPlanIds, openPlanFor, quotedOrLive, userGroups } from "./novelty";
@@ -194,10 +194,19 @@ export function weekStartPT(now: number): number {
   return localTime(addDays(today, -((weekday(today) + 6) % 7)), 0);
 }
 
+export function leaderboardWeekStart(now: number): number {
+  const override = env.LEADERBOARD_WEEK_START?.trim();
+  if (override) {
+    const ms = /^\d+$/.test(override) ? Number(override) : Date.parse(override);
+    if (Number.isFinite(ms)) return ms;
+  }
+  return weekStartPT(now);
+}
+
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 async function weeklyStandings(ctx: QueryCtx) {
-  const since = weekStartPT(Date.now());
+  const since = leaderboardWeekStart(Date.now());
   const [users, groups, events] = await Promise.all([
     ctx.db.query("users").collect(),
     ctx.db.query("groups").collect(),
