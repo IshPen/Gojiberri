@@ -18,7 +18,7 @@ const MAX_LEARNED = 2;
 const CLOCK_SKEW_MS = 5000;
 
 // Client-derived learned items until HOME-5 deploys taste.getLastLearned; live mode falls back to them after LEARNED_WAIT_MS.
-const LEARNED_MOCK = true;
+const LEARNED_MOCK = false;
 type LastLearned = { at: number; planId?: Id<"plans">; learned: string[] } | null;
 const lastLearnedRef = makeFunctionReference<"query", { userId: Id<"users"> }, LastLearned>("taste:getLastLearned");
 
@@ -60,7 +60,7 @@ export default function RateScreen() {
   const plan = useQuery(api.plans.getPlan, validPlanId ? { planId: targetId as Id<"plans"> } : "skip");
   const lastLearned = useQuery(lastLearnedRef, !LEARNED_MOCK && userId ? { userId: userId as Id<"users"> } : "skip");
   const liveFresh =
-    !!lastLearned && submittedAt > 0 && lastLearned.at >= submittedAt - CLOCK_SKEW_MS && (!lastLearned.planId || lastLearned.planId === targetId);
+    !!lastLearned && lastLearned.learned.length > 0 && submittedAt > 0 && lastLearned.at >= submittedAt - CLOCK_SKEW_MS && (!lastLearned.planId || lastLearned.planId === targetId);
   const learnedReady = done && (LEARNED_MOCK || liveFresh || waitedOut);
 
   useEffect(() => {
