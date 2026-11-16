@@ -67,7 +67,6 @@ export default function CameraScreen() {
   const [error, setError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [photoId, setPhotoId] = useState<Id<"photos"> | null>(null);
-  const [mockStatus, setMockStatus] = useState<CheckinStatus | null>(null);
   const [timedOut, setTimedOut] = useState(false);
 
   const generateLive = useMutation(generateUploadUrlRef);
@@ -85,7 +84,7 @@ export default function CameraScreen() {
   const planMissing = !!planId && !USE_MOCK && livePlan === null;
   const storyGroupId = groupId ?? plan?.groupId;
   const liveStatus = useQuery(checkinStatusRef, !VERIFY_MOCK && photoId && planId ? { photoId } : "skip");
-  const status = VERIFY_MOCK ? mockStatus : liveStatus ?? (photoId && planId ? { status: "verifying" as const } : null);
+  const status = VERIFY_MOCK ? null : liveStatus ?? (photoId && planId ? { status: "verifying" as const } : null);
   const verifying = status?.status === "verifying" && !timedOut;
   useEffect(() => {
     if (status?.status !== "verifying") return;
@@ -142,7 +141,7 @@ export default function CameraScreen() {
 
   const upload = async () => {
     if (!photo || !userId) return;
-    const located = planId ? currentLocation() : Promise.resolve(null);
+    const located = planId && !VERIFY_MOCK ? currentLocation() : Promise.resolve(null);
     setUploading(true);
     setError(null);
     try {
@@ -158,7 +157,7 @@ export default function CameraScreen() {
       }
       const coords = await located;
       const saved = await savePhoto({
-        ...(coords && !VERIFY_MOCK ? coords : {}),
+        ...(coords ?? {}),
         userId: userId as Id<"users">,
         storageId: storageId as Id<"_storage">,
         groupId: groupId ? (groupId as Id<"groups">) : undefined,
@@ -170,10 +169,6 @@ export default function CameraScreen() {
       if (planId) {
         setTimedOut(false);
         setPhotoId(saved.photoId);
-        if (VERIFY_MOCK) {
-          setMockStatus({ status: "verifying" });
-          setTimeout(() => setMockStatus({ status: coords ? "verified" : "unverified" }), 1500);
-        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed. Please try again.");
