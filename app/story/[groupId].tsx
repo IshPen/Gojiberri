@@ -8,7 +8,7 @@ import { useQuery } from "convex/react";
 import { EmptyState, ErrorState, LoadingState, Screen } from "../../components/ui";
 import { colors, font, radius, spacing } from "../../constants/theme";
 import { api } from "../../convex/_generated/api";
-import { avatarFor } from "../../lib/avatar";
+import { initialsFor } from "../../lib/avatar";
 
 type StoryPhoto = FunctionReturnType<typeof api.photos.getGroupStory>[number] & { url: string };
 
@@ -182,7 +182,7 @@ export default function StoryScreen() {
         </View>
         <View style={styles.header}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{avatarFor({ name: photo.userName, avatarUrl: photo.avatarUrl })}</Text>
+            <Text style={styles.avatarText}>{initialsFor(photo.userName)}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text testID="story-title" style={styles.crew} numberOfLines={1}>
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   fill: { height: 3, backgroundColor: "#fff" },
   header: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   avatar: { width: 36, height: 36, borderRadius: radius.pill, backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center" },
-  avatarText: { fontSize: font.size.lg },
+  avatarText: { fontSize: font.size.sm, fontWeight: font.weight.heavy, color: colors.accentDark },
   crew: { color: "#fff", fontSize: font.size.md, fontWeight: font.weight.bold },
   author: { color: "rgba(255,255,255,0.85)", fontSize: font.size.sm },
   icon: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
