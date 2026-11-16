@@ -119,6 +119,13 @@ export default defineSchema({
     questId: v.optional(v.id("soloQuests")),
     storageId: v.id("_storage"),
     caption: v.optional(v.string()),
+    verifyStatus: v.optional(v.union(          // check-in verification, set by photos.verifyCheckin
+      v.literal("verifying"), v.literal("verified"), v.literal("unverified"), v.literal("rejected")
+    )),
+    verifyReason: v.optional(v.string()),
+    distanceM: v.optional(v.number()),        // metres from the plan's place, when the phone sent a location
+    cvOk: v.optional(v.boolean()),            // vision check verdict, unset when it didn't run
+    hidden: v.optional(v.boolean()),          // strict-mode rejection: kept for audit, left out of the story
   }).index("by_group", ["groupId"]).index("by_plan", ["planId"]),
 
   sponsors: defineTable({
